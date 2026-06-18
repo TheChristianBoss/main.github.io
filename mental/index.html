@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mental Health | Christian Goblin</title>
+    <meta name="description" content="Verified crisis lines, mental health resources, and a moderated peer support community for those who are struggling.">
+    <link rel="icon" href="/assets/images/favicon.png" type="image/png">
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <style>
+        .alert-box {
+            background: rgba(220, 60, 60, .08);
+            border: 1px solid rgba(220, 60, 60, .35);
+            border-radius: var(--radius-lg);
+            padding: var(--space-md) var(--space-lg);
+            text-align: center;
+            margin-bottom: var(--space-lg);
+        }
+        .alert-box h2 {
+            font-family: var(--font-display);
+            font-size: var(--text-xl);
+            color: #f87171;
+            margin-bottom: var(--space-xs);
+        }
+        .alert-box p { color: var(--muted); margin-bottom: var(--space-xs); }
+        .alert-box strong { color: var(--text); font-family: var(--font-ui); letter-spacing: .04em; }
+
+        .crisis-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-md);
+        }
+        .crisis-card h3 {
+            font-family: var(--font-display);
+            font-size: var(--text-lg);
+            color: var(--gold-light);
+            margin-bottom: var(--space-sm);
+            letter-spacing: .04em;
+        }
+        .crisis-card ul { list-style: none; display: grid; gap: var(--space-xs); }
+        .crisis-card li { color: var(--muted); font-size: var(--text-base); }
+        .crisis-card li strong { color: var(--text); }
+
+        .countries-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: var(--space-sm);
+            margin-top: var(--space-md);
+        }
+        .country-box {
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--space-sm);
+            text-align: center;
+        }
+        .country-box strong {
+            display: block;
+            font-family: var(--font-ui);
+            font-size: var(--text-sm);
+            color: var(--text);
+            margin-bottom: .25rem;
+        }
+        .country-box span {
+            font-family: var(--font-ui);
+            font-size: var(--text-sm);
+            color: var(--gold);
+        }
+    </style>
+</head>
+<body>
+
+<div id="navbar"></div>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+    <div class="container">
+        <p class="eyebrow">You Are Not Alone</p>
+        <h1 class="display">Mental Health</h1>
+        <p>Verified crisis lines, peer support, and a community where you are allowed to not be okay.</p>
+    </div>
+</div>
+
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+
+        <!-- IMMEDIATE DANGER -->
+        <div class="alert-box">
+            <h2>Immediate Danger</h2>
+            <p>If you may harm yourself or others, or are in immediate danger, contact emergency services now.</p>
+            <strong>911 (US) &nbsp;·&nbsp; 112 (Europe) &nbsp;·&nbsp; 000 (Australia)</strong>
+        </div>
+
+        <!-- CRISIS LINES -->
+        <div class="principles__header text-center" style="margin-bottom: var(--space-lg);">
+            <p class="eyebrow">Verified Resources</p>
+            <h2 class="display">Crisis Support Lines</h2>
+        </div>
+
+        <div class="cards-grid">
+
+            <div class="crisis-card">
+                <h3>United States</h3>
+                <ul>
+                    <li><strong>988 Lifeline:</strong> Call or Text 988</li>
+                    <li><strong>Crisis Text Line:</strong> Text HOME to 741741</li>
+                    <li><strong>Domestic Violence:</strong> 1-800-799-7233</li>
+                    <li><strong>RAINN:</strong> 1-800-656-4673</li>
+                    <li><strong>Childhelp:</strong> 1-800-422-4453</li>
+                </ul>
+            </div>
+
+            <div class="crisis-card">
+                <h3>Canada</h3>
+                <ul>
+                    <li><strong>988 Canada:</strong> Call or Text 988</li>
+                    <li><strong>Talk Suicide Canada:</strong> 1-833-456-4566</li>
+                    <li><strong>Hope for Wellness:</strong> 1-855-242-3310</li>
+                </ul>
+            </div>
+
+            <div class="crisis-card">
+                <h3>UK and Ireland</h3>
+                <ul>
+                    <li><strong>Samaritans:</strong> 116 123</li>
+                    <li><strong>Shout Crisis Text:</strong> Text SHOUT to 85258</li>
+                </ul>
+            </div>
+
+            <div class="crisis-card">
+                <h3>Australia and NZ</h3>
+                <ul>
+                    <li><strong>Lifeline Australia:</strong> 13 11 14</li>
+                    <li><strong>1800RESPECT:</strong> 1800 737 732</li>
+                    <li><strong>NZ Lifeline:</strong> 0800 543 354</li>
+                </ul>
+            </div>
+
+        </div>
+
+        <!-- MORE COUNTRIES -->
+        <div class="card" style="margin-top: var(--space-md); padding: var(--space-md);">
+            <div class="text-center">
+                <p class="eyebrow">More Countries</p>
+            </div>
+            <div class="countries-grid">
+                <div class="country-box"><strong>France</strong><span>3114</span></div>
+                <div class="country-box"><strong>Germany</strong><span>0800 111 0 111</span></div>
+                <div class="country-box"><strong>Spain</strong><span>024</span></div>
+                <div class="country-box"><strong>Belgium</strong><span>1813</span></div>
+                <div class="country-box"><strong>Switzerland</strong><span>143</span></div>
+                <div class="country-box"><strong>Netherlands</strong><span>113</span></div>
+            </div>
+            <div class="text-center mt-md">
+                <a href="https://befrienders.org" target="_blank" rel="noopener" class="btn btn-ghost">
+                    Find Worldwide Helplines
+                </a>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- DIVIDER -->
+<div class="container">
+    <div class="divider"><span class="divider-glyph">✝</span></div>
+</div>
+
+<!-- COMMUNITY -->
+<section class="section">
+    <div class="container">
+        <div class="cta-banner">
+            <p class="eyebrow">Peer Support</p>
+            <h2 class="display">You Do Not Have to Go Through It Alone</h2>
+            <p>
+                The mental health Discord is a moderated space for honest conversation about
+                struggles, recovery, and emotional wellbeing. No judgment. No performance.
+                Just people showing up for one another.
+            </p>
+            <a href="https://discord.gg/WA4SC9HB6H" target="_blank" rel="noopener" class="btn btn-primary" style="margin-top: var(--space-sm);">
+                Join the Support Server
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER NOTE -->
+<section class="section" style="padding-top: 0;">
+    <div class="container text-center">
+        <p class="text-muted" style="font-family: var(--font-ui); font-size: var(--text-sm);">
+            Resources verified June 2026. If you know of an outdated or missing resource, please reach out.
+        </p>
+    </div>
+</section>
+
+<div id="footer"></div>
+<script src="/assets/js/components.js"></script>
+</body>
+</html>

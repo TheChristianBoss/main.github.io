@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Under Development | Christian Goblin</title>
+
+<style>
+:root{
+    --bg:#0a0a0a;
+    --gold:#c9a84c;
+    --gold-light:#e0c16d;
+    --text:#f5f5f5;
+    --muted:#a3a3a3;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:system-ui,sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:2rem;
+    overflow:hidden;
+}
+
+.grid{
+    position:fixed;
+    inset:0;
+    background-image:
+        linear-gradient(rgba(201,168,76,.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(201,168,76,.06) 1px, transparent 1px);
+    background-size:40px 40px;
+    pointer-events:none;
+}
+
+.container{
+    max-width:800px;
+    text-align:center;
+    z-index:1;
+}
+
+.goblin{
+    font-size:5rem;
+    margin-bottom:1rem;
+    animation:float 3s ease-in-out infinite;
+}
+
+h1{
+    font-size:clamp(3rem,8vw,6rem);
+    color:var(--gold);
+    margin-bottom:.5rem;
+}
+
+h2{
+    font-size:clamp(1.5rem,4vw,2rem);
+    margin-bottom:1.5rem;
+}
+
+p{
+    color:var(--muted);
+    line-height:1.8;
+    max-width:650px;
+    margin:0 auto 2rem;
+}
+
+.notice{
+    display:inline-block;
+    padding:.8rem 1.4rem;
+    border:1px solid rgba(201,168,76,.4);
+    border-radius:999px;
+    color:var(--gold-light);
+    margin-bottom:2rem;
+}
+
+.btn{
+    display:inline-block;
+    text-decoration:none;
+    color:#000;
+    background:var(--gold);
+    padding:1rem 1.8rem;
+    border-radius:12px;
+    font-weight:600;
+    transition:.2s;
+}
+
+.btn:hover{
+    transform:translateY(-2px);
+}
+
+.footer{
+    margin-top:2rem;
+    color:#666;
+    font-size:.9rem;
+}
+
+@keyframes float{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-10px);}
+}
+</style>
+</head>
+<body>
+
+<div class="grid"></div>
+
+<div class="container">
+
+    <div class="goblin">👺</div>
+
+    <h1>Site Rebuild In Progress</h1>
+
+    <div class="notice">
+        Christian Goblin is currently under development
+    </div>
+
+    <h2>Something Better Is Coming!</h2>
+
+    <p>
+        You've reached a page that isn't available right now.
+        The entire Christian Goblin platform is being rebuilt from
+        the ground up with improved tools, better performance,
+        and a stronger foundation.
+    </p>
+
+    <p>
+        During this transition, some pages may be unavailable,
+        moved, or temporarily offline.
+    </p>
+
+    <a href="/" class="btn">Return Home</a>
+
+    <div class="footer">
+        © 2026 Christian Goblin • Rebuilding the platform
+    </div>
+
+</div>
+
+</body>
+</html>
