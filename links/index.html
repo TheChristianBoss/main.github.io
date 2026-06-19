@@ -48,6 +48,15 @@
             transform: translateX(4px);
         }
 
+        .featured-link {
+            border-color: var(--gold);
+            background: rgba(212, 175, 55, 0.08);
+        }
+
+        .featured-link:hover {
+            border-color: var(--gold);
+        }
+
         .link-name {
             margin: 0;
             font-family: var(--font-display);
@@ -82,30 +91,56 @@
 <section class="section" style="padding-top: 0;">
     <div class="container">
 
-        <p class="links-section-title">Community</p>
+        <!-- FEATURED -->
+        <p class="links-section-title">Featured</p>
 
         <div class="links-list">
 
-            <a href="https://discord.gg/2Wm4e5AdsJ" target="_blank" rel="noopener" class="link-card">
+            <a href="https://www.youtube.com/@Christian_Goblin?sub_confirmation=1"
+               target="_blank"
+               rel="noopener"
+               class="link-card featured-link">
+                <p class="link-name">YouTube</p>
+                <span class="link-arrow">→</span>
+            </a>
+
+            <a href="https://discord.gg/2Wm4e5AdsJ"
+               target="_blank"
+               rel="noopener"
+               class="link-card">
                 <p class="link-name">Discord — Main Server</p>
                 <span class="link-arrow">→</span>
             </a>
 
-            <a href="https://discord.gg/WA4SC9HB6H" target="_blank" rel="noopener" class="link-card">
+            <a href="https://www.instagram.com/christian_goblin/"
+               target="_blank"
+               rel="noopener"
+               class="link-card">
+                <p class="link-name">Instagram</p>
+                <span class="link-arrow">→</span>
+            </a>
+
+        </div>
+
+        <!-- COMMUNITY -->
+        <p class="links-section-title">Community</p>
+
+        <div class="links-list">
+
+            <a href="https://discord.gg/WA4SC9HB6H"
+               target="_blank"
+               rel="noopener"
+               class="link-card">
                 <p class="link-name">Discord — Mental Health Server</p>
                 <span class="link-arrow">→</span>
             </a>
 
         </div>
 
+        <!-- SOCIAL MEDIA -->
         <p class="links-section-title">Social Media</p>
 
         <div class="links-list">
-
-            <a href="https://www.instagram.com/christian_goblin/" target="_blank" rel="noopener" class="link-card">
-                <p class="link-name">Instagram</p>
-                <span class="link-arrow">→</span>
-            </a>
 
             <a href="https://www.tiktok.com/@christiangoblin" target="_blank" rel="noopener" class="link-card">
                 <p class="link-name">TikTok</p>
@@ -164,14 +199,10 @@
 
         </div>
 
+        <!-- VIDEO & STREAMING -->
         <p class="links-section-title">Video & Streaming</p>
 
         <div class="links-list">
-
-            <a href="https://www.youtube.com/@Christian_Goblin?sub_confirmation=1" target="_blank" rel="noopener" class="link-card">
-                <p class="link-name">YouTube</p>
-                <span class="link-arrow">→</span>
-            </a>
 
             <a href="https://www.twitch.tv/christian_goblin" target="_blank" rel="noopener" class="link-card">
                 <p class="link-name">Twitch</p>
