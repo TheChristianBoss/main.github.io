@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Links | Christian Goblin</title>
     <meta name="description" content="All official Christian Goblin platforms, social media, streaming channels, and community links.">
+
     <link rel="icon" href="/assets/images/favicon.png" type="image/png">
     <link rel="stylesheet" href="/assets/css/main.css">
+
     <style>
         .links-section-title {
             font-family: var(--font-display);
@@ -18,6 +20,12 @@
             border-bottom: 1px solid var(--border);
         }
 
+        .links-list {
+            display: grid;
+            gap: .6rem;
+            margin-bottom: var(--space-xl);
+        }
+
         .link-card {
             display: flex;
             align-items: center;
@@ -25,50 +33,37 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
-            padding: var(--space-sm) var(--space-md);
-            transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease), background var(--dur);
+            padding: 1rem 1.25rem;
             color: var(--text);
-        }
-        .link-card:hover {
-            border-color: var(--border-hover);
-            transform: translateX(4px);
-            background: var(--surface-raised);
+            text-decoration: none;
+            transition:
+                border-color var(--dur) var(--ease),
+                transform var(--dur) var(--ease),
+                background var(--dur);
         }
 
-        .link-left {
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
+        .link-card:hover {
+            border-color: var(--border-hover);
+            background: var(--surface-raised);
+            transform: translateX(4px);
         }
 
         .link-name {
+            margin: 0;
             font-family: var(--font-display);
             font-size: var(--text-base);
             letter-spacing: .04em;
         }
 
-        .link-desc {
-            font-family: var(--font-ui);
-            font-size: var(--text-xs);
-            color: var(--muted);
-            margin-top: .2rem;
-        }
-
         .link-arrow {
             color: var(--gold-dim);
             font-size: var(--text-lg);
-            flex-shrink: 0;
             transition: color var(--dur), transform var(--dur);
         }
+
         .link-card:hover .link-arrow {
             color: var(--gold);
             transform: translateX(3px);
-        }
-
-        .links-list {
-            display: grid;
-            gap: var(--space-xs);
-            margin-bottom: var(--space-xl);
         }
     </style>
 </head>
@@ -76,7 +71,6 @@
 
 <div id="navbar"></div>
 
-<!-- PAGE HEADER -->
 <div class="page-header">
     <div class="container">
         <p class="eyebrow">Find Us Everywhere</p>
@@ -88,191 +82,124 @@
 <section class="section" style="padding-top: 0;">
     <div class="container">
 
-        <!-- COMMUNITY -->
         <p class="links-section-title">Community</p>
+
         <div class="links-list">
 
             <a href="https://discord.gg/2Wm4e5AdsJ" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left">
-                    <div>
-                        <p class="link-name">Discord — Main Server</p>
-                        <p class="link-desc">The primary community hub for faith, gaming, and daily conversation.</p>
-                    </div>
-                </div>
+                <p class="link-name">Discord — Main Server</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://discord.gg/WA4SC9HB6H" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left">
-                    <div>
-                        <p class="link-name">Discord — Mental Health Server</p>
-                        <p class="link-desc">A moderated peer support space for those who are struggling.</p>
-                    </div>
-                </div>
+                <p class="link-name">Discord — Mental Health Server</p>
                 <span class="link-arrow">→</span>
             </a>
 
         </div>
 
-        <!-- SOCIAL MEDIA -->
         <p class="links-section-title">Social Media</p>
+
         <div class="links-list">
 
             <a href="https://www.instagram.com/christian_goblin/" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Instagram</p>
-                    <p class="link-desc">Updates, photos, and announcements.</p>
-                </div></div>
+                <p class="link-name">Instagram</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.tiktok.com/@christiangoblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">TikTok</p>
-                    <p class="link-desc">Short-form content and community updates.</p>
-                </div></div>
+                <p class="link-name">TikTok</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://x.com/christgoblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">X / Twitter</p>
-                    <p class="link-desc">Announcements, thoughts, and social updates.</p>
-                </div></div>
+                <p class="link-name">X / Twitter</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.facebook.com/people/ChristianGoblin/61581378155053/" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Facebook</p>
-                    <p class="link-desc">Official page and community posts.</p>
-                </div></div>
+                <p class="link-name">Facebook</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.threads.com/@christian_goblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Threads</p>
-                    <p class="link-desc">Social updates and conversation.</p>
-                </div></div>
+                <p class="link-name">Threads</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.snapchat.com/@christiangoblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Snapchat</p>
-                    <p class="link-desc">Stories and media sharing.</p>
-                </div></div>
+                <p class="link-name">Snapchat</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.pinterest.com/christiangoblin/" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Pinterest</p>
-                    <p class="link-desc">Visual collections and curated content.</p>
-                </div></div>
+                <p class="link-name">Pinterest</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.tumblr.com/christiangoblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Tumblr</p>
-                    <p class="link-desc">Creative posts and long-form content.</p>
-                </div></div>
+                <p class="link-name">Tumblr</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://bsky.app/profile/christiangoblin.bsky.social" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Bluesky</p>
-                    <p class="link-desc">Alternative social networking profile.</p>
-                </div></div>
+                <p class="link-name">Bluesky</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://mastodon.social/@christiangoblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Mastodon</p>
-                    <p class="link-desc">Federated social media presence.</p>
-                </div></div>
+                <p class="link-name">Mastodon</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.reddit.com/user/ChristianGoblin/" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Reddit</p>
-                    <p class="link-desc">Community discussions and interactions.</p>
-                </div></div>
+                <p class="link-name">Reddit</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.lemon8-app.com/@christiangoblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Lemon8</p>
-                    <p class="link-desc">Visual lifestyle and community content.</p>
-                </div></div>
+                <p class="link-name">Lemon8</p>
                 <span class="link-arrow">→</span>
             </a>
 
         </div>
 
-        <!-- VIDEO AND STREAMING -->
-        <p class="links-section-title">Video and Streaming</p>
+        <p class="links-section-title">Video & Streaming</p>
+
         <div class="links-list">
 
             <a href="https://www.youtube.com/@Christian_Goblin?sub_confirmation=1" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">YouTube</p>
-                    <p class="link-desc">Long-form content and community uploads.</p>
-                </div></div>
+                <p class="link-name">YouTube</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.twitch.tv/christian_goblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Twitch</p>
-                    <p class="link-desc">Livestreams and community broadcasts.</p>
-                </div></div>
+                <p class="link-name">Twitch</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://kick.com/christiangoblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Kick</p>
-                    <p class="link-desc">Alternative streaming platform and live content.</p>
-                </div></div>
+                <p class="link-name">Kick</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://rumble.com/user/christiangoblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Rumble</p>
-                    <p class="link-desc">Video uploads and archived media.</p>
-                </div></div>
+                <p class="link-name">Rumble</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://vimeo.com/user247723311" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Vimeo</p>
-                    <p class="link-desc">Professional media hosting.</p>
-                </div></div>
+                <p class="link-name">Vimeo</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://www.dailymotion.com/user/christiangoblin" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Dailymotion</p>
-                    <p class="link-desc">Alternative video platform presence.</p>
-                </div></div>
+                <p class="link-name">Dailymotion</p>
                 <span class="link-arrow">→</span>
             </a>
 
             <a href="https://odysee.com/@ChristianGoblin:8fc4a2a05ae7d864fd5ccb326d8cbe0f1491d718" target="_blank" rel="noopener" class="link-card">
-                <div class="link-left"><div>
-                    <p class="link-name">Odysee</p>
-                    <p class="link-desc">Decentralized video platform presence.</p>
-                </div></div>
+                <p class="link-name">Odysee</p>
                 <span class="link-arrow">→</span>
             </a>
 
@@ -282,6 +209,8 @@
 </section>
 
 <div id="footer"></div>
+
 <script src="/assets/js/components.js"></script>
+
 </body>
 </html>
