@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cybersecurity | Christian Goblin</title>
+    <meta name="description" content="Cybersecurity, digital privacy, exposure monitoring, and identity protection services for creators, professionals, and individuals.">
+    <link rel="icon" href="/assets/images/favicon.png" type="image/png">
+    <link rel="stylesheet" href="/assets/css/main.css">
+
+    <style>
+        /* Page-specific: contact form fields (no shared form styles exist site-wide yet) */
+        .contact-wrap { max-width: 700px; margin: 0 auto; }
+
+        .form-input,
+        .form-textarea {
+            width: 100%;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius-sm, 8px);
+            color: inherit;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+        }
+
+        .form-textarea { resize: vertical; }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: var(--radius-sm, 8px);
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .submit-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+        .form-status {
+            margin-top: 12px;
+            text-align: center;
+            min-height: 1.2em;
+        }
+
+        .form-status.success { color: #6fbf73; }
+        .form-status.error { color: #e06a6a; }
+    </style>
+</head>
+<body>
+
+<div id="navbar"></div>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+    <div class="container">
+        <p class="eyebrow">Protection That Matters</p>
+        <h1 class="display">Cybersecurity &amp; Digital Privacy</h1>
+        <p>Protect what cannot be replaced — cybersecurity, digital privacy, exposure monitoring, and identity protection for creators, professionals, and individuals.</p>
+    </div>
+</div>
+
+<!-- SERVICES -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="principles__header text-center">
+            <p class="eyebrow">Services</p>
+            <h2 class="display">Security-Focused Solutions</h2>
+            <p>Reduce exposure and improve your digital resilience.</p>
+        </div>
+
+        <div class="principles__grid">
+            <div class="principle-card">
+                <span class="principle-card__glyph">🔍</span>
+                <p class="principle-card__title">Exposure Monitoring</p>
+                <p class="principle-card__body">
+                    Identify leaked emails, passwords, breached accounts, and exposed personal information.
+                </p>
+            </div>
+            <div class="principle-card">
+                <span class="principle-card__glyph">🔐</span>
+                <p class="principle-card__title">Privacy Hardening</p>
+                <p class="principle-card__body">
+                    Improve account security, multi-factor authentication, password management, and identity protection.
+                </p>
+            </div>
+            <div class="principle-card">
+                <span class="principle-card__glyph">🧹</span>
+                <p class="principle-card__title">Digital Cleanup</p>
+                <p class="principle-card__body">
+                    Reduce unnecessary online exposure and improve operational privacy across platforms.
+                </p>
+            </div>
+            <div class="principle-card">
+                <span class="principle-card__glyph">🛡️</span>
+                <p class="principle-card__title">Security Guidance</p>
+                <p class="principle-card__body">
+                    Personalized recommendations for creators, entrepreneurs, and online communities.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CONTACT -->
+<section class="section" id="contact">
+    <div class="container">
+        <div class="principles__header text-center">
+            <p class="eyebrow">Get In Touch</p>
+            <h2 class="display">Request a Consultation</h2>
+            <p>Submit a request and receive a response regarding cybersecurity or privacy assistance.</p>
+        </div>
+
+        <div class="contact-wrap">
+            <input id="name" class="form-input" placeholder="Name" required>
+            <input id="email" type="email" class="form-input" placeholder="Email" required>
+            <textarea id="message" rows="6" class="form-textarea" placeholder="Describe your request..." required></textarea>
+
+            <button id="submitBtn" class="submit-btn btn btn-primary">Submit Request</button>
+
+            <div id="formStatus" class="form-status" role="alert"></div>
+        </div>
+    </div>
+</section>
+
+<div id="footer"></div>
+<script src="/assets/js/components.js"></script>
+<script>
+    const btn    = document.getElementById('submitBtn');
+    const status = document.getElementById('formStatus');
+
+    function showStatus(msg, type) {
+        status.textContent = msg;
+        status.className = 'form-status ' + type;
+    }
+
+    btn.addEventListener('click', async () => {
+        const name    = document.getElementById('name').value.trim();
+        const email   = document.getElementById('email').value.trim();
+        const message = document.getElementById('message').value.trim();
+
+        if (!name || !email || !message) {
+            showStatus('Please fill in all fields before submitting.', 'error');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        status.className = 'form-status';
+
+        try {
+            const res = await fetch('https://cyber.michaelthechristiangoblin.workers.dev', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, message }),
+            });
+
+            if (res.ok) {
+                showStatus("Request sent successfully. We'll be in touch soon.", 'success');
+                document.getElementById('name').value    = '';
+                document.getElementById('email').value   = '';
+                document.getElementById('message').value = '';
+            } else {
+                showStatus('Failed to send — please try again or reach out directly.', 'error');
+            }
+        } catch {
+            showStatus('Connection error — check your internet and try again.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Submit Request';
+        }
+    });
+</script>
+
+</body>
+</html>

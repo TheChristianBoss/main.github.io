@@ -1,0 +1,33 @@
+{
+  "name": "ats",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:ats && npm run build:resume",
+    "build:ats": "vite build --config vite.ats.config.js",
+    "build:resume": "vite build --config vite.resume.config.js",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "docx": "^9.7.1",
+    "jspdf": "^2.5.1",
+    "mammoth": "^1.12.0",
+    "pdfjs-dist": "^5.7.284",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "vite": "^8.0.12"
+  }
+}

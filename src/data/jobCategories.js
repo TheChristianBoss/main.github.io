@@ -1,0 +1,121 @@
+const jobCategories = {
+  "General Use": [
+    "General Resume",
+    "General ATS Check",
+    "Entry Level",
+    "No Experience",
+    "Student Resume",
+  ],
+
+  "Technology & IT": [
+    "Software Engineer",
+    "Frontend Developer",
+    "Backend Developer",
+    "Full Stack Developer",
+    "Web Developer",
+    "Data Analyst",
+    "Data Scientist",
+    "AI/ML Engineer",
+    "DevOps Engineer",
+    "Cloud Engineer",
+    "Cybersecurity Analyst",
+    "QA Tester",
+    "UI/UX Designer",
+    "Mobile App Developer",
+    "Network Engineer",
+    "IT Support Specialist",
+    "Database Administrator",
+    "Systems Administrator",
+    "Embedded Systems Engineer",
+    "Blockchain Developer",
+  ],
+
+  "Healthcare": [
+    "Registered Nurse",
+    "Medical Assistant",
+    "Physician",
+    "Caregiver",
+    "Pharmacist",
+    "Physical Therapist",
+    "Dental Hygienist",
+    "Radiologic Technologist",
+    "Healthcare Administrator",
+    "Medical Coder",
+  ],
+
+  "Marketing & Creative": [
+    "Digital Marketing Specialist",
+    "SEO Specialist",
+    "Copywriter",
+    "Social Media Manager",
+    "Content Strategist",
+    "Brand Manager",
+    "Graphic Designer",
+    "Video Editor",
+    "Email Marketing Specialist",
+    "Growth Marketer",
+  ],
+
+  "Business & Finance": [
+    "Accountant",
+    "Financial Analyst",
+    "Business Analyst",
+    "Project Manager",
+    "Product Manager",
+    "HR Manager",
+    "Recruiter",
+    "Operations Manager",
+    "Supply Chain Analyst",
+    "Management Consultant",
+  ],
+
+  "Sales & Customer Success": [
+    "Sales Representative",
+    "Account Executive",
+    "Customer Service Representative",
+    "Customer Success Manager",
+    "Real Estate Agent",
+    "Insurance Agent",
+    "Retail Associate",
+    "Business Development Manager",
+  ],
+
+  "Engineering & Trades": [
+    "Mechanical Engineer",
+    "Electrical Engineer",
+    "Civil Engineer",
+    "Chemical Engineer",
+    "Electrician",
+    "Plumber",
+    "HVAC Technician",
+    "Welder",
+    "Construction Manager",
+  ],
+
+  "Education": [
+    "Teacher",
+    "School Counselor",
+    "Instructional Designer",
+    "Tutor",
+    "Professor",
+    "Education Administrator",
+  ],
+
+  "Logistics & Transportation": [
+    "Truck Driver",
+    "Warehouse Associate",
+    "Logistics Coordinator",
+    "Supply Chain Manager",
+    "Delivery Driver",
+    "Fleet Manager",
+  ],
+
+  "Legal & Compliance": [
+    "Paralegal",
+    "Compliance Officer",
+    "Contract Manager",
+    "Legal Assistant",
+  ],
+};
+
+export default jobCategories;

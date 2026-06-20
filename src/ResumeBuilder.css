@@ -1,0 +1,1385 @@
+/* =========================================================
+   RESUME BUILDER — christiangoblin.com dark gold aesthetic
+   ========================================================= */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0a0a0a;
+  --surface:   #111111;
+  --surface2:  #181818;
+  --surface3:  #222222;
+  --border:    #2a2a2a;
+  --accent:    #e8c547;
+  --accent-dim:#a88c30;
+  --text:      #f0ede8;
+  --muted:     #8b8b85;
+  --success:   #22c55e;
+  --danger:    #ef4444;
+  --warning:   #facc15;
+  --radius:    6px;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* ── HEADER ── */
+.rb-header {
+  background: #000;
+  border-bottom: 1px solid var(--border);
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  position: sticky;
+  top: 52px;
+  z-index: 200;
+}
+.rb-header-inner {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.rb-logo {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.rb-logo-cg { color: var(--accent); }
+
+.rb-header-center {
+  display: flex;
+  gap: 6px;
+}
+.rb-view-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 16px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rb-view-btn:hover { color: var(--text); border-color: var(--muted); }
+.rb-view-btn.active {
+  background: rgba(232,197,71,0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.rb-header-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.rb-header-grade {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.rb-ats-info-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.rb-ats-info-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── MAIN LAYOUT ── */
+.rb-main {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 24px 24px 60px;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ── EDITOR COL ── */
+.rb-editor-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── CARDS ── */
+.rb-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rb-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── ROLE ROW ── */
+.rb-role-row {
+  display: flex;
+  gap: 10px;
+}
+.rb-select {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  cursor: pointer;
+  appearance: none;
+  transition: border-color 0.2s;
+}
+.rb-select:focus { outline: none; border-color: var(--accent); }
+.rb-select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── CONTACT GRID ── */
+.rb-contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.rb-inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rb-inline-field--full { grid-column: 1 / -1; }
+.rb-inline-field label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.rb-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+.rb-input:focus { outline: none; border-color: var(--accent); }
+.rb-input::placeholder { color: var(--muted); opacity: 0.5; }
+
+/* ── PORTRAIT ── */
+.rb-portrait-section {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.rb-portrait-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.rb-optional-tag {
+  background: var(--surface3);
+  color: var(--muted);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 500;
+  margin-left: 6px;
+}
+.rb-portrait-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.rb-portrait-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.rb-portrait-actions { display: flex; gap: 8px; align-items: center; }
+.rb-upload-btn {
+  background: var(--surface2);
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rb-upload-btn:hover { background: rgba(232,197,71,0.08); }
+.rb-remove-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rb-remove-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+/* ── SECTION FIELDS ── */
+.rb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.rb-field:first-of-type { border-top: none; padding-top: 0; }
+.rb-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rb-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.rb-field-label--muted { color: var(--muted); }
+.rb-skipped-tag {
+  background: var(--surface3);
+  color: var(--muted);
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+.rb-skip-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 3px 10px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rb-skip-btn:hover { color: var(--text); border-color: var(--muted); }
+.rb-skip-btn--undo { border-color: var(--accent-dim); color: var(--accent); }
+.rb-skip-btn--undo:hover { background: rgba(232,197,71,0.08); }
+
+.rb-field-hint {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.rb-field-textarea {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  font-family: "Courier New", monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  resize: vertical;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+.rb-field-textarea:focus { outline: none; border-color: var(--accent); }
+.rb-field-textarea::placeholder { color: var(--muted); opacity: 0.45; }
+.rb-field--skipped {
+  opacity: 0.6;
+  background: rgba(255,255,255,0.01);
+  border-radius: var(--radius);
+  padding: 10px 0;
+}
+
+/* ── EXPORT ROW ── */
+.rb-export-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.rb-export-btn {
+  padding: 11px 22px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: opacity 0.15s;
+  border: none;
+}
+.rb-export-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.rb-export-btn--pdf {
+  background: var(--accent);
+  color: #000;
+}
+.rb-export-btn--pdf:hover:not(:disabled) { opacity: 0.85; }
+.rb-export-btn--docx {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+}
+.rb-export-btn--docx:hover:not(:disabled) { border-color: var(--muted); color: var(--text); }
+
+/* ── PREVIEW ── */
+.rb-preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rb-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.rb-preview-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.rb-preview-actions { display: flex; gap: 8px; }
+
+/* ── RESUME PREVIEW PAPER ── */
+.rb-preview-paper {
+  background: #fff;
+  color: #111;
+  padding: 52px 52px 60px;
+  border-radius: 4px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  min-height: 1056px; /* ~11in at 96dpi */
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 10pt;
+  line-height: 1.5;
+}
+.rbp-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+.rbp-portrait {
+  width: 76px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid #ddd;
+}
+.rbp-header-text { flex: 1; }
+.rbp-name {
+  font-size: 22pt;
+  font-weight: 700;
+  color: #141414;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.rbp-position {
+  font-size: 11pt;
+  color: #555;
+  margin-bottom: 4px;
+}
+.rbp-contact {
+  font-size: 8.5pt;
+  color: #555;
+  margin-top: 4px;
+}
+.rbp-divider {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin-bottom: 14px;
+}
+.rbp-section { margin-bottom: 14px; }
+.rbp-section-title {
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+.rbp-section-rule {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin-bottom: 8px;
+}
+.rbp-section-body { font-size: 9.5pt; color: #222; }
+.rbp-line { margin-bottom: 3px; }
+.rbp-bullet {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 3px;
+  padding-left: 8px;
+}
+.rbp-bullet-dot { color: #888; flex-shrink: 0; }
+.rbp-job-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+.rbp-job-title { font-weight: 700; font-size: 10pt; color: #111; }
+.rbp-job-rest { font-size: 8.5pt; color: #666; text-align: right; white-space: nowrap; }
+.rbp-empty {
+  color: #aaa;
+  font-size: 11pt;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+/* ── PANEL ── */
+.rb-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  position: sticky;
+  top: 130px;
+  max-height: calc(100vh - 150px);
+}
+.rb-panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  flex-shrink: 0;
+}
+.rb-panel-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 11px 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: all 0.15s;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.rb-panel-tab:hover { color: var(--text); }
+.rb-panel-tab.active {
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.rb-badge {
+  background: var(--danger);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  line-height: 1.4;
+}
+.rb-badge--warn { background: #f97316; }
+.rb-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ── EMPTY STATE ── */
+.rb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  gap: 12px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
+}
+.rb-empty-icon { font-size: 34px; opacity: 0.4; }
+.rb-empty-hint { font-size: 11.5px; opacity: 0.7; }
+
+/* ── SCORE TAB ── */
+.rb-tab-content { display: flex; flex-direction: column; gap: 14px; }
+.rb-score-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0;
+}
+.rb-grade { font-size: 19px; font-weight: 700; letter-spacing: 0.03em; }
+.rb-grade-sub { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.rb-ats-explain-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 3px 9px;
+  border-radius: var(--radius);
+  font-size: 10.5px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.15s;
+}
+.rb-ats-explain-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.rb-sub-scores { display: flex; flex-direction: column; gap: 8px; }
+.rb-minibar { display: flex; align-items: center; gap: 8px; }
+.rb-minibar-label { font-size: 11px; color: var(--muted); width: 62px; flex-shrink: 0; }
+.rb-minibar-track {
+  flex: 1;
+  height: 5px;
+  background: var(--surface3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rb-minibar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+.rb-minibar-val { font-size: 11px; font-weight: 700; width: 32px; text-align: right; font-family: monospace; }
+
+.rb-alert-list, .rb-phrase-list {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rb-alert-item {
+  font-size: 12px;
+  color: var(--danger);
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+.rb-alert-item:first-of-type { border-top: none; }
+.rb-phrase-item { font-size: 12px; color: var(--muted); font-style: italic; padding: 3px 0; }
+.rb-list-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.rb-list-title--red { color: #ef4444; }
+.rb-list-title--yellow { color: #facc15; }
+.rb-list-title--green { color: #22c55e; }
+.rb-hint { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.rb-success-msg {
+  font-size: 13px;
+  color: var(--success);
+  font-weight: 600;
+  padding: 12px;
+  background: rgba(34,197,94,0.06);
+  border: 1px solid rgba(34,197,94,0.2);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+/* ── KEYWORDS TAB ── */
+.rb-kw-group { display: flex; flex-direction: column; gap: 8px; }
+.rb-kw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rb-kw-chip {
+  font-size: 11.5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+button.rb-kw-chip { cursor: pointer; font-weight: 600; }
+button.rb-kw-chip:hover { transform: scale(1.05); }
+.rb-kw-chip--red { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.08); }
+.rb-kw-chip--yellow { border-color: #facc15; color: #facc15; background: rgba(250,204,21,0.08); }
+.rb-kw-chip--green { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,0.08); }
+.rb-kw-chip--dim { border-color: var(--border); color: var(--muted); }
+
+/* ── SECTIONS TAB ── */
+.rb-section-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+.rb-section-item.found { border-color: rgba(34,197,94,0.25); color: var(--success); }
+.rb-section-item.missing { border-color: rgba(239,68,68,0.25); color: #ef4444; }
+.rb-section-item.skipped { border-color: rgba(255,255,255,0.08); color: var(--muted); }
+.rb-section-item.optional { color: var(--muted); }
+.rb-insert-inline {
+  background: transparent;
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rb-insert-inline:hover { background: rgba(232,197,71,0.1); }
+
+/* ── VERBS TAB ── */
+.rb-verb-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.rb-verb-row:first-of-type { border-top: none; }
+.rb-verb-weak { color: #ef4444; font-weight: 700; min-width: 72px; }
+.rb-verb-arrow { color: var(--muted); }
+.rb-verb-suggestions { color: var(--muted); line-height: 1.5; flex: 1; }
+
+/* ── ATS MODAL ── */
+.rb-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  backdrop-filter: blur(4px);
+}
+.rb-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px;
+  max-width: 520px;
+  width: 100%;
+  position: relative;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.rb-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  transition: color 0.15s;
+}
+.rb-modal-close:hover { color: var(--text); }
+.rb-modal-text {
+  white-space: pre-wrap;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.7;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 960px) {
+  .rb-main {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+  .rb-panel {
+    position: static;
+    max-height: 520px;
+  }
+  .rb-contact-grid {
+    grid-template-columns: 1fr;
+  }
+  .rb-inline-field--full { grid-column: 1; }
+  .rb-preview-paper {
+    padding: 32px 28px 40px;
+  }
+}
+
+/* ─── MODE PICKER ─────────────────────────────────────────────────────────── */
+.rb-mode-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 60px);
+  padding: 40px 24px;
+}
+.rb-mode-picker-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.rb-mode-picker-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary, #f0f0f0);
+  margin: 0 0 8px 0;
+}
+.rb-mode-picker-sub {
+  color: var(--text-muted, #888);
+  font-size: 14px;
+  margin: 0;
+}
+.rb-mode-cards {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 960px;
+  width: 100%;
+}
+.rb-mode-card {
+  background: var(--surface2, #1a1a1a);
+  border: 1px solid var(--border, #2a2a2a);
+  border-radius: 12px;
+  padding: 32px 28px;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.rb-mode-card:hover {
+  border-color: var(--accent, #e8c547);
+  box-shadow: 0 0 24px rgba(232, 197, 71, 0.1);
+  transform: translateY(-2px);
+}
+.rb-mode-card--icon {
+  font-size: 36px;
+  margin-bottom: 14px;
+}
+.rb-mode-card--title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent, #e8c547);
+  margin-bottom: 8px;
+}
+.rb-mode-card--desc {
+  font-size: 13px;
+  color: var(--text-muted, #888);
+  margin: 0 0 14px 0;
+  line-height: 1.5;
+}
+.rb-mode-card--details {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+}
+.rb-mode-card--details li {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  padding: 3px 0;
+}
+.rb-mode-card--details li::before {
+  content: "✓ ";
+  color: var(--accent, #e8c547);
+  font-weight: 700;
+}
+.rb-mode-card--best {
+  font-size: 11px;
+  color: var(--text-muted, #666);
+  margin-bottom: 20px;
+  margin-top: auto;
+}
+.rb-mode-card--cta {
+  background: var(--accent, #e8c547);
+  color: #111;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity 0.2s;
+}
+.rb-mode-card--cta:hover { opacity: 0.9; }
+
+/* ─── BACK TO MODES BUTTON ───────────────────────────────────────────────── */
+.rb-back-mode-btn {
+  background: transparent;
+  border: 1px solid var(--border, #2a2a2a);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  margin-right: 8px;
+  transition: border-color 0.2s, color 0.2s;
+}
+.rb-back-mode-btn:hover {
+  border-color: var(--accent, #e8c547);
+  color: var(--accent, #e8c547);
+}
+
+/* ─── GUIDED MODE ────────────────────────────────────────────────────────── */
+.rb-steps-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.rb-step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border, #2a2a2a);
+  border: 1px solid var(--border, #333);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.rb-step-dot--active {
+  background: var(--accent, #e8c547);
+  border-color: var(--accent, #e8c547);
+  transform: scale(1.3);
+}
+.rb-step-dot--done {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+.rb-steps-label {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  margin-left: 8px;
+}
+.rb-guided-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.rb-guided-main {
+  flex: 1;
+  min-width: 0;
+}
+.rb-guided-tip {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--surface2, #1a1a1a);
+  border-left: 3px solid var(--accent, #e8c547);
+  border-radius: 8px;
+  padding: 18px 16px;
+  position: sticky;
+  top: 80px;
+}
+.rb-guided-tip-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent, #e8c547);
+  margin-bottom: 8px;
+}
+.rb-guided-tip-body {
+  font-size: 12px;
+  color: var(--text-muted, #aaa);
+  line-height: 1.6;
+  margin: 0 0 8px 0;
+}
+.rb-guided-tip-example {
+  font-size: 11px;
+  color: var(--text-secondary, #ccc);
+  background: var(--surface3, #111);
+  border-radius: 4px;
+  padding: 8px;
+  font-style: italic;
+  margin-top: 8px;
+}
+.rb-guided-nav {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+/* ─── QUICK MODE ─────────────────────────────────────────────────────────── */
+.rb-quick-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.rb-quick-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.rb-quick-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent, #e8c547);
+  color: #111;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.rb-quick-step-body {
+  flex: 1;
+}
+.rb-quick-step-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #f0f0f0);
+  margin-bottom: 10px;
+}
+.rb-generate-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--accent, #e8c547);
+  color: #111;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.rb-generate-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.rb-generate-btn:hover:not(:disabled) { opacity: 0.9; }
+.rb-generated-notice {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #22c55e;
+  margin-bottom: 16px;
+}
+
+/* ─── RECRUITER TAB ──────────────────────────────────────────────────────── */
+.rb-recruiter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.rb-recruiter-stat {
+  background: var(--surface3, #111);
+  border: 1px solid var(--border, #222);
+  border-radius: 8px;
+  padding: 12px;
+}
+.rb-recruiter-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #777);
+  margin-bottom: 4px;
+}
+.rb-recruiter-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent, #e8c547);
+}
+.rb-stuffing-warn {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #ef4444;
+  margin-bottom: 6px;
+}
+.rb-insight-row {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 4px;
+  align-items: baseline;
+}
+.rb-insight-label {
+  color: var(--text-muted, #777);
+  font-weight: 600;
+  min-width: 60px;
+}
+.rb-insight-val {
+  color: var(--text-secondary, #ccc);
+  word-break: break-all;
+}
+
+/* ─── SCORE TAB ADDITIONS ────────────────────────────────────────────────── */
+.rb-suggestions-list {
+  margin-top: 16px;
+  border-top: 1px solid var(--border, #222);
+  padding-top: 14px;
+}
+.rb-suggestion-item {
+  font-size: 12px;
+  color: var(--text-secondary, #bbb);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+.rb-phrase-item--green {
+  color: #22c55e;
+  font-size: 12px;
+  margin-bottom: 4px;
+  font-style: italic;
+}
+
+/* ─── FILLABLE SECTION CHIPS ─────────────────────────────────────────────── */
+
+.rb-fill-hint-banner {
+  font-size: 12.5px;
+  color: var(--muted);
+  background: rgba(232, 197, 71, 0.07);
+  border: 1px solid rgba(232, 197, 71, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rb-fill-hint-icon {
+  font-size: 14px;
+  color: var(--accent);
+}
+.rb-fill-hint-chip {
+  display: inline-block;
+  background: rgba(232, 197, 71, 0.18);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rb-fillable-body {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+.rb-fillable-line {
+  display: block;
+  min-height: 1.6em;
+  white-space: pre-wrap;
+}
+
+.rb-fillable-text {
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+/* The fill chip button */
+.rb-fill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(232, 197, 71, 0.13);
+  border: 1.5px dashed rgba(232, 197, 71, 0.55);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 1px 8px;
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  vertical-align: baseline;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.rb-fill-chip:hover {
+  background: rgba(232, 197, 71, 0.25);
+  border-color: var(--accent);
+}
+.rb-fill-chip--filled {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1.5px solid rgba(34, 197, 94, 0.4);
+  color: #22c55e;
+}
+.rb-fill-chip--filled:hover {
+  background: rgba(34, 197, 94, 0.22);
+  border-color: #22c55e;
+}
+.rb-fill-chip-icon {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* Inline input when editing a chip */
+.rb-fill-chip--editing {
+  display: inline-block;
+  background: var(--surface3);
+  border: 1.5px solid var(--accent);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 1px 8px;
+  font-size: 12.5px;
+  font-family: inherit;
+  line-height: 1.6;
+  vertical-align: baseline;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(232, 197, 71, 0.15);
+}
+.rb-fill-chip--editing::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* Fill progress / done badges */
+.rb-fill-progress {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface3);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+.rb-fill-all-done {
+  font-size: 11px;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+/* Fill/raw mode toggle buttons */
+.rb-fill-mode-btn {
+  font-size: 11px;
+  color: var(--accent);
+  background: rgba(232, 197, 71, 0.1);
+  border: 1px solid rgba(232, 197, 71, 0.3);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.rb-fill-mode-btn:hover {
+  background: rgba(232, 197, 71, 0.2);
+}
+.rb-fill-mode-btn--raw {
+  color: var(--muted);
+  background: transparent;
+  border-color: var(--border);
+}
+.rb-fill-mode-btn--raw:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+
+/* ─── CHIP DROPDOWN ──────────────────────────────────────────────────────── */
+
+.rb-chip-wrap {
+  position: relative;
+  display: inline;
+}
+
+.rb-chip-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 200;
+  background: var(--surface2);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  min-width: 200px;
+  max-width: 280px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rb-chip-dropdown-label {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.rb-chip-section-title {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 3px;
+}
+
+.rb-chip-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rb-chip-option {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-family: inherit;
+  padding: 4px 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.rb-chip-option:hover,
+.rb-chip-option.active {
+  background: rgba(232,197,71,0.15);
+  border-color: rgba(232,197,71,0.5);
+  color: var(--accent);
+}
+
+.rb-chip-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+.rb-chip-input {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-family: inherit;
+  padding: 5px 8px;
+  outline: none;
+  width: 100%;
+}
+.rb-chip-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(232,197,71,0.15);
+}
+.rb-chip-input::placeholder { color: var(--muted); opacity: 0.6; }
+
+.rb-chip-commit {
+  background: rgba(232,197,71,0.15);
+  border: 1px solid rgba(232,197,71,0.4);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 3px 8px;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background 0.12s;
+}
+.rb-chip-commit:hover { background: rgba(232,197,71,0.25); }
+
+.rb-chip-clear {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 2px 0;
+  cursor: pointer;
+  text-align: left;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+.rb-chip-clear:hover { color: var(--danger); }
+
+/* ─── MULTI-BLOCK (add more jobs/schools) ────────────────────────────────── */
+
+.rb-block-wrap {
+  position: relative;
+}
+
+.rb-block-remove {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  z-index: 10;
+  line-height: 1;
+  transition: color 0.12s, background 0.12s;
+}
+.rb-block-remove:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+
+.rb-block-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 10px 0;
+}
+
+.rb-add-block-btn {
+  width: 100%;
+  margin-top: 8px;
+  background: transparent;
+  border: 1px dashed rgba(232,197,71,0.35);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-family: inherit;
+  padding: 7px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.rb-add-block-btn:hover {
+  background: rgba(232,197,71,0.08);
+  border-color: rgba(232,197,71,0.6);
+}
