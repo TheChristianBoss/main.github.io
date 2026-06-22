@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { translations, STATUS } from './data/catalog.js'
 import { loadTranslationText } from './utils/loadTranslation.js'
 import { parseReference, getVerses, formatReference } from './utils/reference.js'
 import { getNextChapterRef, getPrevChapterRef } from './utils/bookOrder.js'
-import { searchTranslation } from './utils/search.js'
+import { searchTranslation, searchTranslationRelated } from './utils/search.js'
 import { usePersistentState } from './utils/storage.js'
 import { verseKey } from './utils/verseKey.js'
 import { pickDailyVerse } from './utils/dailyVerse.js'
@@ -71,6 +71,7 @@ export default function App() {
   const [refError, setRefError] = useState(null)
   const [searchInput, setSearchInput] = useState('')
   const [searchResults, setSearchResults] = useState(null)
+  const [searchMode, setSearchMode] = useState('exact')
 
   const [textData, setTextData] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -159,7 +160,7 @@ export default function App() {
     if (!parsed) {
       setRefError(
         refInput.trim()
-          ? `Couldn't recognize "${refInput.trim()}" as a passage — try a format like "Genesis 1:1-9" or "Jn 3:16".`
+          ? `Couldn't recognize "${refInput.trim()}" as a passage â€” try a format like "Genesis 1:1-9" or "Jn 3:16".`
           : 'Type a reference first, e.g. "Genesis 1:1-9".'
       )
       return
@@ -201,11 +202,32 @@ export default function App() {
       setSearchResults(null)
       return
     }
-    const results = searchTranslation(textData.books, searchInput)
+    const results = searchTranslation(textData.books, searchInput, 100)
+    setSearchMode('exact')
     setSearchResults(results)
     setView('read')
   }, [textData, searchInput])
 
+  const handleRelatedSearch = useCallback(() => {
+    if (!textData || !searchInput.trim()) {
+      setSearchResults(null)
+      return
+    }
+    const results = searchTranslationRelated(textData.books, searchInput, 100)
+    setSearchMode('related')
+    setSearchResults(results)
+    setView('read')
+  }, [textData, searchInput])
+  const handleLoadMoreSearchResults = useCallback(() => {
+    if (!textData || !searchInput.trim() || !searchResults) return
+
+    const nextLimit = (searchResults.limit || searchResults.length || 100) + 100
+    const results = searchMode === 'related'
+      ? searchTranslationRelated(textData.books, searchInput, nextLimit)
+      : searchTranslation(textData.books, searchInput, nextLimit)
+
+    setSearchResults(results)
+  }, [textData, searchInput, searchResults, searchMode])
   const handlePickSearchResult = useCallback((r) => {
     setBook(r.book)
     setChapter(r.chapter)
@@ -386,16 +408,17 @@ export default function App() {
 
         <div className="sidebar-section">
           <label className="sidebar-label" htmlFor="kw-search">Search this translation</label>
-          <div className="ref-row">
+          <div className="ref-row search-row">
             <input
               id="kw-search"
               className="ref-input"
-              placeholder="Search a word or phrase…"
+              placeholder="Search a word or phraseâ€¦"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
             <button className="go-btn" onClick={handleSearch}>Find</button>
+            <button className="go-btn" onClick={handleRelatedSearch}>Related</button>
           </div>
         </div>
 
@@ -422,7 +445,7 @@ export default function App() {
             value={compareId}
             onChange={(e) => setCompareId(e.target.value)}
           >
-            <option value="">— None —</option>
+            <option value="">â€” None â€”</option>
             {sortedTranslations
               .filter((t) => t.id !== activeId)
               .map((t) => (
@@ -493,6 +516,8 @@ export default function App() {
             query={searchInput}
             translationName={activeTranslation?.name}
             onPick={handlePickSearchResult}
+              onLoadMore={handleLoadMoreSearchResults}
+              searchMode={searchMode}
           />
         ) : (
           <>
@@ -508,6 +533,7 @@ export default function App() {
             )}
             <ReadingPane
               translation={activeTranslation}
+                textData={textData}
               refLabel={refLabel}
               verses={verses}
               loading={loading}
@@ -537,3 +563,10 @@ export default function App() {
     </div>
   )
 }
+
+
+
+
+
+
+

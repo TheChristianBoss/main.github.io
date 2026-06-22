@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+﻿import React, { useState, useEffect, useCallback } from 'react'
 import { STATUS } from '../data/catalog.js'
 import { isJesusVerse } from '../utils/jesusVerses.js'
 import { verseKey } from '../utils/verseKey.js'
@@ -10,6 +10,7 @@ import ShareVerseModal from './ShareVerseModal.jsx'
 import InterlinearView from './InterlinearView.jsx'
 import { useSwipeNavigation } from '../utils/useSwipeNavigation.js'
 import { getNextChapterRef, getPrevChapterRef } from '../utils/bookOrder.js'
+import { getVerses } from '../utils/reference.js'
 
 const pillClass = {
   [STATUS.OPEN]: 'open',
@@ -20,7 +21,7 @@ const pillClass = {
 const pillLabel = {
   [STATUS.OPEN]: 'Verified open license',
   [STATUS.PENDING]: 'Pending license review',
-  [STATUS.RESTRICTED]: 'Restricted — see source',
+  [STATUS.RESTRICTED]: 'Restricted â€” see source',
 }
 
 function LicenseNote({ translation }) {
@@ -73,11 +74,11 @@ function VerseColumn({
   const hasStrongs = !!translation.hasStrongs
   return (
     <div className="verse-block" style={{ fontSize: settings.fontSize }}>
-      {loading && <p>Loading…</p>}
+      {loading && <p>Loadingâ€¦</p>}
       {!loading && verses.length === 0 && (
         <div className="empty-state">
           No text found for this reference in {translation.name}. Try a
-          different book or chapter — this translation's data file may not
+          different book or chapter â€” this translation's data file may not
           include every passage yet.
         </div>
       )}
@@ -111,6 +112,7 @@ function VerseColumn({
 
 export default function ReadingPane({
   translation,
+  textData,
   refLabel,
   verses,
   loading,
@@ -175,6 +177,12 @@ export default function ReadingPane({
   // verses come in without book/chapter attached per-item from the parent's
   // getVerses() helper, so stamp them on here for the bookmark/highlight keys.
   const stamped = verses.map((v) => ({ ...v, book: refLabel.book, chapter: refLabel.chapter }))
+
+  const fullChapterVerses = textData
+    ? getVerses(textData.books, { book: refLabel.book, chapter: refLabel.chapter })
+        .map((v) => ({ ...v, book: refLabel.book, chapter: refLabel.chapter }))
+    : stamped
+
   const stampedCompare = compareVerses
     ? compareVerses.map((v) => ({ ...v, book: refLabel.book, chapter: refLabel.chapter }))
     : null
@@ -197,7 +205,7 @@ export default function ReadingPane({
           aria-label="Previous chapter"
           title="Previous chapter"
         >
-          ‹
+          â€¹
         </button>
       )}
       {onNextChapter && hasNextChapter && (
@@ -208,7 +216,7 @@ export default function ReadingPane({
           aria-label="Next chapter"
           title="Next chapter"
         >
-          ›
+          â€º
         </button>
       )}
 
@@ -228,7 +236,7 @@ export default function ReadingPane({
               onClick={onPrevChapter}
               disabled={!hasPrevChapter}
             >
-              ‹ Prev
+              â€¹ Prev
             </button>
           )}
           {onNextChapter && (
@@ -238,7 +246,7 @@ export default function ReadingPane({
               onClick={onNextChapter}
               disabled={!hasNextChapter}
             >
-              Next ›
+              Next â€º
             </button>
           )}
           <button
@@ -343,6 +351,8 @@ export default function ReadingPane({
       {shareVerse && (
         <ShareVerseModal
           verse={shareVerse}
+          shownVerses={stamped}
+          chapterVerses={fullChapterVerses}
           translationName={translation.name}
           onClose={() => setShareVerse(null)}
         />
@@ -350,3 +360,5 @@ export default function ReadingPane({
     </div>
   )
 }
+
+
