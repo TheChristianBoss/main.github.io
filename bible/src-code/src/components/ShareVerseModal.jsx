@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { isGrammarTag, parseStrongsText, tagNumber } from '../utils/strongs.js'
 
-const CANVAS_SIZE = 1080 // square, share-friendly (Instagram/Stories crop fine from square)
+const WIDTH = 1080
 
 const THEMES = {
   parchment: {
@@ -9,6 +10,7 @@ const THEMES = {
     ink: '#f0ede6',
     accent: '#c9a84c',
     sub: '#8a8070',
+    panel: 'rgba(255,255,255,0.045)',
   },
   midnight: {
     label: 'Midnight',
@@ -16,6 +18,7 @@ const THEMES = {
     ink: '#eef2fa',
     accent: '#7aa2c4',
     sub: '#9aa7bd',
+    panel: 'rgba(255,255,255,0.05)',
   },
   sage: {
     label: 'Sage',
@@ -23,6 +26,7 @@ const THEMES = {
     ink: '#f0f4ec',
     accent: '#8fae78',
     sub: '#a9b59e',
+    panel: 'rgba(255,255,255,0.05)',
   },
   cream: {
     label: 'Cream',
@@ -30,20 +34,63 @@ const THEMES = {
     ink: '#262017',
     accent: '#9c6b2e',
     sub: '#6b6150',
+    panel: 'rgba(0,0,0,0.035)',
   },
 }
 
-function stripStrongsTags(text) {
-  return text ? text.replace(/\{[^}]+\}/g, '') : text
+function hasStrongsTags(text) {
+  return /\{[HG]\d+\}/.test(String(text || ''))
 }
 
-/** Greedy word-wrap onto a canvas context, returning the wrapped lines. */
+function stripTags(text) {
+  return String(text || '').replace(/\{[^}]+\}/g, '')
+}
+
+function unique(items) {
+  return [...new Set(items.filter(Boolean))]
+}
+
+function cleanText(text, includeStrongs) {
+  if (!includeStrongs) return stripTags(text).replace(/\s+/g, ' ').trim()
+
+  return parseStrongsText(text)
+    .map((seg) => {
+      if (seg.type === 'text') return seg.content
+
+      const nums = unique(
+        seg.tags
+          .filter((tag) => !isGrammarTag(tag))
+          .map(tagNumber)
+          .filter((num) => /^[HG]\d+$/.test(num))
+      )
+
+      return nums.length ? `${seg.text} (${nums.join(', ')})` : seg.text
+    })
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function rangeLabel(verses) {
+  if (!verses?.length) return ''
+  const first = verses[0]
+  const last = verses[verses.length - 1]
+
+  if (verses.length === 1 || first.verse === last.verse) {
+    return `${first.book} ${first.chapter}:${first.verse}`
+  }
+
+  return `${first.book} ${first.chapter}:${first.verse}-${last.verse}`
+}
+
 function wrapLines(ctx, text, maxWidth) {
-  const words = text.split(/\s+/)
+  const words = String(text || '').split(/\s+/).filter(Boolean)
   const lines = []
   let line = ''
+
   for (const word of words) {
     const trial = line ? `${line} ${word}` : word
+
     if (ctx.measureText(trial).width > maxWidth && line) {
       lines.push(line)
       line = word
@@ -51,87 +98,166 @@ function wrapLines(ctx, text, maxWidth) {
       line = trial
     }
   }
+
   if (line) lines.push(line)
   return lines
 }
 
-function draw(canvas, { text, reference, translationName, theme }) {
-  const ctx = canvas.getContext('2d')
-  const size = CANVAS_SIZE
-  canvas.width = size
-  canvas.height = size
-
-  const t = THEMES[theme] || THEMES.parchment
-
-  // Background gradient
-  const grad = ctx.createLinearGradient(0, 0, size, size)
-  grad.addColorStop(0, t.bg[0])
-  grad.addColorStop(1, t.bg[1])
+function background(ctx, width, height, theme) {
+  const grad = ctx.createLinearGradient(0, 0, width, height)
+  grad.addColorStop(0, theme.bg[0])
+  grad.addColorStop(1, theme.bg[1])
   ctx.fillStyle = grad
-  ctx.fillRect(0, 0, size, size)
+  ctx.fillRect(0, 0, width, height)
+}
 
-  // Subtle corner rule, echoing the site's gold-rule aesthetic
-  ctx.strokeStyle = t.accent
-  ctx.globalAlpha = 0.5
-  ctx.lineWidth = 2
-  const pad = 64
-  ctx.beginPath()
-  ctx.moveTo(pad, pad + 24)
-  ctx.lineTo(pad, pad)
-  ctx.lineTo(pad + 24, pad)
-  ctx.moveTo(size - pad - 24, size - pad)
-  ctx.lineTo(size - pad, size - pad)
-  ctx.lineTo(size - pad, size - pad - 24)
-  ctx.stroke()
-  ctx.globalAlpha = 1
+function drawQuote(canvas, { verse, reference, translationName, theme, includeStrongs }) {
+  const width = WIDTH
+  const height = WIDTH
+  canvas.width = width
+  canvas.height = height
 
-  const maxWidth = size - pad * 2 - 40
+  const ctx = canvas.getContext('2d')
+  background(ctx, width, height, theme)
 
-  // Verse text, vertically centered
-  const cleanText = stripStrongsTags(text).trim()
-  const quoted = `\u201C${cleanText}\u201D`
+  const text = `"${cleanText(verse.text, includeStrongs)}"`
+  const maxWidth = width - 150
 
-  let fontSize = cleanText.length > 220 ? 38 : cleanText.length > 120 ? 46 : 56
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = t.ink
+  let fontSize =
+    text.length > 420 ? 26 :
+    text.length > 300 ? 30 :
+    text.length > 220 ? 38 :
+    text.length > 120 ? 46 :
+    56
+
   ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillStyle = theme.ink
 
-  let lines, lineHeight
+  let lines
+  let lineHeight
+
   do {
     ctx.font = `400 ${fontSize}px Crimson Text, Georgia, serif`
     lineHeight = fontSize * 1.42
-    lines = wrapLines(ctx, quoted, maxWidth)
+    lines = wrapLines(ctx, text, maxWidth)
     fontSize -= 2
-  } while (lines.length * lineHeight > size * 0.6 && fontSize > 22)
+  } while (lines.length * lineHeight > height * 0.62 && fontSize > 18)
 
-  const blockHeight = lines.length * lineHeight
-  const startY = size / 2 - blockHeight / 2 + lineHeight * 0.7
+  const startY = height / 2 - (lines.length * lineHeight) / 2 + lineHeight
 
   lines.forEach((line, i) => {
-    ctx.fillText(line, size / 2, startY + i * lineHeight)
+    ctx.fillText(line, width / 2, startY + i * lineHeight)
   })
 
-  // Reference, below the verse
-  const refY = startY + lines.length * lineHeight + 46
-  ctx.font = `600 30px Cinzel, Georgia, serif`
-  ctx.fillStyle = t.accent
-  ctx.fillText(reference, size / 2, refY)
+  ctx.font = '600 30px Cinzel, Georgia, serif'
+  ctx.fillStyle = theme.accent
+  ctx.fillText(reference, width / 2, startY + lines.length * lineHeight + 46)
 
-  // Translation name + watermark, bottom
-  ctx.font = `400 22px Inter, sans-serif`
-  ctx.fillStyle = t.sub
-  ctx.fillText(translationName || '', size / 2, size - pad - 14)
+  ctx.font = '400 22px Inter, sans-serif'
+  ctx.fillStyle = theme.sub
+  ctx.fillText(translationName || '', width / 2, height - 76)
 }
 
-export default function ShareVerseModal({ verse, translationName, onClose }) {
+function drawPassage(canvas, { verses, reference, translationName, theme, includeStrongs }) {
+  const width = WIDTH
+  const pad = 70
+  const maxTextWidth = width - 210
+  const totalChars = verses.reduce((sum, v) => sum + String(v.text || '').length, 0)
+
+  const fontSize =
+    totalChars > 6500 ? 17 :
+    totalChars > 4500 ? 19 :
+    totalChars > 2800 ? 22 :
+    totalChars > 1500 ? 26 :
+    31
+
+  const lineHeight = fontSize * 1.38
+
+  canvas.width = width
+  canvas.height = 10
+
+  let ctx = canvas.getContext('2d')
+  ctx.font = `400 ${fontSize}px Crimson Text, Georgia, serif`
+
+  const measured = verses.map((v) => ({
+    verse: v.verse,
+    lines: wrapLines(ctx, cleanText(v.text, includeStrongs), maxTextWidth),
+  }))
+
+  const textHeight = measured.reduce(
+    (sum, item) => sum + item.lines.length * lineHeight + fontSize * 0.75,
+    0
+  )
+
+  const height = Math.max(1080, Math.ceil(260 + textHeight + 90))
+
+  canvas.width = width
+  canvas.height = height
+  ctx = canvas.getContext('2d')
+
+  background(ctx, width, height, theme)
+
+  ctx.textAlign = 'center'
+  ctx.font = '600 38px Cinzel, Georgia, serif'
+  ctx.fillStyle = theme.accent
+  ctx.fillText(reference, width / 2, 115)
+
+  ctx.font = '400 20px Inter, sans-serif'
+  ctx.fillStyle = theme.sub
+  ctx.fillText(translationName || '', width / 2, 150)
+
+  ctx.fillStyle = theme.panel
+  ctx.fillRect(pad - 22, 185, width - pad * 2 + 44, height - 250)
+
+  let y = 235
+
+  measured.forEach((item) => {
+    ctx.textAlign = 'right'
+    ctx.font = `700 ${Math.max(14, fontSize - 5)}px Inter, sans-serif`
+    ctx.fillStyle = theme.accent
+    ctx.fillText(String(item.verse), pad + 32, y)
+
+    ctx.textAlign = 'left'
+    ctx.font = `400 ${fontSize}px Crimson Text, Georgia, serif`
+    ctx.fillStyle = theme.ink
+
+    item.lines.forEach((line, i) => {
+      ctx.fillText(line, pad + 60, y + i * lineHeight)
+    })
+
+    y += item.lines.length * lineHeight + fontSize * 0.75
+  })
+}
+
+export default function ShareVerseModal({
+  verse,
+  shownVerses = [],
+  chapterVerses = [],
+  translationName,
+  onClose,
+}) {
   const canvasRef = useRef(null)
   const [theme, setTheme] = useState('parchment')
   const [busy, setBusy] = useState(false)
   const [fontsReady, setFontsReady] = useState(false)
+  const [includeStrongs, setIncludeStrongs] = useState(false)
+  const [scope, setScope] = useState('verse')
+
+  const verseHasStrongs =
+    hasStrongsTags(verse?.text) ||
+    shownVerses.some((v) => hasStrongsTags(v.text)) ||
+    chapterVerses.some((v) => hasStrongsTags(v.text))
+
+  const selectedVerses = useMemo(() => {
+    if (scope === 'shown') return shownVerses.length ? shownVerses : [verse]
+    if (scope === 'chapter') return chapterVerses.length ? chapterVerses : shownVerses.length ? shownVerses : [verse]
+    return [verse]
+  }, [scope, shownVerses, chapterVerses, verse])
+
+  const reference = rangeLabel(selectedVerses)
 
   useEffect(() => {
-    // Make sure the webfonts are actually loaded before the first canvas
-    // paint, or the image renders in a fallback font.
     if (document.fonts?.ready) {
       document.fonts.ready.then(() => setFontsReady(true))
     } else {
@@ -141,13 +267,28 @@ export default function ShareVerseModal({ verse, translationName, onClose }) {
 
   useEffect(() => {
     if (!fontsReady || !canvasRef.current || !verse) return
-    draw(canvasRef.current, {
-      text: verse.text,
-      reference: `${verse.book} ${verse.chapter}:${verse.verse}`,
-      translationName,
-      theme,
-    })
-  }, [fontsReady, verse, translationName, theme])
+
+    const t = THEMES[theme] || THEMES.parchment
+    const shouldIncludeStrongs = verseHasStrongs && includeStrongs
+
+    if (scope === 'verse') {
+      drawQuote(canvasRef.current, {
+        verse,
+        reference,
+        translationName,
+        theme: t,
+        includeStrongs: shouldIncludeStrongs,
+      })
+    } else {
+      drawPassage(canvasRef.current, {
+        verses: selectedVerses,
+        reference,
+        translationName,
+        theme: t,
+        includeStrongs: shouldIncludeStrongs,
+      })
+    }
+  }, [fontsReady, verse, selectedVerses, reference, translationName, theme, includeStrongs, verseHasStrongs, scope])
 
   if (!verse) return null
 
@@ -161,7 +302,7 @@ export default function ShareVerseModal({ verse, translationName, onClose }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${verse.book}-${verse.chapter}-${verse.verse}.png`
+      a.download = `${reference.replace(/[:\s]/g, '-')}.png`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -175,20 +316,17 @@ export default function ShareVerseModal({ verse, translationName, onClose }) {
     setBusy(true)
     try {
       const blob = await getBlob()
-      const file = new File([blob], `${verse.book}-${verse.chapter}-${verse.verse}.png`, {
+      const file = new File([blob], `${reference.replace(/[:\s]/g, '-')}.png`, {
         type: 'image/png',
       })
+
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `${verse.book} ${verse.chapter}:${verse.verse}`,
-        })
+        await navigator.share({ files: [file], title: reference })
       } else {
         await handleDownload()
       }
     } catch {
-      // User cancelled the native share sheet, or share isn't supported --
-      // either way, no error state needed here.
+      // user cancelled or sharing unsupported
     } finally {
       setBusy(false)
     }
@@ -198,9 +336,34 @@ export default function ShareVerseModal({ verse, translationName, onClose }) {
     <div className="share-modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="share-modal" role="dialog" aria-label="Share verse as image">
         <button className="strongs-popup-close" onClick={onClose} aria-label="Close">×</button>
+
         <div className="share-modal-preview">
           <canvas ref={canvasRef} className="share-modal-canvas" />
         </div>
+
+        <div className="share-scope-row">
+          <button type="button" className={`share-scope-btn ${scope === 'verse' ? 'active' : ''}`} onClick={() => setScope('verse')}>
+            This verse
+          </button>
+          <button type="button" className={`share-scope-btn ${scope === 'shown' ? 'active' : ''}`} onClick={() => setScope('shown')}>
+            Shown verses
+          </button>
+          <button type="button" className={`share-scope-btn ${scope === 'chapter' ? 'active' : ''}`} onClick={() => setScope('chapter')}>
+            Full chapter
+          </button>
+        </div>
+
+        {verseHasStrongs && (
+          <label className="share-strongs-toggle">
+            <input
+              type="checkbox"
+              checked={includeStrongs}
+              onChange={(e) => setIncludeStrongs(e.target.checked)}
+            />
+            Include Strong's numbers
+          </label>
+        )}
+
         <div className="share-theme-row">
           {Object.entries(THEMES).map(([key, t]) => (
             <button
@@ -213,12 +376,13 @@ export default function ShareVerseModal({ verse, translationName, onClose }) {
             />
           ))}
         </div>
+
         <div className="share-modal-actions">
           <button type="button" className="go-btn" onClick={handleDownload} disabled={busy}>
             Download
           </button>
           <button type="button" className="go-btn" onClick={handleShare} disabled={busy}>
-            Share…
+            Share...
           </button>
         </div>
       </div>
