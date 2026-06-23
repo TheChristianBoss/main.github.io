@@ -21,7 +21,7 @@ const pillClass = {
 const pillLabel = {
   [STATUS.OPEN]: 'Verified open license',
   [STATUS.PENDING]: 'Pending license review',
-  [STATUS.RESTRICTED]: 'Restricted â€” see source',
+  [STATUS.RESTRICTED]: 'Restricted - see source',
 }
 
 function LicenseNote({ translation }) {
@@ -74,11 +74,11 @@ function VerseColumn({
   const hasStrongs = !!translation.hasStrongs
   return (
     <div className="verse-block" style={{ fontSize: settings.fontSize }}>
-      {loading && <p>Loadingâ€¦</p>}
+      {loading && <p>Loading...</p>}
       {!loading && verses.length === 0 && (
         <div className="empty-state">
           No text found for this reference in {translation.name}. Try a
-          different book or chapter â€” this translation's data file may not
+          different book or chapter - this translation's data file may not
           include every passage yet.
         </div>
       )}
@@ -204,8 +204,8 @@ export default function ReadingPane({
           onClick={onPrevChapter}
           aria-label="Previous chapter"
           title="Previous chapter"
-        >
-          â€¹
+          >
+            {"<"}
         </button>
       )}
       {onNextChapter && hasNextChapter && (
@@ -215,8 +215,8 @@ export default function ReadingPane({
           onClick={onNextChapter}
           aria-label="Next chapter"
           title="Next chapter"
-        >
-          â€º
+          >
+            {">"}
         </button>
       )}
 
@@ -235,8 +235,8 @@ export default function ReadingPane({
               className="top-nav-toggle"
               onClick={onPrevChapter}
               disabled={!hasPrevChapter}
-            >
-              â€¹ Prev
+          >
+              {"< Prev"}
             </button>
           )}
           {onNextChapter && (
@@ -245,8 +245,8 @@ export default function ReadingPane({
               className="top-nav-toggle"
               onClick={onNextChapter}
               disabled={!hasNextChapter}
-            >
-              Next â€º
+          >
+              {"Next >"}
             </button>
           )}
           <button
@@ -360,5 +360,6 @@ export default function ReadingPane({
     </div>
   )
 }
+
 
 

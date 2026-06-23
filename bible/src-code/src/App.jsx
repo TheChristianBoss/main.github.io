@@ -160,7 +160,7 @@ export default function App() {
     if (!parsed) {
       setRefError(
         refInput.trim()
-          ? `Couldn't recognize "${refInput.trim()}" as a passage â€” try a format like "Genesis 1:1-9" or "Jn 3:16".`
+          ? `Couldn't recognize "${refInput.trim()}" as a passage - try a format like "Genesis 1:1-9" or "Jn 3:16".`
           : 'Type a reference first, e.g. "Genesis 1:1-9".'
       )
       return
@@ -412,7 +412,7 @@ export default function App() {
             <input
               id="kw-search"
               className="ref-input"
-              placeholder="Search a word or phraseâ€¦"
+              placeholder="Search a word or phrase..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -445,7 +445,7 @@ export default function App() {
             value={compareId}
             onChange={(e) => setCompareId(e.target.value)}
           >
-            <option value="">â€” None â€”</option>
+            <option value="">- None -</option>
             {sortedTranslations
               .filter((t) => t.id !== activeId)
               .map((t) => (
