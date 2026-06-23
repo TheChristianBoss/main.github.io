@@ -346,7 +346,8 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">`r`n      <SharedNav />
+    <div className="app-shell">
+      <SharedNav />
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">Open Bible Library</span>
