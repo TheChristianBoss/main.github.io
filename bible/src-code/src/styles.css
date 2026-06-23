@@ -1518,3 +1518,33 @@ select.picker {
     padding: 10px 12px;
   }
 }
+
+/* Shared nav: no hamburger button in Bible app */
+.cg-nav__toggle {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .cg-nav {
+    flex-wrap: wrap;
+  }
+
+  .cg-nav__links {
+    display: flex !important;
+    position: static !important;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .cg-nav__links a {
+    padding: 4px 0 !important;
+  }
+}
