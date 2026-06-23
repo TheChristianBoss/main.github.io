@@ -63,6 +63,7 @@ function VerseColumn({
   bookmarkSet,
   highlights,
   onToggleBookmark,
+  onSavePassageBookmark,
   onSetHighlight,
   onWordClick,
   onShowCrossRefs,
@@ -256,6 +257,24 @@ export default function ReadingPane({
           >
             {interlinearOpen ? 'Hide interlinear' : 'Interlinear'}
           </button>
+          {onSavePassageBookmark && stamped.length > 0 && (
+            <button
+              type="button"
+              className="top-nav-toggle"
+              onClick={() => onSavePassageBookmark({ translation, verses: stamped, scope: 'shown' })}
+            >
+              Bookmark shown verses
+            </button>
+          )}
+          {onSavePassageBookmark && fullChapterVerses.length > 0 && (
+            <button
+              type="button"
+              className="top-nav-toggle"
+              onClick={() => onSavePassageBookmark({ translation, verses: fullChapterVerses, scope: 'chapter' })}
+            >
+              Bookmark full chapter
+            </button>
+          )}
         </div>
       </div>
 
@@ -354,6 +373,8 @@ export default function ReadingPane({
           shownVerses={stamped}
           chapterVerses={fullChapterVerses}
           translationName={translation.name}
+          translationId={translation.id}
+          highlights={highlights}
           onClose={() => setShareVerse(null)}
         />
       )}

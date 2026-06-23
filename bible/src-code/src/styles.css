@@ -1548,3 +1548,33 @@ select.picker {
     padding: 4px 0 !important;
   }
 }
+
+
+.bookmark-passage-verse {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1.55;
+}
+
+.bookmark-passage-verse-num {
+  color: var(--color-gold-dark);
+  font-family: var(--font-utility);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.passage-bookmark-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.passage-bookmark-actions .top-nav-toggle {
+  font-size: 12px;
+}
+

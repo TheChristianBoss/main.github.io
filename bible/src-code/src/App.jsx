@@ -291,6 +291,52 @@ export default function App() {
     [setBookmarks]
   )
 
+  const handleSavePassageBookmark = useCallback(
+    ({ translation, verses, scope }) => {
+      if (!translation || !Array.isArray(verses) || verses.length === 0) return
+
+      const cleanVerses = verses.map((v) => ({
+        book: v.book,
+        chapter: Number(v.chapter),
+        verse: Number(v.verse),
+        text: v.text,
+      }))
+
+      const first = cleanVerses[0]
+      const last = cleanVerses[cleanVerses.length - 1]
+      const range = first.verse === last.verse ? String(first.verse) : `${first.verse}-${last.verse}`
+      const key = `passage:${translation.id}:${first.book}:${first.chapter}:${range}`
+
+      setBookmarks((prev) => {
+        const nextBookmark = {
+          key,
+          type: 'passage',
+          scope: scope || 'shown',
+          translationId: translation.id,
+          translationName: translation.name,
+          hasStrongs: !!translation.hasStrongs,
+          book: first.book,
+          chapter: first.chapter,
+          verse: first.verse,
+          verseStart: first.verse,
+          verseEnd: last.verse,
+          text: cleanVerses.map((v) => `${v.verse}. ${v.text}`).join('\n'),
+          verses: cleanVerses,
+          addedAt: Date.now(),
+        }
+
+        if (prev.some((b) => b.key === key)) {
+          return prev.map((b) =>
+            b.key === key ? { ...nextBookmark, addedAt: b.addedAt } : b
+          )
+        }
+
+        return [...prev, nextBookmark]
+      })
+    },
+    [setBookmarks]
+  )
+
   const handleRemoveBookmark = useCallback(
     (key) => setBookmarks((prev) => prev.filter((b) => b.key !== key)),
     [setBookmarks]
@@ -300,7 +346,9 @@ export default function App() {
     setActiveId(b.translationId)
     setBook(b.book)
     setChapter(Number(b.chapter))
-    setVerseRangeInput(String(b.verse))
+    const start = b.verseStart ?? b.verse
+    const end = b.verseEnd
+    setVerseRangeInput(end && Number(end) !== Number(start) ? `${start}-${end}` : String(start))
     setSearchResults(null)
     setView('read')
   }, [])
@@ -543,7 +591,8 @@ export default function App() {
               bookmarkSet={bookmarkSet}
               highlights={highlights}
               onToggleBookmark={handleToggleBookmark}
-              onSetHighlight={handleSetHighlight}
+                onSavePassageBookmark={handleSavePassageBookmark}
+                onSetHighlight={handleSetHighlight}
               compareTranslation={compareTranslation}
               compareVerses={compareVerses}
               compareLoading={compareLoading}
