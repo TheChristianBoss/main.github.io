@@ -18,6 +18,7 @@ import ReaderSettingsControl from './components/ReaderSettingsControl.jsx'
 import DailyVerse from './components/DailyVerse.jsx'
 import BookmarksPanel from './components/BookmarksPanel.jsx'
 import ConcordancePage from './components/ConcordancePage.jsx'
+import SharedNav from './components/SharedNav.jsx'
 import ShareVerseModal from './components/ShareVerseModal.jsx'
 
 function sortByLanguageThenName(list) {
@@ -345,7 +346,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell">`r`n      <SharedNav />
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">Open Bible Library</span>
@@ -563,6 +564,7 @@ export default function App() {
     </div>
   )
 }
+
 
 
 
