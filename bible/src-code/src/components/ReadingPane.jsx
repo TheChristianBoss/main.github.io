@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { STATUS } from '../data/catalog.js'
 import { isJesusVerse } from '../utils/jesusVerses.js'
 import { verseKey } from '../utils/verseKey.js'
@@ -121,6 +121,7 @@ export default function ReadingPane({
   bookmarkSet,
   highlights,
   onToggleBookmark,
+  onSavePassageBookmark,
   onSetHighlight,
   compareTranslation,
   compareVerses,
