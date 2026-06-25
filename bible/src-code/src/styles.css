@@ -860,9 +860,12 @@ select.picker {
 }
 
 .strongs-popup {
-  position: absolute;
-  z-index: 100;
-  max-width: 320px;
+  position: fixed;
+  z-index: 1000;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  box-sizing: border-box;
   background: var(--color-parchment-deep);
   border: 1px solid var(--color-rule-strong);
   border-radius: var(--radius-md);
@@ -872,6 +875,7 @@ select.picker {
   font-size: 13px;
   line-height: 1.55;
   color: var(--color-ink);
+  overflow-wrap: anywhere;
 }
 
 .strongs-popup-close {

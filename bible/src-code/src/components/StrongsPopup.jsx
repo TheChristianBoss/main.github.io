@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 /**
  * One entry's worth of content inside the popup. `entry` is a record from
@@ -61,8 +61,13 @@ function StrongsEntryView({ entry, number }) {
   )
 }
 
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max)
+}
+
 export default function StrongsPopup({ word, entries, position, onClose }) {
   const popupRef = useRef(null)
+  const [coords, setCoords] = useState(null)
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -84,13 +89,62 @@ export default function StrongsPopup({ word, entries, position, onClose }) {
     }
   }, [onClose])
 
+  useLayoutEffect(() => {
+    if (!position) return undefined
+
+    const placePopup = () => {
+      const popup = popupRef.current
+      if (!popup) return
+
+      const margin = 12
+      const gap = 8
+      const width = popup.offsetWidth || Math.min(360, window.innerWidth - margin * 2)
+      const height = popup.offsetHeight || Math.min(420, window.innerHeight - margin * 2)
+
+      // Callers store document coordinates. Fixed positioning needs viewport coordinates.
+      const desiredLeft = Number(position.left || 0) - window.scrollX
+      const desiredTop = Number(position.top || 0) - window.scrollY
+
+      let left = clamp(desiredLeft, margin, Math.max(margin, window.innerWidth - width - margin))
+      let top = desiredTop
+
+      // Prefer below the clicked word, but keep the whole panel visible. If there
+      // is not enough space below, place it higher instead of letting it run offscreen.
+      if (top + height > window.innerHeight - margin) {
+        top = window.innerHeight - height - margin
+      }
+
+      // If the popup was opened near the top, keep it on screen.
+      top = clamp(top, margin, Math.max(margin, window.innerHeight - height - margin))
+
+      // Nudge slightly away from the word when it has been clamped upward.
+      if (top < desiredTop && desiredTop - height - gap >= margin) {
+        top = desiredTop - height - gap
+      }
+
+      setCoords({ top, left })
+    }
+
+    placePopup()
+    window.addEventListener('resize', placePopup)
+    window.addEventListener('scroll', placePopup, true)
+    return () => {
+      window.removeEventListener('resize', placePopup)
+      window.removeEventListener('scroll', placePopup, true)
+    }
+  }, [position])
+
   if (!position) return null
 
   return (
     <div
       ref={popupRef}
       className="strongs-popup"
-      style={{ top: position.top, left: position.left }}
+      style={{
+        top: coords ? coords.top : -9999,
+        left: coords ? coords.left : -9999,
+        visibility: coords ? 'visible' : 'hidden',
+      }}
       role="dialog"
       aria-label={`Strong's definition for ${word}`}
     >
