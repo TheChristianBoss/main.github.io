@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product — Christian Goblin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0d0d;
+      --surface:  #161616;
+      --border:   #2a2a2a;
+      --text:     #e8e2d9;
+      --muted:    #6b6560;
+      --gold:     #c9a84c;
+      --gold-dim: #8a6f2e;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13,13,13,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      font-family: 'Cinzel', serif;
+      font-weight: 900;
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+      text-decoration: none;
+    }
+
+    .logo span { color: var(--text); font-weight: 700; }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .back-btn, .cart-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      text-decoration: none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .back-btn:hover, .cart-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    .cart-count {
+      background: var(--gold);
+      color: #000;
+      font-weight: 700;
+      font-size: 11px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Layout ── */
+    .product-layout {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 64px 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: start;
+    }
+
+    @media (max-width: 768px) {
+      .product-layout {
+        grid-template-columns: 1fr;
+        gap: 40px;
+        padding: 40px 1.5rem;
+      }
+    }
+
+    /* ── Image gallery ── */
+    .gallery { position: sticky; top: 80px; }
+
+    .main-image {
+      aspect-ratio: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .main-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: opacity 0.2s;
+    }
+
+    .thumbs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .thumb {
+      width: 64px;
+      height: 64px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.2s;
+      flex-shrink: 0;
+    }
+
+    .thumb.active { border-color: var(--gold); }
+
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* ── Info panel ── */
+    .product-info {}
+
+    .product-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+
+    .product-name {
+      font-family: 'Cinzel', serif;
+      font-weight: 900;
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      line-height: 1.15;
+      margin-bottom: 20px;
+    }
+
+    .product-price {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--gold);
+      margin-bottom: 32px;
+    }
+
+    .product-description {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+      margin-bottom: 28px;
+      border-left: 2px solid var(--border);
+      padding-left: 16px;
+    }
+
+    /* ── Selectors ── */
+    .selector-group { margin-bottom: 24px; }
+
+    .selector-label {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .selector-label strong { color: var(--text); letter-spacing: 0; text-transform: none; font-size: 13px; }
+
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .option-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: none;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+    }
+
+    .option-btn:hover { border-color: var(--gold-dim); }
+
+    .option-btn.selected {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.08);
+      color: var(--gold);
+    }
+
+    .option-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+
+
+
+    .product-note {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .product-note strong { color: var(--text); }
+
+    .mini-link {
+      color: var(--gold);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(201,168,76,0.35);
+    }
+
+    .mini-link:hover { border-bottom-color: var(--gold); }
+
+    .trust-panel {
+      border-top: 1px solid var(--border);
+      margin-top: 28px;
+      padding-top: 22px;
+      display: grid;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .trust-row { display: flex; gap: 10px; align-items: flex-start; }
+    .trust-row strong { color: var(--text); display: block; font-size: 13px; }
+
+    .stock-msg {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: -12px;
+      margin-bottom: 20px;
+    }
+
+    .stock-msg.good { color: var(--gold); }
+
+    /* ── Quantity ── */
+    .qty-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .qty-label {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      min-width: 80px;
+    }
+
+    .qty-control {
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .qty-btn {
+      width: 36px;
+      height: 36px;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .qty-btn:hover { background: var(--surface); }
+
+    .qty-val {
+      width: 40px;
+      text-align: center;
+      font-size: 15px;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      padding: 0 4px;
+      line-height: 36px;
+    }
+
+    /* ── Add to cart ── */
+    .add-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--gold);
+      border: none;
+      border-radius: 4px;
+      color: #0d0d0d;
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-bottom: 12px;
+    }
+
+    .add-btn:hover { opacity: 0.9; }
+    .add-btn:active { transform: scale(0.99); }
+    .add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .add-feedback {
+      text-align: center;
+      font-size: 13px;
+      color: var(--gold);
+      height: 20px;
+      transition: opacity 0.3s;
+    }
+
+    /* ── States ── */
+    .loading-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .error-state {
+      text-align: center;
+      padding: 80px 2rem;
+      color: var(--muted);
+    }
+
+    .error-state strong { display: block; color: var(--text); margin-bottom: 8px; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--gold); }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/"><span>Christian</span>Goblin</a>
+  <div class="header-right">
+    <a class="back-btn" href="/store/">
+      ← Shop
+    </a>
+    <a class="cart-btn" href="/store/cart.html">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+      </svg>
+      Cart
+      <span class="cart-count" id="cartCount">0</span>
+    </a>
+  </div>
+</header>
+
+<div id="app">
+  <div class="loading-state">Loading product…</div>
+</div>
+
+<footer>
+  <p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p>
+</footer>
+
+<script>
+  const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
+
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[ch]));
+  }
+
+  function safeUrl(value) {
+    try {
+      const url = new URL(String(value || ''), window.location.origin);
+      return url.protocol === 'https:' || url.origin === window.location.origin ? url.href : '';
+    } catch { return ''; }
+  }
+
+  function money(value) {
+    const n = Number.parseFloat(value);
+    return Number.isFinite(n) ? n.toFixed(2) : '';
+  }
+
+  function clampQty(value) {
+    const n = Number.parseInt(value, 10);
+    return Math.max(1, Math.min(10, Number.isFinite(n) ? n : 1));
+  }
+
+  // ── Cart helpers ─────────────────────────────────────────────────────
+  function getCart() {
+    try { return JSON.parse(localStorage.getItem('cg_cart') || '[]'); } catch { return []; }
+  }
+
+  function saveCart(cart) {
+    const clean = cart
+      .filter(i => i && i.variant_id)
+      .map(i => ({
+        product_id: i.product_id,
+        product_name: String(i.product_name || 'Product'),
+        variant_id: String(i.variant_id),
+        variant_name: String(i.variant_name || 'Default'),
+        price: Number.parseFloat(i.price) || 0,
+        image: safeUrl(i.image),
+        quantity: clampQty(i.quantity),
+      }));
+    localStorage.setItem('cg_cart', JSON.stringify(clean));
+  }
+
+  function updateCartCount() {
+    const count = getCart().reduce((sum, i) => sum + clampQty(i.quantity), 0);
+    document.getElementById('cartCount').textContent = count;
+  }
+
+  function addToCart(item) {
+    const cart = getCart();
+    const existing = cart.find(i => String(i.variant_id) === String(item.variant_id));
+    if (existing) {
+      existing.quantity = clampQty(existing.quantity + item.quantity);
+    } else {
+      cart.push(item);
+    }
+    saveCart(cart);
+    updateCartCount();
+  }
+
+  updateCartCount();
+
+  // ── State ────────────────────────────────────────────────────────────
+  let product = null;
+  let selectedColor = null;
+  let selectedSize = null;
+  let quantity = 1;
+
+  function getSelectedVariant() {
+    if (!product) return null;
+    return product.variants.find(v =>
+      v.color === selectedColor && v.size === selectedSize
+    ) || null;
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────
+  function render() {
+    const variant = getSelectedVariant();
+
+    let priceDisplay = '';
+    if (variant) {
+      priceDisplay = `$${money(variant.price)}`;
+    } else {
+      const prices = product.variants.map(v => Number.parseFloat(v.price)).filter(Number.isFinite);
+      if (prices.length) priceDisplay = `From $${Math.min(...prices).toFixed(2)}`;
+    }
+
+    const colors = [...new Set(product.variants.map(v => v.color).filter(Boolean))];
+    const sizes  = [...new Set(product.variants.map(v => v.size).filter(Boolean))];
+
+    const availableSizes = selectedColor
+      ? new Set(product.variants.filter(v => v.color === selectedColor && v.in_stock).map(v => v.size))
+      : new Set(product.variants.filter(v => v.in_stock).map(v => v.size));
+
+    const mainImg = safeUrl((variant?.image) || (product.images[0]) || product.thumbnail);
+
+    document.getElementById('app').innerHTML = `
+      <div class="product-layout">
+        <div class="gallery">
+          <div class="main-image">
+            <img id="mainImg" src="${esc(mainImg)}" alt="${esc(product.name)}" />
+          </div>
+          ${product.images.length > 1 ? `
+            <div class="thumbs">
+              ${product.images.map((img, i) => `
+                <div class="thumb ${i === 0 ? 'active' : ''}" data-img="${esc(safeUrl(img))}" data-idx="${i}">
+                  <img src="${esc(safeUrl(img))}" alt="" loading="lazy" />
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="product-info">
+          <p class="product-eyebrow">Christian Goblin</p>
+          <h1 class="product-name">${esc(product.name)}</h1>
+          <p class="product-price" id="priceDisplay">${esc(priceDisplay)}</p>
+
+          ${product.description ? `<p class="product-description">${esc(product.description)}</p>` : ''}
+
+          <div class="product-note">
+            <strong>Made to order.</strong> Products are fulfilled through Printful after checkout. Shipping, taxes, and final availability are verified securely before payment.
+          </div>
+
+          ${colors.length > 0 ? `
+            <div class="selector-group">
+              <div class="selector-label">
+                Color ${selectedColor ? `<strong>${esc(selectedColor)}</strong>` : ''}
+              </div>
+              <div class="options" id="colorOptions">
+                ${colors.map(c => `
+                  <button class="option-btn ${c === selectedColor ? 'selected' : ''}" data-color="${esc(c)}">
+                    ${esc(c)}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${sizes.length > 0 ? `
+            <div class="selector-group">
+              <div class="selector-label">
+                Size ${selectedSize ? `<strong>${esc(selectedSize)}</strong>` : ''}
+              </div>
+              <div class="options" id="sizeOptions">
+                ${sizes.map(s => `
+                  <button class="option-btn ${s === selectedSize ? 'selected' : ''}"
+                    data-size="${esc(s)}" ${!availableSizes.has(s) ? 'disabled' : ''}>
+                    ${esc(s)}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <div class="qty-row">
+            <span class="qty-label">Qty</span>
+            <div class="qty-control">
+              <button class="qty-btn" id="qtyMinus">−</button>
+              <div class="qty-val" id="qtyVal">${quantity}</div>
+              <button class="qty-btn" id="qtyPlus">+</button>
+            </div>
+          </div>
+
+          <p class="stock-msg ${variant ? 'good' : ''}">
+            ${variant ? 'Selected option is ready for secure checkout.' : 'Choose an available color and size to continue.'}
+          </p>
+
+          <button class="add-btn" id="addBtn" ${!variant ? 'disabled' : ''}>
+            ${!variant ? 'Select Options' : 'Add to Cart'}
+          </button>
+          <div class="add-feedback" id="feedback"></div>
+
+          <div class="trust-panel">
+            <div class="trust-row"><span>↳</span><span><strong>Size guide</strong> For apparel, check the Printful sizing notes on the product/brand page before ordering. When unsure, size up.</span></div>
+            <div class="trust-row"><span>↳</span><span><strong>Shipping</strong> Shipping price and delivery options are calculated during Stripe checkout.</span></div>
+            <div class="trust-row"><span>↳</span><span><strong>Support</strong> Questions? Email <a class="mini-link" href="mailto:hello@christiangoblin.com">hello@christiangoblin.com</a>.</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    attachEvents();
+  }
+
+  function attachEvents() {
+    document.querySelectorAll('.thumb').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('mainImg').src = el.dataset.img;
+      });
+    });
+
+    document.querySelectorAll('[data-color]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedColor = btn.dataset.color;
+        selectedSize = null;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-size]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!btn.disabled) {
+          selectedSize = btn.dataset.size;
+          render();
+        }
+      });
+    });
+
+    document.getElementById('qtyMinus').addEventListener('click', () => {
+      quantity = clampQty(quantity - 1);
+      document.getElementById('qtyVal').textContent = quantity;
+    });
+
+    document.getElementById('qtyPlus').addEventListener('click', () => {
+      quantity = clampQty(quantity + 1);
+      document.getElementById('qtyVal').textContent = quantity;
+    });
+
+    document.getElementById('addBtn').addEventListener('click', () => {
+      const variant = getSelectedVariant();
+      if (!variant) return;
+
+      addToCart({
+        product_id: product.id,
+        product_name: product.name,
+        variant_id: variant.id,
+        variant_name: variant.name || variant.variant_name,
+        price: Number.parseFloat(variant.price) || 0,
+        image: variant.image || product.thumbnail,
+        quantity,
+      });
+
+      const feedback = document.getElementById('feedback');
+      feedback.textContent = '✓ Added to cart';
+      setTimeout(() => { feedback.textContent = ''; }, 2500);
+    });
+  }
+
+  // ── Fetch ────────────────────────────────────────────────────────────
+  async function loadProduct() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+
+    if (!id) {
+      document.getElementById('app').innerHTML = `
+        <div class="error-state">
+          <strong>No product specified.</strong>
+          <a href="/store/" style="color:var(--gold)">← Back to shop</a>
+        </div>`;
+      return;
+    }
+
+    try {
+      const res = await fetch(`${WORKER}/product?id=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (!res.ok || !data.product) throw new Error(data.error || 'Not found');
+
+      product = data.product;
+      product.images = Array.isArray(product.images) ? product.images : [];
+      product.variants = Array.isArray(product.variants) ? product.variants : [];
+
+      const colors = [...new Set(product.variants.map(v => v.color).filter(Boolean))];
+      const sizes  = [...new Set(product.variants.map(v => v.size).filter(Boolean))];
+      if (colors.length === 1) selectedColor = colors[0];
+      if (sizes.length === 1)  selectedSize  = sizes[0];
+
+      document.title = `${product.name} — Christian Goblin`;
+      render();
+    } catch (err) {
+      document.getElementById('app').innerHTML = `
+        <div class="error-state">
+          <strong>Product not found.</strong>
+          <p style="color:var(--muted);margin:8px 0 16px">${esc(err.message || '')}</p>
+          <a href="/store/" style="color:var(--gold)">← Back to shop</a>
+        </div>`;
+    }
+  }
+
+  loadProduct();
+</script>
+</body>
+</html>

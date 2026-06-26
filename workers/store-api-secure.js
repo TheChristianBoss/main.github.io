@@ -12,6 +12,7 @@
 //   GET  /products        → list all sync products
 //   GET  /product?id=     → single product with variants
 //   POST /checkout        → create Stripe Checkout session using server-trusted prices
+//   GET  /session?id=     → sanitized Stripe Checkout session summary for success page
 //   POST /webhook         → Stripe webhook → create Printful order
 
 const SITE = 'https://christiangoblin.com';
@@ -283,6 +284,17 @@ async function stripePost(path, env, params) {
   return data;
 }
 
+async function stripeGet(path, env) {
+  if (!env.STRIPE_SECRET_KEY) throw new Error('Missing STRIPE_SECRET_KEY');
+  const res = await fetch(`https://api.stripe.com/v1${path}`, {
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || 'Stripe request failed');
+  return data;
+}
+
 // ── Stripe webhook signature verification ────────────────────────────────────
 function parseStripeSignature(sigHeader) {
   const out = { t: '', v1: [] };
@@ -348,6 +360,24 @@ export default {
     const path = url.pathname.replace(/\/$/, '') || '/';
 
     try {
+      // ── GET /session?id= ─────────────────────────────────────────────────────
+      if (request.method === 'GET' && path === '/session') {
+        const sessionId = String(url.searchParams.get('id') || '').replace(/[^A-Za-z0-9_]/g, '');
+        if (!sessionId || !sessionId.startsWith('cs_')) return error(request, 'Missing or invalid session id');
+        const session = await stripeGet(`/checkout/sessions/${encodeURIComponent(sessionId)}`, env);
+        return json({
+          session: {
+            id: session.id,
+            status: session.status,
+            payment_status: session.payment_status,
+            amount_total: session.amount_total,
+            currency: session.currency,
+            customer_email: session.customer_details?.email || session.customer_email || '',
+            customer_name: session.customer_details?.name || '',
+          },
+        }, 200, request);
+      }
+
       // ── GET /products ──────────────────────────────────────────────────────
       if (request.method === 'GET' && (path === '/' || path === '/products')) {
         const { products } = await getAllProductsWithDetails(env, ctx);
