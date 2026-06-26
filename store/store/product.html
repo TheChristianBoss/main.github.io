@@ -446,9 +446,22 @@
   }
 
   function saveCart(cart) {
-    const clean = cart
-      .filter(i => i && i.variant_id)
-      .map(i => ({
+    const clean = (Array.isArray(cart) ? cart : []).map(i => {
+      if (i?.type === 'service') {
+        return {
+          type: 'service',
+          service_id: String(i.service_id || ''),
+          service_name: String(i.service_name || 'Service'),
+          price_cents: Number.parseInt(i.price_cents, 10) || 0,
+          quantity: Math.max(1, Math.min(3, Number.parseInt(i.quantity, 10) || 1)),
+          notes: String(i.notes || '').slice(0, 700),
+          deadline: String(i.deadline || '').slice(0, 120),
+          contact_preference: String(i.contact_preference || '').slice(0, 80),
+        };
+      }
+      if (!i?.variant_id) return null;
+      return {
+        type: 'physical',
         product_id: i.product_id,
         product_name: String(i.product_name || 'Product'),
         variant_id: String(i.variant_id),
@@ -456,7 +469,8 @@
         price: Number.parseFloat(i.price) || 0,
         image: safeUrl(i.image),
         quantity: clampQty(i.quantity),
-      }));
+      };
+    }).filter(Boolean);
     localStorage.setItem('cg_cart', JSON.stringify(clean));
   }
 
@@ -467,7 +481,7 @@
 
   function addToCart(item) {
     const cart = getCart();
-    const existing = cart.find(i => String(i.variant_id) === String(item.variant_id));
+    const existing = cart.find(i => i.type !== 'service' && String(i.variant_id) === String(item.variant_id));
     if (existing) {
       existing.quantity = clampQty(existing.quantity + item.quantity);
     } else {
@@ -643,6 +657,7 @@
       if (!variant) return;
 
       addToCart({
+        type: 'physical',
         product_id: product.id,
         product_name: product.name,
         variant_id: variant.id,

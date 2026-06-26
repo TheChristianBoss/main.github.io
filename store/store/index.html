@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Shop — Christian Goblin</title>
+  <title>Store — Christian Goblin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -326,6 +326,26 @@
     .store-help strong { color: var(--text); }
     .store-help a { color: var(--gold); }
 
+    .service-art {
+      height: 100%;
+      min-height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 28px;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(201,168,76,0.18), transparent 35%),
+        linear-gradient(135deg, rgba(139,26,26,0.18), rgba(201,168,76,0.08));
+      color: var(--gold);
+      font-family: 'Cinzel', serif;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .service-short { color: var(--muted); font-size: 13px; margin-top: 8px; min-height: 42px; }
+
     /* ── States ── */
     .loading-grid {
       display: grid;
@@ -406,21 +426,21 @@
 </header>
 
 <section class="hero">
-  <p class="hero-eyebrow">Official Merch</p>
-  <h1>The Goblin<br>Collection</h1>
-  <p>Wearable faith. Designed for the weird, the wandering, and the redeemed.</p>
+  <p class="hero-eyebrow">Merch & Services</p>
+  <h1>The Goblin<br>Store</h1>
+  <p>Wearable faith, practical services, and creative help for the weird, the wandering, and the redeemed.</p>
 </section>
 
 <main class="shop-section">
   <div class="shop-top">
     <div>
-      <p class="section-label">All Products</p>
+      <p class="section-label">Products & Services</p>
     </div>
-    <p class="store-note">Secure checkout is handled through Stripe. Product availability and pricing are verified by the store API before payment.</p>
+    <p class="store-note">Secure checkout is handled through Stripe. Product, service, and pricing details are verified by the store API before payment.</p>
   </div>
 
   <div class="shop-toolbar" aria-label="Store filters">
-    <input class="search-input" id="searchInput" type="search" placeholder="Search the store…" autocomplete="off" />
+    <input class="search-input" id="searchInput" type="search" placeholder="Search merch or services…" autocomplete="off" />
     <div class="filter-pills" id="filterPills" role="list" aria-label="Product categories"></div>
   </div>
   <p class="result-count" id="resultCount"></p>
@@ -458,7 +478,13 @@
     return Number.isFinite(n) ? n.toFixed(2) : '';
   }
 
+  function centsToDollars(cents) {
+    const n = Number.parseInt(cents, 10);
+    return Number.isFinite(n) ? (n / 100).toFixed(2) : '';
+  }
+
   function inferCategory(product) {
+    if (product?.type === 'service') return product.category || 'Services';
     const name = String(product?.name || '').toLowerCase();
     if (/hoodie|sweatshirt|crewneck/.test(name)) return 'Hoodies';
     if (/shirt|tee|t-shirt|tshirt/.test(name)) return 'Shirts';
@@ -517,7 +543,7 @@
     return ALL_PRODUCTS.filter(p => {
       const category = inferCategory(p);
       const matchesCategory = currentCategory === 'All' || category === currentCategory;
-      const haystack = `${p.name || ''} ${category}`.toLowerCase();
+      const haystack = `${p.name || ''} ${p.short || ''} ${category}`.toLowerCase();
       const matchesSearch = !q || haystack.includes(q);
       return matchesCategory && matchesSearch;
     });
@@ -534,30 +560,36 @@
     grid.className = 'grid';
 
     resultCount.textContent = ALL_PRODUCTS.length
-      ? `${products.length} of ${ALL_PRODUCTS.length} product${ALL_PRODUCTS.length !== 1 ? 's' : ''} shown`
+      ? `${products.length} of ${ALL_PRODUCTS.length} item${ALL_PRODUCTS.length !== 1 ? 's' : ''} shown`
       : '';
 
     if (!products.length) {
-      grid.innerHTML = '<p class="error-msg"><strong>No products match that search.</strong> Try another category or clear the search box.</p>';
+      grid.innerHTML = '<p class="error-msg"><strong>No items match that search.</strong> Try another category or clear the search box.</p>';
       return;
     }
 
     grid.innerHTML = products.map(p => {
-      const price = money(p.price);
       const category = inferCategory(p);
+      const isService = p.type === 'service';
+      const href = isService
+        ? `/store/service.html?id=${encodeURIComponent(String(p.id || ''))}`
+        : `/store/product.html?id=${encodeURIComponent(String(p.id || ''))}`;
+      const price = isService ? centsToDollars(p.price_cents) : money(p.price);
+      const image = safeUrl(p.thumbnail);
       return `
-        <a class="card" href="/store/product.html?id=${encodeURIComponent(String(p.id || ''))}">
+        <a class="card" href="${href}">
           <div class="card-image">
-            <img src="${esc(safeUrl(p.thumbnail))}" alt="${esc(p.name)}" loading="lazy" />
+            ${isService ? `<div class="service-art">Manual<br>Service</div>` : `<img src="${esc(image)}" alt="${esc(p.name)}" loading="lazy" />`}
           </div>
           <div class="card-body">
             <div class="card-name">${esc(p.name)}</div>
-            ${price ? `<div class="card-price">From $${price}</div>` : ''}
+            ${p.short ? `<p class="service-short">${esc(p.short)}</p>` : ''}
+            ${price ? `<div class="card-price">${isService ? '' : 'From '}$${price}</div>` : ''}
             <div class="card-meta">
               <span class="card-category">${esc(category)}</span>
-              <span>Secure checkout</span>
+              <span>${isService ? 'Paid request' : 'Secure checkout'}</span>
             </div>
-            <span class="card-cta">View Product →</span>
+            <span class="card-cta">${isService ? 'Request Service →' : 'View Product →'}</span>
           </div>
         </a>
       `;
@@ -565,12 +597,20 @@
   }
 
   async function loadProducts() {
-    renderSkeletons(3);
+    renderSkeletons(4);
     try {
-      const res = await fetch(`${WORKER}/products`);
-      const data = await res.json();
-      if (!res.ok || !data.products) throw new Error(data.error || 'Bad response');
-      ALL_PRODUCTS = data.products;
+      const [productRes, serviceRes] = await Promise.all([
+        fetch(`${WORKER}/products`),
+        fetch(`${WORKER}/services`),
+      ]);
+      const productData = await productRes.json();
+      const serviceData = await serviceRes.json();
+      if (!productRes.ok || !productData.products) throw new Error(productData.error || 'Bad product response');
+      if (!serviceRes.ok || !serviceData.services) throw new Error(serviceData.error || 'Bad service response');
+      ALL_PRODUCTS = [
+        ...productData.products.map(p => ({ ...p, type: 'physical' })),
+        ...serviceData.services.map(s => ({ ...s, type: 'service' })),
+      ];
       renderFilters(ALL_PRODUCTS);
       renderProducts(ALL_PRODUCTS);
     } catch (err) {
@@ -578,7 +618,7 @@
       document.getElementById('filterPills').innerHTML = '';
       document.getElementById('grid').innerHTML = `
         <div class="error-msg">
-          <strong>Couldn't load products.</strong>
+          <strong>Couldn't load the store.</strong>
           The store API may be waking up, updating, or temporarily unavailable.<br><br>
           <button class="cart-btn" type="button" onclick="loadProducts()">Retry</button>
           <p style="margin-top:18px">Still stuck? Contact <a style="color:var(--gold)" href="mailto:hello@christiangoblin.com">hello@christiangoblin.com</a>.</p>

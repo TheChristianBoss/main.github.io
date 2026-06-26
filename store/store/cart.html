@@ -134,6 +134,19 @@
       object-fit: cover;
     }
 
+    .item-image.service {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gold);
+      border: 1px solid var(--border);
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      text-align: center;
+      line-height: 1.2;
+      background: radial-gradient(circle at 20% 10%, rgba(201,168,76,0.18), transparent 35%), linear-gradient(135deg, rgba(139,26,26,0.18), rgba(201,168,76,0.08));
+    }
+
     .item-info {}
 
     .item-name {
@@ -380,90 +393,89 @@
 <script>
   const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
 
-  function esc(value) {
-    return String(value ?? '').replace(/[&<>'"]/g, ch => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-    }[ch]));
-  }
+  function esc(value) { return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch])); }
+  function safeUrl(value) { try { const url = new URL(String(value || ''), window.location.origin); return url.protocol === 'https:' || url.origin === window.location.origin ? url.href : ''; } catch { return ''; } }
+  function money(value) { const n = Number.parseFloat(value); return Number.isFinite(n) ? n.toFixed(2) : '0.00'; }
+  function centsToDollars(cents) { const n = Number.parseInt(cents,10); return Number.isFinite(n) ? (n/100).toFixed(2) : '0.00'; }
+  function clampQty(value, max = 10) { const n = Number.parseInt(value,10); return Math.max(1, Math.min(max, Number.isFinite(n) ? n : 1)); }
 
-  function safeUrl(value) {
-    try {
-      const url = new URL(String(value || ''), window.location.origin);
-      return url.protocol === 'https:' || url.origin === window.location.origin ? url.href : '';
-    } catch { return ''; }
-  }
-
-  function money(value) {
-    const n = Number.parseFloat(value);
-    return Number.isFinite(n) ? n.toFixed(2) : '0.00';
-  }
-
-  function clampQty(value) {
-    const n = Number.parseInt(value, 10);
-    return Math.max(1, Math.min(10, Number.isFinite(n) ? n : 1));
-  }
+  function itemKey(item) { return item.type === 'service' ? `service:${item.service_id}` : `physical:${item.variant_id}`; }
+  function itemPrice(item) { return item.type === 'service' ? (Number(item.price_cents) || 0) / 100 : Number.parseFloat(item.price) || 0; }
+  function itemName(item) { return item.type === 'service' ? item.service_name : item.product_name; }
+  function itemVariant(item) { return item.type === 'service' ? 'Manual service request' : item.variant_name; }
 
   function normalizeCart(cart) {
     const merged = new Map();
     for (const item of Array.isArray(cart) ? cart : []) {
+      if (item?.type === 'service') {
+        const id = String(item.service_id || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+        if (!id) continue;
+        const key = `service:${id}`;
+        merged.set(key, {
+          type: 'service',
+          service_id: id,
+          service_name: String(item.service_name || 'Service'),
+          price_cents: Number.parseInt(item.price_cents, 10) || 0,
+          quantity: clampQty(item.quantity, 3),
+          notes: String(item.notes || '').slice(0, 700),
+          deadline: String(item.deadline || '').slice(0, 120),
+          contact_preference: String(item.contact_preference || '').slice(0, 80),
+        });
+        continue;
+      }
       if (!item?.variant_id) continue;
-      const key = String(item.variant_id);
+      const key = `physical:${String(item.variant_id)}`;
       const existing = merged.get(key);
       const next = {
+        type: 'physical',
         product_id: item.product_id,
         product_name: String(item.product_name || 'Product'),
-        variant_id: key,
+        variant_id: String(item.variant_id),
         variant_name: String(item.variant_name || 'Default'),
         price: Number.parseFloat(item.price) || 0,
         image: safeUrl(item.image),
-        quantity: clampQty(item.quantity),
+        quantity: clampQty(item.quantity, 10),
       };
-      if (existing) existing.quantity = clampQty(existing.quantity + next.quantity);
+      if (existing) existing.quantity = clampQty(existing.quantity + next.quantity, 10);
       else merged.set(key, next);
     }
     return [...merged.values()];
   }
 
-  // ── Cart helpers ─────────────────────────────────────────────────────
-  function getCart() {
-    try { return normalizeCart(JSON.parse(localStorage.getItem('cg_cart') || '[]')); } catch { return []; }
-  }
+  function getCart() { try { return normalizeCart(JSON.parse(localStorage.getItem('cg_cart') || '[]')); } catch { return []; } }
+  function saveCart(cart) { localStorage.setItem('cg_cart', JSON.stringify(normalizeCart(cart))); }
 
-  function saveCart(cart) {
-    localStorage.setItem('cg_cart', JSON.stringify(normalizeCart(cart)));
-  }
-
-  function updateQty(variantId, delta) {
+  function updateQty(key, delta) {
     const cart = getCart();
-    const item = cart.find(i => String(i.variant_id) === String(variantId));
+    const item = cart.find(i => itemKey(i) === key);
     if (!item) return;
-    item.quantity = clampQty(item.quantity + delta);
+    item.quantity = clampQty(item.quantity + delta, item.type === 'service' ? 3 : 10);
     saveCart(cart);
     renderCart();
   }
 
-  function removeItem(variantId) {
-    saveCart(getCart().filter(i => String(i.variant_id) !== String(variantId)));
-    renderCart();
-  }
+  function removeItem(key) { saveCart(getCart().filter(i => itemKey(i) !== key)); renderCart(); }
 
   function checkoutPayload() {
     const email = document.getElementById('customerEmail')?.value?.trim();
     const payload = {
-      items: getCart().map(({ variant_id, quantity }) => ({
-        variant_id,
-        quantity: clampQty(quantity),
-      })),
+      items: getCart().map((item) => item.type === 'service'
+        ? {
+            type: 'service',
+            id: item.service_id,
+            quantity: clampQty(item.quantity, 3),
+            notes: item.notes,
+            deadline: item.deadline,
+            contact_preference: item.contact_preference,
+          }
+        : {
+            type: 'physical',
+            variant_id: item.variant_id,
+            quantity: clampQty(item.quantity, 10),
+          }),
     };
     if (email) payload.customer_email = email;
     return payload;
-  }
-
-  function showCheckoutError(message) {
-    const box = document.getElementById('checkoutError');
-    if (!box) return alert(message);
-    box.textContent = message;
-    box.classList.add('show');
   }
 
   // ── Render ───────────────────────────────────────────────────────────
@@ -479,113 +491,99 @@
         <div class="empty-cart">
           <div class="empty-icon">🛒</div>
           <h2>Your cart is empty</h2>
-          <p>Add something from the shop to get started.</p>
-          <a class="shop-link" href="/store/">Browse the Shop</a>
-        </div>
-      `;
+          <p>Add merch or a service request from the store to get started.</p>
+          <a class="shop-link" href="/store/">Browse the Store</a>
+        </div>`;
       return;
     }
 
-    const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const total = cart.reduce((sum, i) => sum + itemPrice(i) * i.quantity, 0);
     const itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+    const hasPhysical = cart.some(i => i.type !== 'service');
+    const hasService = cart.some(i => i.type === 'service');
     subtitle.textContent = `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
 
     layout.innerHTML = `
       <div class="cart-items">
-        ${cart.map(item => `
-          <div class="cart-item" data-variant="${esc(item.variant_id)}">
-            <div class="item-image">
-              <img src="${esc(safeUrl(item.image))}" alt="${esc(item.product_name)}" loading="lazy" />
-            </div>
-            <div class="item-info">
-              <div class="item-name">${esc(item.product_name)}</div>
-              <div class="item-variant">${esc(item.variant_name)}</div>
-              <div class="item-qty">
-                <button class="qty-btn" data-action="minus" data-variant="${esc(item.variant_id)}">−</button>
-                <span class="qty-num">${item.quantity}</span>
-                <button class="qty-btn" data-action="plus" data-variant="${esc(item.variant_id)}">+</button>
+        ${cart.map(item => {
+          const key = itemKey(item);
+          const isService = item.type === 'service';
+          return `
+            <div class="cart-item" data-key="${esc(key)}">
+              <div class="item-image ${isService ? 'service' : ''}">
+                ${isService ? 'SERVICE' : `<img src="${esc(safeUrl(item.image))}" alt="${esc(itemName(item))}" loading="lazy" />`}
               </div>
-            </div>
-            <div class="item-right">
-              <div class="item-price">$${money(item.price * item.quantity)}</div>
-              <button class="remove-btn" data-remove="${esc(item.variant_id)}">Remove</button>
-            </div>
-          </div>
-        `).join('')}
+              <div class="item-info">
+                <div class="item-name">${esc(itemName(item))}</div>
+                <div class="item-variant">${esc(itemVariant(item))}</div>
+                ${isService && item.notes ? `<div class="item-variant">${esc(item.notes)}</div>` : ''}
+                ${isService && item.deadline ? `<div class="item-variant">Deadline: ${esc(item.deadline)}</div>` : ''}
+                <div class="item-qty">
+                  <button class="qty-btn" data-action="minus" data-key="${esc(key)}">−</button>
+                  <span class="qty-num">${item.quantity}</span>
+                  <button class="qty-btn" data-action="plus" data-key="${esc(key)}">+</button>
+                </div>
+              </div>
+              <div class="item-right">
+                <div class="item-price">$${money(itemPrice(item) * item.quantity)}</div>
+                <button class="remove-btn" data-remove="${esc(key)}">Remove</button>
+              </div>
+            </div>`;
+        }).join('')}
       </div>
 
       <div class="summary">
         <div class="summary-title">Order Summary</div>
-
         ${cart.map(item => `
           <div class="summary-row">
-            <span>${esc(item.product_name)} <span style="color:var(--muted)">×${item.quantity}</span></span>
-            <span class="val">$${money(item.price * item.quantity)}</span>
-          </div>
-        `).join('')}
-
-        <div class="summary-row total">
-          <span>Estimated total</span>
-          <span class="val">$${money(total)}</span>
-        </div>
-
-        <p class="summary-muted">Final item prices, availability, shipping, and taxes are verified securely at checkout.</p>
-
+            <span>${esc(itemName(item))} <span style="color:var(--muted)">×${item.quantity}</span></span>
+            <span class="val">$${money(itemPrice(item) * item.quantity)}</span>
+          </div>`).join('')}
+        <div class="summary-row total"><span>Estimated total</span><span class="val">$${money(total)}</span></div>
+        <p class="summary-muted">Final prices are verified securely at checkout. ${hasPhysical ? 'Shipping and taxes are calculated during checkout.' : ''}</p>
         <ul class="summary-list">
           <li>Secure payment through Stripe.</li>
-          <li>Fulfillment handled through Printful.</li>
-          <li>Quantity is limited to 10 per item.</li>
+          ${hasPhysical ? '<li>Physical merch is fulfilled through Printful.</li>' : ''}
+          ${hasService ? '<li>Service requests send me a Discord notification after payment so I can contact you.</li>' : ''}
+          <li>Quantity is limited to ${hasService ? '3 per service and ' : ''}10 per physical item.</li>
         </ul>
-
         <div class="checkout-field">
           <label class="checkout-label" for="customerEmail">Email for checkout autofill</label>
           <input class="checkout-input" id="customerEmail" type="email" placeholder="you@example.com" autocomplete="email" />
         </div>
-
         <div class="checkout-error" id="checkoutError" role="alert"></div>
         <button class="checkout-btn" id="checkoutBtn">Proceed to Checkout</button>
         <a class="continue-link" href="/store/">Continue Shopping</a>
-      </div>
-    `;
+      </div>`;
 
     document.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const delta = btn.dataset.action === 'plus' ? 1 : -1;
-        updateQty(btn.dataset.variant, delta);
-      });
+      btn.addEventListener('click', () => updateQty(btn.dataset.key, btn.dataset.action === 'plus' ? 1 : -1));
     });
-
     document.querySelectorAll('[data-remove]').forEach(btn => {
       btn.addEventListener('click', () => removeItem(btn.dataset.remove));
     });
-
     document.getElementById('checkoutBtn').addEventListener('click', async () => {
       const btn = document.getElementById('checkoutBtn');
       btn.disabled = true;
       btn.textContent = 'Verifying cart…';
-
       try {
         const res = await fetch(`${WORKER}/checkout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(checkoutPayload()),
         });
-
         const data = await res.json();
-
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          throw new Error(data.error || data.details || 'No checkout URL returned');
-        }
+        if (data.url) window.location.href = data.url;
+        else throw new Error(data.error || data.details || 'No checkout URL returned');
       } catch (err) {
         btn.disabled = false;
         btn.textContent = 'Proceed to Checkout';
-        alert('Checkout failed: ' + err.message + '\n\nYour cart may include an unavailable product or variant.');
+        const box = document.getElementById('checkoutError');
+        box.textContent = 'Checkout failed: ' + err.message;
+        box.classList.add('show');
       }
     });
   }
-
   renderCart();
 </script>
 </body>

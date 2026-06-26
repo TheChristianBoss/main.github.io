@@ -78,8 +78,8 @@
     <div class="card">
       <div class="check">✓</div>
       <h1>Order Confirmed</h1>
-      <p>Your payment was successful. Printful is already preparing your order.</p>
-      <p>You'll receive a shipping confirmation by email once it's on its way.</p>
+      <p>Your payment was successful. Physical items will be prepared through fulfillment, and paid service requests will be sent to me for manual follow-up.</p>
+      <p>If your order included a service, I will contact you using your checkout contact information.</p>
       <hr class="divider" />
       <p id="orderStatus">Verifying your checkout session…</p>
       <p class="ref" id="sessionRef"></p>
@@ -117,7 +117,8 @@
         if (!res.ok || !data.session) throw new Error(data.error || 'Could not load session');
         const s = data.session;
         const total = s.amount_total ? ` Total paid: ${money(s.amount_total, s.currency)}.` : '';
-        status.textContent = `Payment status: ${s.payment_status || 'received'}.${total}`;
+        const serviceNote = Number(s.service_count || 0) > 0 ? ' Service request received; I will contact you soon.' : '';
+        status.textContent = `Payment status: ${s.payment_status || 'received'}.${total}${serviceNote}`;
       } catch {
         status.textContent = 'Payment was received. You will receive email updates as the order is processed.';
       }

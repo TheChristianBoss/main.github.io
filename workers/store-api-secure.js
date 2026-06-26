@@ -4,13 +4,16 @@
 //   PRINTFUL_TOKEN        — Printful private token
 //   STRIPE_SECRET_KEY     — Stripe secret key
 //   STRIPE_WEBHOOK_SECRET — Stripe webhook signing secret
+//   DISCORD_WEBHOOK_URL  — Discord webhook for paid service-order notifications
 //
 // Optional binding:
-//   STORE_ORDER_KV        — KV namespace used to avoid duplicate Printful fulfillment
+//   STORE_ORDER_KV        — KV namespace used to avoid duplicate Printful/service fulfillment
 //
 // Routes:
 //   GET  /products        → list all sync products
 //   GET  /product?id=     → single product with variants
+//   GET  /services        → list manual service products
+//   GET  /service?id=     → single service product
 //   POST /checkout        → create Stripe Checkout session using server-trusted prices
 //   GET  /session?id=     → sanitized Stripe Checkout session summary for success page
 //   POST /webhook         → Stripe webhook → create Printful order
@@ -28,6 +31,58 @@ const MAX_CART_ITEMS = 20;
 const MAX_QTY_PER_ITEM = 10;
 const STRIPE_SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 const PRODUCT_CACHE_SECONDS = 5 * 60;
+const MAX_SERVICE_ITEMS = 5;
+const MAX_SERVICE_QTY = 3;
+const MAX_SERVICE_NOTES = 700;
+
+// Manual service catalog. Safe to commit: prices are server-trusted here, not in the browser.
+// Edit this object when you want to add/remove services. Amounts are in cents.
+const SERVICE_PRODUCTS = {
+  'resume-review': {
+    id: 'resume-review',
+    type: 'service',
+    name: 'Resume Review',
+    category: 'Services',
+    price_cents: 2000,
+    currency: 'usd',
+    short: 'Practical resume feedback and improvement notes.',
+    description: 'I will review your resume and send back clear improvement notes for structure, wording, keywords, and readability.',
+    turnaround: 'Usually 2–4 business days',
+  },
+  'website-troubleshooting': {
+    id: 'website-troubleshooting',
+    type: 'service',
+    name: 'Website Troubleshooting',
+    category: 'Services',
+    price_cents: 4500,
+    currency: 'usd',
+    short: 'Help diagnosing a small website bug or deployment issue.',
+    description: 'I will review a small website issue, explain what is going wrong, and give you a practical fix or patch direction.',
+    turnaround: 'Usually 2–5 business days',
+  },
+  'custom-bible-study': {
+    id: 'custom-bible-study',
+    type: 'service',
+    name: 'Custom Bible Study Outline',
+    category: 'Services',
+    price_cents: 3000,
+    currency: 'usd',
+    short: 'A custom Bible study outline on a passage or theme.',
+    description: 'I will prepare a structured Bible study outline with key passages, themes, and teaching flow for your requested topic.',
+    turnaround: 'Usually 3–7 business days',
+  },
+  'video-edit-request': {
+    id: 'video-edit-request',
+    type: 'service',
+    name: 'Simple Video Edit Request',
+    category: 'Services',
+    price_cents: 5000,
+    currency: 'usd',
+    short: 'A simple edit request for short video content.',
+    description: 'I will review your requested video edit, contact you for source files/details, and complete a small agreed-upon edit.',
+    turnaround: 'Usually 3–7 business days after files are received',
+  },
+};
 
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
@@ -75,6 +130,62 @@ function safeHttpsUrl(value) {
   } catch {
     return null;
   }
+}
+
+
+function cleanText(value, max = 500) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+function serviceList() {
+  return Object.values(SERVICE_PRODUCTS).map((service) => ({ ...service }));
+}
+
+function getService(id) {
+  const key = String(id || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+  return SERVICE_PRODUCTS[key] || null;
+}
+
+function normalizeServiceItems(rawItems) {
+  if (!Array.isArray(rawItems)) throw new Error('Cart items must be an array');
+  const serviceRaw = rawItems.filter((item) => item?.type === 'service' || item?.service_id || item?.id);
+  if (serviceRaw.length > MAX_SERVICE_ITEMS) throw new Error(`Cart cannot contain more than ${MAX_SERVICE_ITEMS} service line items`);
+
+  const out = [];
+  for (const raw of serviceRaw) {
+    const id = String(raw?.id || raw?.service_id || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const service = getService(id);
+    if (!service) throw new Error('Invalid service item');
+    const quantity = clampInt(raw?.quantity, 1, MAX_SERVICE_QTY);
+    out.push({
+      ...service,
+      quantity,
+      unit_amount: Number(service.price_cents),
+      notes: cleanText(raw?.notes, MAX_SERVICE_NOTES),
+      deadline: cleanText(raw?.deadline, 120),
+      contact_preference: cleanText(raw?.contact_preference, 80),
+    });
+  }
+  return out;
+}
+
+function normalizePhysicalCartItems(rawItems) {
+  const physical = (Array.isArray(rawItems) ? rawItems : []).filter((item) => item?.type !== 'service' && (item?.variant_id || item?.sync_variant_id));
+  if (!physical.length) return [];
+  if (physical.length > MAX_CART_ITEMS) throw new Error(`Cart cannot contain more than ${MAX_CART_ITEMS} physical line items`);
+
+  const merged = new Map();
+  for (const raw of physical) {
+    const variantId = String(raw?.variant_id || raw?.sync_variant_id || '').replace(/[^0-9]/g, '');
+    if (!variantId) throw new Error('Invalid variant id');
+    const qty = clampInt(raw?.quantity, 1, MAX_QTY_PER_ITEM);
+    merged.set(variantId, Math.min(MAX_QTY_PER_ITEM, (merged.get(variantId) || 0) + qty));
+  }
+  return [...merged.entries()].map(([variant_id, quantity]) => ({ variant_id, quantity }));
 }
 
 // ── Printful helper ──────────────────────────────────────────────────────────
@@ -199,38 +310,31 @@ async function buildVariantIndex(env, ctx) {
 }
 
 function normalizeCartItems(rawItems) {
-  if (!Array.isArray(rawItems)) throw new Error('Cart items must be an array');
-  if (rawItems.length === 0) throw new Error('Cart is empty');
-  if (rawItems.length > MAX_CART_ITEMS) throw new Error(`Cart cannot contain more than ${MAX_CART_ITEMS} line items`);
-
-  const merged = new Map();
-  for (const raw of rawItems) {
-    const variantId = String(raw?.variant_id || '').replace(/[^0-9]/g, '');
-    if (!variantId) throw new Error('Invalid variant id');
-    const qty = clampInt(raw?.quantity, 1, MAX_QTY_PER_ITEM);
-    merged.set(variantId, Math.min(MAX_QTY_PER_ITEM, (merged.get(variantId) || 0) + qty));
-  }
-
-  return [...merged.entries()].map(([variant_id, quantity]) => ({ variant_id, quantity }));
+  return normalizePhysicalCartItems(rawItems);
 }
 
 async function buildTrustedCheckoutItems(rawItems, env, ctx) {
-  const normalized = normalizeCartItems(rawItems);
-  const variantIndex = await buildVariantIndex(env, ctx);
+  const physicalRaw = normalizePhysicalCartItems(rawItems);
+  const serviceItems = normalizeServiceItems(rawItems);
 
-  return normalized.map((item) => {
+  const variantIndex = physicalRaw.length ? await buildVariantIndex(env, ctx) : new Map();
+  const physicalItems = physicalRaw.map((item) => {
     const variant = variantIndex.get(String(item.variant_id));
     if (!variant) throw new Error(`Variant ${item.variant_id} is no longer available`);
     if (!variant.in_stock) throw new Error(`${variant.variant_name} is not currently available`);
     const cents = moneyToCents(variant.price);
     if (cents < 50) throw new Error('Invalid checkout price');
     return {
+      type: 'physical',
       ...variant,
       quantity: item.quantity,
       unit_amount: cents,
       currency: (variant.currency || 'USD').toLowerCase(),
     };
   });
+
+  if (!physicalItems.length && !serviceItems.length) throw new Error('Cart is empty');
+  return { physicalItems, serviceItems, allItems: [...physicalItems, ...serviceItems] };
 }
 
 function encodeCartMetadata(items) {
@@ -243,6 +347,35 @@ function decodeCartMetadata(value) {
     const [variant_id, quantity] = pair.split(':');
     return { variant_id, quantity: clampInt(quantity, 1, MAX_QTY_PER_ITEM) };
   });
+}
+
+function applyServiceMetadata(params, serviceItems) {
+  params['metadata[service_count]'] = String(serviceItems.length);
+  serviceItems.slice(0, MAX_SERVICE_ITEMS).forEach((item, index) => {
+    params[`metadata[service_${index}_id]`] = item.id;
+    params[`metadata[service_${index}_qty]`] = String(item.quantity);
+    if (item.notes) params[`metadata[service_${index}_notes]`] = item.notes.slice(0, 500);
+    if (item.deadline) params[`metadata[service_${index}_deadline]`] = item.deadline.slice(0, 120);
+    if (item.contact_preference) params[`metadata[service_${index}_contact]`] = item.contact_preference.slice(0, 80);
+  });
+}
+
+function decodeServiceMetadata(metadata = {}) {
+  const count = clampInt(metadata.service_count || 0, 0, MAX_SERVICE_ITEMS);
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const id = String(metadata[`service_${i}_id`] || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const service = getService(id);
+    if (!service) continue;
+    out.push({
+      ...service,
+      quantity: clampInt(metadata[`service_${i}_qty`], 1, MAX_SERVICE_QTY),
+      notes: cleanText(metadata[`service_${i}_notes`], MAX_SERVICE_NOTES),
+      deadline: cleanText(metadata[`service_${i}_deadline`], 120),
+      contact_preference: cleanText(metadata[`service_${i}_contact`], 80),
+    });
+  }
+  return out;
 }
 
 // ── Stripe form encoding ─────────────────────────────────────────────────────
@@ -349,6 +482,68 @@ async function markProcessed(env, key, value = '1') {
   await env.STORE_ORDER_KV.put(key, value, { expirationTtl: 60 * 60 * 24 * 120 });
 }
 
+
+function moneyDisplayFromCents(cents, currency = 'usd') {
+  const amount = Number(cents || 0) / 100;
+  return `${amount.toFixed(2)} ${String(currency || 'usd').toUpperCase()}`;
+}
+
+function discordField(name, value, inline = false) {
+  const clean = cleanText(value || '—', 1000);
+  return { name: cleanText(name, 256), value: clean || '—', inline };
+}
+
+async function sendServiceDiscordNotification(env, session, serviceItems) {
+  if (!serviceItems.length) return { skipped: true };
+  if (!env.DISCORD_WEBHOOK_URL) throw new Error('Missing DISCORD_WEBHOOK_URL');
+
+  const customer = session.customer_details || {};
+  const fields = [
+    discordField('Customer', customer.name || 'Unknown', true),
+    discordField('Email', customer.email || session.customer_email || 'Missing', true),
+    discordField('Phone', customer.phone || 'Not provided', true),
+    discordField('Stripe Session', session.id || 'Unknown', false),
+  ];
+
+  serviceItems.forEach((item, index) => {
+    fields.push(discordField(
+      `Service ${index + 1}: ${item.name}`,
+      [
+        `Quantity: ${item.quantity}`,
+        `Price: ${moneyDisplayFromCents(item.price_cents, item.currency)}`,
+        item.deadline ? `Deadline: ${item.deadline}` : '',
+        item.contact_preference ? `Preferred contact: ${item.contact_preference}` : '',
+        item.notes ? `Notes: ${item.notes}` : 'Notes: none provided',
+      ].filter(Boolean).join('\n'),
+      false,
+    ));
+  });
+
+  const res = await fetch(env.DISCORD_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: '🛎️ New paid Christian Goblin service order',
+      allowed_mentions: { parse: [] },
+      embeds: [{
+        title: 'Paid Service Order',
+        color: 13215820,
+        description: 'A customer paid for a manual service. Contact them and fulfill the request.',
+        fields,
+        timestamp: new Date().toISOString(),
+        footer: { text: 'Christian Goblin Store' },
+      }],
+    }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Discord webhook failed (${res.status}): ${txt.slice(0, 300)}`);
+  }
+
+  return { ok: true };
+}
+
 // ── Main handler ─────────────────────────────────────────────────────────────
 export default {
   async fetch(request, env, ctx) {
@@ -374,8 +569,33 @@ export default {
             currency: session.currency,
             customer_email: session.customer_details?.email || session.customer_email || '',
             customer_name: session.customer_details?.name || '',
+            fulfillment_types: session.metadata?.fulfillment_types || '',
+            service_count: Number(session.metadata?.service_count || 0),
           },
         }, 200, request);
+      }
+
+
+      // ── GET /services ─────────────────────────────────────────────────────
+      if (request.method === 'GET' && path === '/services') {
+        return json({ services: serviceList().map((s) => ({
+          id: s.id,
+          type: 'service',
+          name: s.name,
+          category: s.category,
+          short: s.short,
+          price_cents: s.price_cents,
+          currency: s.currency,
+          turnaround: s.turnaround,
+        })) }, 200, request);
+      }
+
+      // ── GET /service?id= ──────────────────────────────────────────────────
+      if (request.method === 'GET' && path === '/service') {
+        const id = String(url.searchParams.get('id') || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+        const service = getService(id);
+        if (!service) return error(request, 'Service not found', 404);
+        return json({ service }, 200, request);
       }
 
       // ── GET /products ──────────────────────────────────────────────────────
@@ -408,9 +628,9 @@ export default {
 
         let body;
         try { body = await request.json(); } catch { return error(request, 'Invalid JSON'); }
-        const trustedItems = await buildTrustedCheckoutItems(body.items, env, ctx);
+        const { physicalItems, serviceItems, allItems } = await buildTrustedCheckoutItems(body.items, env, ctx);
 
-        const line_items = trustedItems.map((item) => ({
+        const physicalLineItems = physicalItems.map((item) => ({
           price_data: {
             currency: item.currency,
             product_data: {
@@ -427,19 +647,39 @@ export default {
           quantity: item.quantity,
         }));
 
+        const serviceLineItems = serviceItems.map((item) => ({
+          price_data: {
+            currency: item.currency,
+            product_data: {
+              name: item.name,
+              description: item.short || item.description,
+              metadata: { service_id: item.id },
+            },
+            unit_amount: item.unit_amount,
+          },
+          quantity: item.quantity,
+        }));
+
+        const line_items = [...physicalLineItems, ...serviceLineItems];
+
         const params = {
           mode: 'payment',
           line_items,
           success_url: `${SITE}/store/success.html?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${SITE}/store/cart.html`,
-          'metadata[cart]': encodeCartMetadata(trustedItems),
-          'shipping_address_collection[allowed_countries][0]': 'US',
-          'shipping_address_collection[allowed_countries][1]': 'CA',
-          'shipping_address_collection[allowed_countries][2]': 'GB',
-          'shipping_address_collection[allowed_countries][3]': 'AU',
+          'metadata[cart]': encodeCartMetadata(physicalItems),
+          'metadata[fulfillment_types]': physicalItems.length && serviceItems.length ? 'mixed' : (serviceItems.length ? 'service' : 'physical'),
           'phone_number_collection[enabled]': 'true',
+          ...(physicalItems.length ? {
+            'shipping_address_collection[allowed_countries][0]': 'US',
+            'shipping_address_collection[allowed_countries][1]': 'CA',
+            'shipping_address_collection[allowed_countries][2]': 'GB',
+            'shipping_address_collection[allowed_countries][3]': 'AU',
+          } : {}),
           ...(body.customer_email ? { customer_email: String(body.customer_email).slice(0, 254) } : {}),
         };
+
+        applyServiceMetadata(params, serviceItems);
 
         const session = await stripePost('/checkout/sessions', env, params);
         return json({ url: session.url }, 200, request);
@@ -466,48 +706,73 @@ export default {
         }
 
         const cartItems = decodeCartMetadata(session.metadata?.cart || '');
-        if (!cartItems.length) return json({ received: true, note: 'Empty cart' }, 200, request);
-
-        // Rebuild fulfillment items from trusted Printful data again. Do not trust Stripe metadata for price/name.
-        const trustedItems = await buildTrustedCheckoutItems(cartItems, env, ctx);
-
-        const shipping = session.shipping_details;
-        const recipient = {
-          name: shipping?.name || session.customer_details?.name || 'Customer',
-          address1: shipping?.address?.line1 || '',
-          address2: shipping?.address?.line2 || '',
-          city: shipping?.address?.city || '',
-          state_code: shipping?.address?.state || '',
-          country_code: shipping?.address?.country || 'US',
-          zip: shipping?.address?.postal_code || '',
-          email: session.customer_details?.email || '',
-          phone: session.customer_details?.phone || '',
-        };
-
-        const orderPayload = {
-          recipient,
-          items: trustedItems.map((item) => ({
-            sync_variant_id: item.id,
-            quantity: item.quantity,
-            retail_price: String(item.price),
-          })),
-          retail_costs: { currency: 'USD' },
-          external_id: session.id,
-        };
-
-        const orderData = await printful('/orders', env, {
-          method: 'POST',
-          body: JSON.stringify(orderPayload),
-        });
-
-        if (!orderData.result) {
-          console.error('Printful order error:', JSON.stringify(orderData));
-          return json({ received: true, printful_error: orderData.error?.message || 'Unknown Printful error' }, 200, request);
+        const serviceItems = decodeServiceMetadata(session.metadata || {});
+        if (!cartItems.length && !serviceItems.length) {
+          return json({ received: true, note: 'Empty fulfillment payload' }, 200, request);
         }
 
-        await markProcessed(env, idempotencyKey, String(orderData.result.id));
-        console.log('Printful order created:', orderData.result.id);
-        return json({ received: true, order_id: orderData.result.id }, 200, request);
+        const result = { received: true };
+
+        // Physical fulfillment through Printful. Rebuild from trusted Printful data again.
+        if (cartItems.length) {
+          const printfulKey = `${idempotencyKey}:printful`;
+          if (await alreadyProcessed(env, printfulKey)) {
+            result.printful_duplicate = true;
+          } else {
+            const { physicalItems } = await buildTrustedCheckoutItems(cartItems, env, ctx);
+            const shipping = session.shipping_details;
+            const recipient = {
+              name: shipping?.name || session.customer_details?.name || 'Customer',
+              address1: shipping?.address?.line1 || '',
+              address2: shipping?.address?.line2 || '',
+              city: shipping?.address?.city || '',
+              state_code: shipping?.address?.state || '',
+              country_code: shipping?.address?.country || 'US',
+              zip: shipping?.address?.postal_code || '',
+              email: session.customer_details?.email || '',
+              phone: session.customer_details?.phone || '',
+            };
+
+            const orderPayload = {
+              recipient,
+              items: physicalItems.map((item) => ({
+                sync_variant_id: item.id,
+                quantity: item.quantity,
+                retail_price: String(item.price),
+              })),
+              retail_costs: { currency: 'USD' },
+              external_id: session.id,
+            };
+
+            const orderData = await printful('/orders', env, {
+              method: 'POST',
+              body: JSON.stringify(orderPayload),
+            });
+
+            if (!orderData.result) {
+              console.error('Printful order error:', JSON.stringify(orderData));
+              result.printful_error = orderData.error?.message || 'Unknown Printful error';
+            } else {
+              await markProcessed(env, printfulKey, String(orderData.result.id));
+              result.order_id = orderData.result.id;
+              console.log('Printful order created:', orderData.result.id);
+            }
+          }
+        }
+
+        // Manual service fulfillment through Discord notification.
+        if (serviceItems.length) {
+          const serviceKey = `${idempotencyKey}:services`;
+          if (await alreadyProcessed(env, serviceKey)) {
+            result.service_duplicate = true;
+          } else {
+            await sendServiceDiscordNotification(env, session, serviceItems);
+            await markProcessed(env, serviceKey, 'notified');
+            result.service_notified = true;
+          }
+        }
+
+        return json(result, 200, request);
       }
 
       return error(request, 'Not found', 404);

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Service — Christian Goblin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#0d0d0d; --surface:#161616; --border:#2a2a2a; --text:#e8e2d9; --muted:#6b6560; --gold:#c9a84c; --gold-dim:#8a6f2e; }
+    body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; font-size:15px; line-height:1.6; min-height:100vh; }
+    header { position:sticky; top:0; z-index:100; background:rgba(13,13,13,0.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); padding:0 2rem; height:64px; display:flex; align-items:center; justify-content:space-between; }
+    .logo { font-family:'Cinzel',serif; font-weight:900; font-size:1.1rem; letter-spacing:0.08em; color:var(--gold); text-decoration:none; }
+    .logo span { color:var(--text); font-weight:700; }
+    .header-right { display:flex; gap:12px; align-items:center; }
+    .back-btn,.cart-btn { display:flex; align-items:center; gap:8px; background:none; border:1px solid var(--border); color:var(--text); padding:8px 16px; border-radius:4px; cursor:pointer; font-size:14px; font-family:'Inter',sans-serif; text-decoration:none; transition:border-color 0.2s,color 0.2s; }
+    .back-btn:hover,.cart-btn:hover { border-color:var(--gold); color:var(--gold); }
+    .cart-count { background:var(--gold); color:#000; font-weight:700; font-size:11px; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+    .layout { max-width:1050px; margin:0 auto; padding:64px 2rem; display:grid; grid-template-columns:0.9fr 1.1fr; gap:56px; align-items:start; }
+    .service-art { min-height:420px; border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center; text-align:center; padding:32px; background:radial-gradient(circle at 20% 10%, rgba(201,168,76,0.20), transparent 35%), linear-gradient(135deg, rgba(139,26,26,0.20), rgba(201,168,76,0.08)); color:var(--gold); font-family:'Cinzel',serif; font-weight:900; font-size:clamp(1.6rem,4vw,2.8rem); line-height:1.15; letter-spacing:0.08em; text-transform:uppercase; position:sticky; top:84px; }
+    .eyebrow { font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold); margin-bottom:12px; }
+    h1 { font-family:'Cinzel',serif; font-weight:900; font-size:clamp(1.7rem,4vw,2.5rem); line-height:1.15; margin-bottom:16px; }
+    .price { color:var(--gold); font-weight:700; font-size:1.35rem; margin-bottom:20px; }
+    .description { color:var(--muted); margin-bottom:22px; }
+    .note { border:1px solid var(--border); background:rgba(255,255,255,0.025); border-radius:8px; padding:16px; color:var(--muted); font-size:13px; line-height:1.7; margin-bottom:24px; }
+    .note strong { color:var(--text); }
+    .field { margin-bottom:18px; }
+    label { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.14em; margin-bottom:8px; }
+    input,textarea,select { width:100%; background:#101010; border:1px solid var(--border); border-radius:4px; color:var(--text); padding:12px; font:inherit; outline:none; }
+    textarea { min-height:140px; resize:vertical; }
+    input:focus,textarea:focus,select:focus { border-color:var(--gold-dim); }
+    .qty-row { display:flex; align-items:center; gap:14px; margin:20px 0; }
+    .qty-btn { width:34px; height:34px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); cursor:pointer; font-size:18px; }
+    .add-btn { width:100%; padding:16px; background:var(--gold); border:none; border-radius:4px; color:#0d0d0d; font-family:'Cinzel',serif; font-weight:700; letter-spacing:0.08em; cursor:pointer; margin-top:8px; }
+    .feedback { color:var(--gold); text-align:center; min-height:22px; margin-top:12px; }
+    .error-state { max-width:600px; margin:80px auto; text-align:center; padding:0 2rem; color:var(--muted); }
+    .error-state strong { display:block; color:var(--text); margin-bottom:12px; }
+    footer { border-top:1px solid var(--border); padding:40px 2rem; text-align:center; color:var(--muted); font-size:13px; }
+    footer a { color:var(--muted); text-decoration:none; } footer a:hover { color:var(--gold); }
+    @media (max-width:800px){ .layout{grid-template-columns:1fr; padding:40px 1.5rem;} .service-art{min-height:260px; position:static;} header{padding:0 1.5rem;} }
+  </style>
+</head>
+<body>
+<header>
+  <a class="logo" href="/"><span>Christian</span>Goblin</a>
+  <div class="header-right">
+    <a class="back-btn" href="/store/">← Store</a>
+    <a class="cart-btn" href="/store/cart.html">Cart <span class="cart-count" id="cartCount">0</span></a>
+  </div>
+</header>
+<main id="app"><div class="error-state"><strong>Loading service…</strong></div></main>
+<footer><p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p></footer>
+<script>
+  const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
+  let service = null;
+  let quantity = 1;
+
+  function esc(value) { return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch])); }
+  function centsToDollars(cents) { const n = Number.parseInt(cents,10); return Number.isFinite(n) ? (n/100).toFixed(2) : '0.00'; }
+  function clampQty(value) { const n = Number.parseInt(value,10); return Math.max(1, Math.min(3, Number.isFinite(n) ? n : 1)); }
+  function getCart(){ try { return JSON.parse(localStorage.getItem('cg_cart') || '[]'); } catch { return []; } }
+  function saveCart(cart){ localStorage.setItem('cg_cart', JSON.stringify(Array.isArray(cart) ? cart : [])); }
+  function updateCartCount(){ const count = getCart().reduce((sum,i)=>sum+(Number(i.quantity)||0),0); document.getElementById('cartCount').textContent = count; }
+  updateCartCount();
+
+  function addServiceToCart(item) {
+    const cart = getCart().filter(i => !(i.type === 'service' && i.service_id === item.service_id));
+    cart.push(item);
+    saveCart(cart);
+    updateCartCount();
+  }
+
+  function render() {
+    document.title = `${service.name} — Christian Goblin`;
+    document.getElementById('app').innerHTML = `
+      <div class="layout">
+        <div class="service-art">Manual<br>Service</div>
+        <section>
+          <p class="eyebrow">Paid Service</p>
+          <h1>${esc(service.name)}</h1>
+          <p class="price">$${centsToDollars(service.price_cents)}</p>
+          <p class="description">${esc(service.description || service.short || '')}</p>
+          <div class="note"><strong>How this works:</strong> Pay securely through Stripe. After payment, I receive a Discord notification with your request and contact details, then I contact you to fulfill it. Turnaround: ${esc(service.turnaround || 'varies by request')}.</div>
+
+          <div class="field">
+            <label for="notes">Request details</label>
+            <textarea id="notes" maxlength="700" placeholder="Tell me what you need, links/files involved, goals, and anything I should know."></textarea>
+          </div>
+          <div class="field">
+            <label for="deadline">Deadline or timing</label>
+            <input id="deadline" maxlength="120" placeholder="Example: by Friday, no rush, before church Sunday…" />
+          </div>
+          <div class="field">
+            <label for="contactPref">Preferred contact method</label>
+            <select id="contactPref">
+              <option>Email is fine</option>
+              <option>Email first, then phone if needed</option>
+              <option>Text/phone if available</option>
+            </select>
+          </div>
+
+          <div class="qty-row">
+            <span>Qty</span>
+            <button class="qty-btn" id="qtyMinus">−</button>
+            <strong id="qtyVal">${quantity}</strong>
+            <button class="qty-btn" id="qtyPlus">+</button>
+          </div>
+
+          <button class="add-btn" id="addBtn">Add Service to Cart</button>
+          <div class="feedback" id="feedback"></div>
+        </section>
+      </div>
+    `;
+    document.getElementById('qtyMinus').addEventListener('click', () => { quantity = clampQty(quantity - 1); document.getElementById('qtyVal').textContent = quantity; });
+    document.getElementById('qtyPlus').addEventListener('click', () => { quantity = clampQty(quantity + 1); document.getElementById('qtyVal').textContent = quantity; });
+    document.getElementById('addBtn').addEventListener('click', () => {
+      addServiceToCart({
+        type: 'service',
+        service_id: service.id,
+        service_name: service.name,
+        price_cents: service.price_cents,
+        quantity,
+        notes: document.getElementById('notes').value.trim().slice(0, 700),
+        deadline: document.getElementById('deadline').value.trim().slice(0, 120),
+        contact_preference: document.getElementById('contactPref').value,
+      });
+      const feedback = document.getElementById('feedback');
+      feedback.textContent = '✓ Service added to cart';
+      setTimeout(() => { feedback.textContent = ''; }, 2500);
+    });
+  }
+
+  async function loadService() {
+    const id = new URLSearchParams(window.location.search).get('id');
+    if (!id) { document.getElementById('app').innerHTML = '<div class="error-state"><strong>No service specified.</strong><a href="/store/" style="color:var(--gold)">← Back to store</a></div>'; return; }
+    try {
+      const res = await fetch(`${WORKER}/service?id=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (!res.ok || !data.service) throw new Error(data.error || 'Service not found');
+      service = data.service;
+      render();
+    } catch (err) {
+      document.getElementById('app').innerHTML = `<div class="error-state"><strong>Service not found.</strong><p>${esc(err.message || '')}</p><a href="/store/" style="color:var(--gold)">← Back to store</a></div>`;
+    }
+  }
+  loadService();
+</script>
+</body>
+</html>
