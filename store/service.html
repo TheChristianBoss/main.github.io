@@ -19,7 +19,8 @@
     .back-btn:hover,.cart-btn:hover { border-color:var(--gold); color:var(--gold); }
     .cart-count { background:var(--gold); color:#000; font-weight:700; font-size:11px; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
     .layout { max-width:1050px; margin:0 auto; padding:64px 2rem; display:grid; grid-template-columns:0.9fr 1.1fr; gap:56px; align-items:start; }
-    .service-art { min-height:420px; border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center; text-align:center; padding:32px; background:radial-gradient(circle at 20% 10%, rgba(201,168,76,0.20), transparent 35%), linear-gradient(135deg, rgba(139,26,26,0.20), rgba(201,168,76,0.08)); color:var(--gold); font-family:'Cinzel',serif; font-weight:900; font-size:clamp(1.6rem,4vw,2.8rem); line-height:1.15; letter-spacing:0.08em; text-transform:uppercase; position:sticky; top:84px; }
+    .service-art { min-height:420px; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#080808; position:sticky; top:84px; box-shadow:0 20px 60px rgba(0,0,0,0.35); }
+    .service-art img { width:100%; height:100%; display:block; object-fit:cover; }
     .eyebrow { font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold); margin-bottom:12px; }
     h1 { font-family:'Cinzel',serif; font-weight:900; font-size:clamp(1.7rem,4vw,2.5rem); line-height:1.15; margin-bottom:16px; }
     .price { color:var(--gold); font-weight:700; font-size:1.35rem; margin-bottom:20px; }
@@ -54,6 +55,7 @@
 <footer><p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p></footer>
 <script>
   const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
+  const SERVICE_IMAGE = '/store/assets/christian-goblin-services.png';
   let service = null;
   let quantity = 1;
 
@@ -76,7 +78,7 @@
     document.title = `${service.name} — Christian Goblin`;
     document.getElementById('app').innerHTML = `
       <div class="layout">
-        <div class="service-art">Manual<br>Service</div>
+        <div class="service-art"><img src="${esc(SERVICE_IMAGE)}" alt="Christian Goblin Services" /></div>
         <section>
           <p class="eyebrow">Paid Service</p>
           <h1>${esc(service.name)}</h1>
