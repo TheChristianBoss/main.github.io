@@ -402,7 +402,7 @@
   function itemKey(item) { return item.type === 'service' ? `service:${item.service_id}` : `physical:${item.variant_id}`; }
   function itemPrice(item) { return item.type === 'service' ? (Number(item.price_cents) || 0) / 100 : Number.parseFloat(item.price) || 0; }
   function itemName(item) { return item.type === 'service' ? item.service_name : item.product_name; }
-  function itemVariant(item) { return item.type === 'service' ? 'Manual service request' : item.variant_name; }
+  function itemVariant(item) { return item.type === 'service' ? 'Service request' : item.variant_name; }
 
   function normalizeCart(cart) {
     const merged = new Map();
@@ -543,7 +543,7 @@
         <p class="summary-muted">Final prices are verified securely at checkout. ${hasPhysical ? 'Shipping and taxes are calculated during checkout.' : ''}</p>
         <ul class="summary-list">
           <li>Secure payment through Stripe.</li>
-          ${hasPhysical ? '<li>Physical merch is fulfilled through Printful.</li>' : ''}
+          ${hasPhysical ? '<li>Physical shop items are prepared and shipped after checkout.</li>' : ''}
           ${hasService ? '<li>Service requests are sent to me after payment so I can contact you.</li>' : ''}
           <li>Quantity is limited to ${hasService ? '3 per service and ' : ''}10 per physical item.</li>
         </ul>
