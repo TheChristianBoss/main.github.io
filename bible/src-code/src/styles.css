@@ -1582,3 +1582,115 @@ select.picker {
   font-size: 12px;
 }
 
+
+/* ===================== Interlinear + side-by-side compare fixes ===================== */
+
+.reading-pane-compare {
+  min-width: 0;
+}
+
+.interlinear-shell {
+  margin: 18px 0 20px;
+  min-width: 0;
+}
+
+.interlinear-shell-compare {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.interlinear-shell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  background: var(--color-parchment-raised);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-md);
+}
+
+.interlinear-shell-kicker {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-burgundy);
+}
+
+.interlinear-shell-title {
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--color-ink);
+}
+
+.interlinear-shell-note {
+  max-width: 280px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-ink-soft);
+  text-align: right;
+}
+
+.interlinear-view {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.interlinear-shell-compare .interlinear-view {
+  margin-top: 0;
+  max-height: min(72vh, 680px);
+  overflow: auto;
+}
+
+.interlinear-words-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.interlinear-word {
+  max-width: 148px;
+  overflow-wrap: anywhere;
+}
+
+.interlinear-english-word,
+.interlinear-gloss,
+.interlinear-morph {
+  max-width: 132px;
+  overflow-wrap: anywhere;
+}
+
+.interlinear-original-word {
+  max-width: 148px;
+  overflow-wrap: anywhere;
+}
+
+.reading-pane-compare.reading-pane-interlinear-open .compare-grid {
+  margin-top: 16px;
+}
+
+.compare-grid > div {
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  .interlinear-shell-header {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .interlinear-shell-note {
+    max-width: none;
+    text-align: left;
+  }
+
+  .interlinear-shell-compare .interlinear-view {
+    max-height: none;
+  }
+}

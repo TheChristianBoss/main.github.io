@@ -197,8 +197,16 @@ export default function ReadingPane({
   const hasNextChapter = !!getNextChapterRef(refLabel.book, refLabel.chapter)
   const hasPrevChapter = !!getPrevChapterRef(refLabel.book, refLabel.chapter)
 
+  const paneClassName = [
+    'reading-pane',
+    compareTranslation ? 'reading-pane-compare' : '',
+    interlinearOpen ? 'reading-pane-interlinear-open' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className="reading-pane" {...swipeHandlers}>
+    <div className={paneClassName} {...swipeHandlers}>
       {onPrevChapter && hasPrevChapter && (
         <button
           type="button"
@@ -280,12 +288,26 @@ export default function ReadingPane({
       </div>
 
       {interlinearOpen && (
-        <InterlinearView
-          book={refLabel.book}
-          chapter={refLabel.chapter}
-          verses={stamped}
-          activeHasStrongs={hasStrongs}
-        />
+        <section
+          className={`interlinear-shell${compareTranslation ? ' interlinear-shell-compare' : ''}`}
+          aria-label="Original language interlinear"
+        >
+          {compareTranslation && (
+            <div className="interlinear-shell-header">
+              <div>
+                <div className="interlinear-shell-kicker">Interlinear study panel</div>
+                <div className="interlinear-shell-title">Original-language alignment for {refLabel.text}</div>
+              </div>
+              <div className="interlinear-shell-note">Shown separately so side-by-side comparison stays readable.</div>
+            </div>
+          )}
+          <InterlinearView
+            book={refLabel.book}
+            chapter={refLabel.chapter}
+            verses={stamped}
+            activeHasStrongs={hasStrongs}
+          />
+        </section>
       )}
 
       <span className={`license-pill ${pillClass[translation.status]}`}>
