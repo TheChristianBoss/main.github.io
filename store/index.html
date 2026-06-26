@@ -493,6 +493,53 @@
 <script>
   const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
   const SERVICE_IMAGE = '/store/assets/christian-goblin-services.png';
+  const FALLBACK_SERVICES = [
+    {
+      id: 'cyber-security-evaluation',
+      type: 'service',
+      name: 'Cyber Security Evaluation',
+      category: 'Cyber Security',
+      price_cents: 4000,
+      currency: 'usd',
+      short: 'A practical review of basic website and online-security risks.',
+      description: 'I will review your website, public-facing setup, or general digital security posture and send practical recommendations. This is a basic evaluation, not a formal penetration test or guaranteed security certification.',
+      turnaround: 'Usually 2–5 business days',
+    },
+    {
+      id: 'custom-portfolio-website',
+      type: 'service',
+      name: 'Custom Portfolio Website',
+      category: 'Web Design',
+      price_cents: 4000,
+      currency: 'usd',
+      short: 'A simple custom portfolio website for your work, resume, project, or personal brand.',
+      description: 'I will build or set up a simple custom portfolio website for your personal brand, resume, ministry, project, or small business. Custom domain purchase/renewal is a separate add-on.',
+      turnaround: 'Usually 5–10 business days after content is received',
+    },
+    {
+      id: 'custom-domain-one-year',
+      type: 'service',
+      name: 'Custom Domain — 1 Year',
+      category: 'Web Design',
+      price_cents: 1200,
+      currency: 'usd',
+      short: 'One year of custom domain setup/management as a website add-on.',
+      description: 'One year of custom domain setup or management for your website. This is handled as a one-time purchase in this store, not an automatic yearly subscription.',
+      turnaround: 'Usually 1–3 business days after domain details are confirmed',
+    },
+    {
+      id: 'three-month-life-coaching',
+      type: 'service',
+      name: '3 Month Life Coaching',
+      category: 'Coaching',
+      price_cents: 11200,
+      currency: 'usd',
+      short: 'A three-month coaching package for goals, planning, and accountability.',
+      description: 'A three-month life coaching package focused on goals, accountability, planning, habit-building, and practical personal development. This is coaching, not therapy, medical care, legal advice, or financial advising.',
+      turnaround: 'I will contact you after purchase to schedule the first session',
+    },
+  ];
+
   let ALL_PRODUCTS = [];
   let currentCategory = 'All';
 
@@ -668,21 +715,37 @@
     ].join('');
   }
 
+  async function getJson(url) {
+    const res = await fetch(url);
+    let data = {};
+    try { data = await res.json(); } catch { data = {}; }
+    if (!res.ok) throw new Error(data.error || `Request failed: ${res.status}`);
+    return data;
+  }
+
   async function loadProducts() {
     renderSkeletons(4);
     try {
-      const [productRes, serviceRes] = await Promise.all([
-        fetch(`${WORKER}/products`),
-        fetch(`${WORKER}/services`),
+      const [productResult, serviceResult] = await Promise.allSettled([
+        getJson(`${WORKER}/products`),
+        getJson(`${WORKER}/services`),
       ]);
-      const productData = await productRes.json();
-      const serviceData = await serviceRes.json();
-      if (!productRes.ok || !productData.products) throw new Error(productData.error || 'Bad product response');
-      if (!serviceRes.ok || !serviceData.services) throw new Error(serviceData.error || 'Bad service response');
-      ALL_PRODUCTS = [
-        ...productData.products.map(p => ({ ...p, type: 'physical' })),
-        ...serviceData.services.map(s => ({ ...s, type: 'service' })),
-      ];
+
+      const products = productResult.status === 'fulfilled' && Array.isArray(productResult.value.products)
+        ? productResult.value.products.map(p => ({ ...p, type: 'physical' }))
+        : [];
+
+      // Services are allowed to display from the built-in catalog so the main shop
+      // still shows them even if the Worker /services route is cached or not deployed yet.
+      const workerServices = serviceResult.status === 'fulfilled' && Array.isArray(serviceResult.value.services)
+        ? serviceResult.value.services
+        : [];
+      const services = (workerServices.length ? workerServices : FALLBACK_SERVICES)
+        .map(s => ({ ...s, type: 'service' }));
+
+      ALL_PRODUCTS = [...products, ...services];
+      if (!ALL_PRODUCTS.length) throw new Error('No store items were returned');
+
       renderFilters(ALL_PRODUCTS);
       renderProducts(ALL_PRODUCTS);
     } catch (err) {
