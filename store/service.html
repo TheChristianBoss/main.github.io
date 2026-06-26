@@ -131,7 +131,7 @@
           <h1>${esc(service.name)}</h1>
           <p class="price">$${centsToDollars(service.price_cents)}</p>
           <p class="description">${esc(service.description || service.short || '')}</p>
-          <div class="note"><strong>How this works:</strong> Pay securely through Stripe. After payment, I receive a Discord notification with your request and contact details, then I contact you to fulfill it. Turnaround: ${esc(service.turnaround || 'varies by request')}.</div>
+          <div class="note"><strong>How this works:</strong> Pay securely through Stripe. After payment, I receive your request and contact details, then I contact you to fulfill it. Turnaround: ${esc(service.turnaround || 'varies by request')}.</div>
 
           <div class="field">
             <label for="notes">Request details</label>
