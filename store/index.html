@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Shop — Christian Goblin</title>
+  <title>Store — Christian Goblin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -220,6 +220,132 @@
       color: var(--gold);
     }
 
+
+
+    /* ── Store controls ── */
+    .shop-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+
+    .store-note {
+      max-width: 480px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      text-align: right;
+    }
+
+    .shop-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 12px 14px;
+      font: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus { border-color: var(--gold-dim); }
+
+    .filter-pills {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .filter-pill {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+    }
+
+    .filter-pill:hover,
+    .filter-pill.active {
+      color: var(--gold);
+      border-color: var(--gold-dim);
+      background: rgba(201,168,76,0.06);
+    }
+
+    .result-count {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 18px;
+    }
+
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .card-category {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 10px;
+    }
+
+    .store-help {
+      margin-top: 38px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      border-radius: 8px;
+      padding: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .store-help strong { color: var(--text); }
+    .store-help a { color: var(--gold); }
+
+    .service-art {
+      height: 100%;
+      min-height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 28px;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(201,168,76,0.18), transparent 35%),
+        linear-gradient(135deg, rgba(139,26,26,0.18), rgba(201,168,76,0.08));
+      color: var(--gold);
+      font-family: 'Cinzel', serif;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .service-short { color: var(--muted); font-size: 13px; margin-top: 8px; min-height: 42px; }
+
     /* ── States ── */
     .loading-grid {
       display: grid;
@@ -300,14 +426,29 @@
 </header>
 
 <section class="hero">
-  <p class="hero-eyebrow">Official Merch</p>
-  <h1>The Goblin<br>Collection</h1>
-  <p>Wearable faith. Designed for the weird, the wandering, and the redeemed.</p>
+  <p class="hero-eyebrow">Merch & Services</p>
+  <h1>The Goblin<br>Store</h1>
+  <p>Wearable faith, practical services, and creative help for the weird, the wandering, and the redeemed.</p>
 </section>
 
 <main class="shop-section">
-  <p class="section-label">All Products</p>
+  <div class="shop-top">
+    <div>
+      <p class="section-label">Products & Services</p>
+    </div>
+    <p class="store-note">Secure checkout is handled through Stripe. Product, service, and pricing details are verified by the store API before payment.</p>
+  </div>
+
+  <div class="shop-toolbar" aria-label="Store filters">
+    <input class="search-input" id="searchInput" type="search" placeholder="Search merch or services…" autocomplete="off" />
+    <div class="filter-pills" id="filterPills" role="list" aria-label="Product categories"></div>
+  </div>
+  <p class="result-count" id="resultCount"></p>
   <div id="grid"></div>
+
+  <div class="store-help">
+    <strong>Need help with an order?</strong> Contact <a href="mailto:hello@christiangoblin.com">hello@christiangoblin.com</a>. Shipping and taxes are calculated during checkout.
+  </div>
 </main>
 
 <footer>
@@ -316,6 +457,8 @@
 
 <script>
   const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
+  let ALL_PRODUCTS = [];
+  let currentCategory = 'All';
 
   function esc(value) {
     return String(value ?? '').replace(/[&<>'"]/g, ch => ({
@@ -335,19 +478,35 @@
     return Number.isFinite(n) ? n.toFixed(2) : '';
   }
 
-  // ── Cart count ───────────────────────────────────────────────────────
+  function centsToDollars(cents) {
+    const n = Number.parseInt(cents, 10);
+    return Number.isFinite(n) ? (n / 100).toFixed(2) : '';
+  }
+
+  function inferCategory(product) {
+    if (product?.type === 'service') return product.category || 'Services';
+    const name = String(product?.name || '').toLowerCase();
+    if (/hoodie|sweatshirt|crewneck/.test(name)) return 'Hoodies';
+    if (/shirt|tee|t-shirt|tshirt/.test(name)) return 'Shirts';
+    if (/hat|cap|beanie/.test(name)) return 'Hats';
+    if (/sticker|decal/.test(name)) return 'Stickers';
+    if (/poster|print|canvas/.test(name)) return 'Prints';
+    if (/mug|cup|tumbler/.test(name)) return 'Drinkware';
+    return 'Other';
+  }
+
   function getCart() {
     try { return JSON.parse(localStorage.getItem('cg_cart') || '[]'); } catch { return []; }
   }
 
   function updateCartCount() {
     const count = getCart().reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
-    document.getElementById('cartCount').textContent = count;
+    const el = document.getElementById('cartCount');
+    if (el) el.textContent = count;
   }
 
   updateCartCount();
 
-  // ── Skeletons ────────────────────────────────────────────────────────
   function renderSkeletons(n = 3) {
     const grid = document.getElementById('grid');
     grid.className = 'loading-grid';
@@ -362,52 +521,113 @@
     `).join('');
   }
 
-  // ── Render products ──────────────────────────────────────────────────
+  function renderFilters(products) {
+    const categories = ['All', ...new Set(products.map(inferCategory).filter(Boolean))];
+    const wrap = document.getElementById('filterPills');
+    wrap.innerHTML = categories.map(cat => `
+      <button class="filter-pill ${cat === currentCategory ? 'active' : ''}" type="button" data-category="${esc(cat)}">
+        ${esc(cat)}
+      </button>
+    `).join('');
+
+    wrap.querySelectorAll('[data-category]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentCategory = btn.dataset.category || 'All';
+        applyFilters();
+      });
+    });
+  }
+
+  function filteredProducts() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    return ALL_PRODUCTS.filter(p => {
+      const category = inferCategory(p);
+      const matchesCategory = currentCategory === 'All' || category === currentCategory;
+      const haystack = `${p.name || ''} ${p.short || ''} ${category}`.toLowerCase();
+      const matchesSearch = !q || haystack.includes(q);
+      return matchesCategory && matchesSearch;
+    });
+  }
+
+  function applyFilters() {
+    renderFilters(ALL_PRODUCTS);
+    renderProducts(filteredProducts());
+  }
+
   function renderProducts(products) {
     const grid = document.getElementById('grid');
+    const resultCount = document.getElementById('resultCount');
     grid.className = 'grid';
 
+    resultCount.textContent = ALL_PRODUCTS.length
+      ? `${products.length} of ${ALL_PRODUCTS.length} item${ALL_PRODUCTS.length !== 1 ? 's' : ''} shown`
+      : '';
+
     if (!products.length) {
-      grid.innerHTML = '<p class="error-msg"><strong>No products yet.</strong> Check back soon.</p>';
+      grid.innerHTML = '<p class="error-msg"><strong>No items match that search.</strong> Try another category or clear the search box.</p>';
       return;
     }
 
     grid.innerHTML = products.map(p => {
-      const price = money(p.price);
+      const category = inferCategory(p);
+      const isService = p.type === 'service';
+      const href = isService
+        ? `/store/service.html?id=${encodeURIComponent(String(p.id || ''))}`
+        : `/store/product.html?id=${encodeURIComponent(String(p.id || ''))}`;
+      const price = isService ? centsToDollars(p.price_cents) : money(p.price);
+      const image = safeUrl(p.thumbnail);
       return `
-        <a class="card" href="/store/product.html?id=${encodeURIComponent(String(p.id || ''))}">
+        <a class="card" href="${href}">
           <div class="card-image">
-            <img src="${esc(safeUrl(p.thumbnail))}" alt="${esc(p.name)}" loading="lazy" />
+            ${isService ? `<div class="service-art">Manual<br>Service</div>` : `<img src="${esc(image)}" alt="${esc(p.name)}" loading="lazy" />`}
           </div>
           <div class="card-body">
             <div class="card-name">${esc(p.name)}</div>
-            ${price ? `<div class="card-price">From $${price}</div>` : ''}
-            <span class="card-cta">View Product →</span>
+            ${p.short ? `<p class="service-short">${esc(p.short)}</p>` : ''}
+            ${price ? `<div class="card-price">${isService ? '' : 'From '}$${price}</div>` : ''}
+            <div class="card-meta">
+              <span class="card-category">${esc(category)}</span>
+              <span>${isService ? 'Paid request' : 'Secure checkout'}</span>
+            </div>
+            <span class="card-cta">${isService ? 'Request Service →' : 'View Product →'}</span>
           </div>
         </a>
       `;
     }).join('');
   }
 
-  // ── Fetch ────────────────────────────────────────────────────────────
   async function loadProducts() {
-    renderSkeletons(3);
+    renderSkeletons(4);
     try {
-      const res = await fetch(`${WORKER}/products`);
-      const data = await res.json();
-      if (!res.ok || !data.products) throw new Error(data.error || 'Bad response');
-      renderProducts(data.products);
+      const [productRes, serviceRes] = await Promise.all([
+        fetch(`${WORKER}/products`),
+        fetch(`${WORKER}/services`),
+      ]);
+      const productData = await productRes.json();
+      const serviceData = await serviceRes.json();
+      if (!productRes.ok || !productData.products) throw new Error(productData.error || 'Bad product response');
+      if (!serviceRes.ok || !serviceData.services) throw new Error(serviceData.error || 'Bad service response');
+      ALL_PRODUCTS = [
+        ...productData.products.map(p => ({ ...p, type: 'physical' })),
+        ...serviceData.services.map(s => ({ ...s, type: 'service' })),
+      ];
+      renderFilters(ALL_PRODUCTS);
+      renderProducts(ALL_PRODUCTS);
     } catch (err) {
+      document.getElementById('resultCount').textContent = '';
+      document.getElementById('filterPills').innerHTML = '';
       document.getElementById('grid').innerHTML = `
         <div class="error-msg">
-          <strong>Couldn't load products.</strong>
-          Check your connection and try again.<br><br>
+          <strong>Couldn't load the store.</strong>
+          The store API may be waking up, updating, or temporarily unavailable.<br><br>
           <button class="cart-btn" type="button" onclick="loadProducts()">Retry</button>
+          <p style="margin-top:18px">Still stuck? Contact <a style="color:var(--gold)" href="mailto:hello@christiangoblin.com">hello@christiangoblin.com</a>.</p>
         </div>
       `;
     }
   }
 
+  document.getElementById('searchInput').addEventListener('input', applyFilters);
   loadProducts();
 </script>
 </body>

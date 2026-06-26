@@ -233,6 +233,51 @@
       text-decoration: line-through;
     }
 
+
+
+    .product-note {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .product-note strong { color: var(--text); }
+
+    .mini-link {
+      color: var(--gold);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(201,168,76,0.35);
+    }
+
+    .mini-link:hover { border-bottom-color: var(--gold); }
+
+    .trust-panel {
+      border-top: 1px solid var(--border);
+      margin-top: 28px;
+      padding-top: 22px;
+      display: grid;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .trust-row { display: flex; gap: 10px; align-items: flex-start; }
+    .trust-row strong { color: var(--text); display: block; font-size: 13px; }
+
+    .stock-msg {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: -12px;
+      margin-bottom: 20px;
+    }
+
+    .stock-msg.good { color: var(--gold); }
+
     /* ── Quantity ── */
     .qty-row {
       display: flex;
@@ -401,9 +446,22 @@
   }
 
   function saveCart(cart) {
-    const clean = cart
-      .filter(i => i && i.variant_id)
-      .map(i => ({
+    const clean = (Array.isArray(cart) ? cart : []).map(i => {
+      if (i?.type === 'service') {
+        return {
+          type: 'service',
+          service_id: String(i.service_id || ''),
+          service_name: String(i.service_name || 'Service'),
+          price_cents: Number.parseInt(i.price_cents, 10) || 0,
+          quantity: Math.max(1, Math.min(3, Number.parseInt(i.quantity, 10) || 1)),
+          notes: String(i.notes || '').slice(0, 700),
+          deadline: String(i.deadline || '').slice(0, 120),
+          contact_preference: String(i.contact_preference || '').slice(0, 80),
+        };
+      }
+      if (!i?.variant_id) return null;
+      return {
+        type: 'physical',
         product_id: i.product_id,
         product_name: String(i.product_name || 'Product'),
         variant_id: String(i.variant_id),
@@ -411,7 +469,8 @@
         price: Number.parseFloat(i.price) || 0,
         image: safeUrl(i.image),
         quantity: clampQty(i.quantity),
-      }));
+      };
+    }).filter(Boolean);
     localStorage.setItem('cg_cart', JSON.stringify(clean));
   }
 
@@ -422,7 +481,7 @@
 
   function addToCart(item) {
     const cart = getCart();
-    const existing = cart.find(i => String(i.variant_id) === String(item.variant_id));
+    const existing = cart.find(i => i.type !== 'service' && String(i.variant_id) === String(item.variant_id));
     if (existing) {
       existing.quantity = clampQty(existing.quantity + item.quantity);
     } else {
@@ -492,6 +551,10 @@
 
           ${product.description ? `<p class="product-description">${esc(product.description)}</p>` : ''}
 
+          <div class="product-note">
+            <strong>Made to order.</strong> Products are fulfilled through Printful after checkout. Shipping, taxes, and final availability are verified securely before payment.
+          </div>
+
           ${colors.length > 0 ? `
             <div class="selector-group">
               <div class="selector-label">
@@ -532,10 +595,20 @@
             </div>
           </div>
 
+          <p class="stock-msg ${variant ? 'good' : ''}">
+            ${variant ? 'Selected option is ready for secure checkout.' : 'Choose an available color and size to continue.'}
+          </p>
+
           <button class="add-btn" id="addBtn" ${!variant ? 'disabled' : ''}>
             ${!variant ? 'Select Options' : 'Add to Cart'}
           </button>
           <div class="add-feedback" id="feedback"></div>
+
+          <div class="trust-panel">
+            <div class="trust-row"><span>↳</span><span><strong>Size guide</strong> For apparel, check the Printful sizing notes on the product/brand page before ordering. When unsure, size up.</span></div>
+            <div class="trust-row"><span>↳</span><span><strong>Shipping</strong> Shipping price and delivery options are calculated during Stripe checkout.</span></div>
+            <div class="trust-row"><span>↳</span><span><strong>Support</strong> Questions? Email <a class="mini-link" href="mailto:hello@christiangoblin.com">hello@christiangoblin.com</a>.</span></div>
+          </div>
         </div>
       </div>
     `;
@@ -584,6 +657,7 @@
       if (!variant) return;
 
       addToCart({
+        type: 'physical',
         product_id: product.id,
         product_name: product.name,
         variant_id: variant.id,
