@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cg-file-converter-shell-v2';
+const CACHE_NAME = 'cg-file-converter-shell-v4';
 const CORE_ASSETS = [
   '/tools/converter/',
   '/tools/converter/index.html',
@@ -22,18 +22,28 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+function shouldCache(url) {
+  return url.pathname.startsWith('/tools/converter/') && (
+    url.pathname.includes('/assets/') ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.webmanifest') ||
+    url.pathname.endsWith('/tools/converter/')
+  );
+}
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin || !url.pathname.startsWith('/tools/converter/')) return;
   if (event.request.method !== 'GET') return;
 
+  // Network-first keeps GitHub Pages updates from being hidden behind an old shell cache.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      const copy = response.clone();
-      if (response.ok && (url.pathname.includes('/assets/') || url.pathname.endsWith('.html') || url.pathname.endsWith('.webmanifest'))) {
+    fetch(event.request).then((response) => {
+      if (response.ok && shouldCache(url)) {
+        const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => undefined);
       }
       return response;
-    }).catch(() => cached || caches.match('/tools/converter/index.html')))
+    }).catch(() => caches.match(event.request).then((cached) => cached || caches.match('/tools/converter/index.html')))
   );
 });

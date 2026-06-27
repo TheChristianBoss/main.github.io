@@ -119,8 +119,9 @@ export function render({ root, files, setStatus, helpers }) {
         setStatus('URL decoded text.', 'success');
       }
     } catch (err) {
-      setStatus(err.message || 'Utility failed.', 'error');
-      result.textContent = err.message || 'Utility failed.';
+      const friendly = helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'utility conversion') : (err.message || 'Utility failed.');
+      setStatus(friendly, 'error');
+      result.textContent = friendly;
       downloadButton.disabled = true;
     }
   });

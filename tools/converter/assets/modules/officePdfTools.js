@@ -72,7 +72,10 @@ async function getZipText(file, path) {
 async function loadPdfLib(setStatus) {
   if (!pdfLibPromise) {
     setStatus?.('Loading PDF engine only for this module…', 'info');
-    pdfLibPromise = import(PDFLIB_URL);
+    pdfLibPromise = import(PDFLIB_URL).catch((err) => {
+      pdfLibPromise = null;
+      throw new Error(`Could not load the PDF helper library. Check your connection and refresh. ${err?.message || ''}`.trim());
+    });
   }
   return pdfLibPromise;
 }
@@ -471,8 +474,9 @@ export function render({ root, files, setStatus, helpers }) {
       result.textContent = message;
       setStatus(message.split('\n')[0], 'success');
     } catch (err) {
-      result.textContent = err.message || 'Document conversion failed.';
-      setStatus(err.message || 'Document conversion failed.', 'error');
+      const friendly = helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'document conversion') : (err.message || 'Document conversion failed.');
+      result.textContent = friendly;
+      setStatus(friendly, 'error');
     }
   });
 

@@ -54,6 +54,15 @@ async function extractEntry(bytes, entry) {
   throw new Error(`${entry.name} uses ZIP compression method ${entry.method}. This browser can only extract stored files and some deflated files.`);
 }
 
+
+function safeEntryName(name) {
+  return String(name || 'extracted-file.bin')
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter((part) => part && part !== '.' && part !== '..')
+    .join('/') || 'extracted-file.bin';
+}
+
 export function render({ root, files, setStatus, helpers }) {
   root.innerHTML = `
     <div class="module-panel">
@@ -71,7 +80,7 @@ export function render({ root, files, setStatus, helpers }) {
           <div class="badge-list">
             <span class="badge">Create ZIP</span>
             <span class="badge">List ZIP entries</span>
-            <span class="badge">Extract simple ZIPs</span>
+            <span class="badge">Extract simple ZIPs into one download</span>
           </div>
         </div>
       </div>
@@ -108,24 +117,28 @@ export function render({ root, files, setStatus, helpers }) {
         return;
       }
 
-      let extracted = 0;
+      const extractedFiles = [];
       const failed = [];
       for (const entry of entries) {
         try {
           const blob = await extractEntry(bytes, entry);
-          const safeName = entry.name.split('/').pop() || 'extracted-file.bin';
-          helpers.downloadBlob(blob, safeName);
-          extracted += 1;
+          const safeName = safeEntryName(entry.name);
+          extractedFiles.push(new File([blob], safeName, { type: blob.type || 'application/octet-stream' }));
         } catch (err) {
           failed.push(`${entry.name}: ${err.message}`);
         }
       }
 
-      result.textContent = `Extracted ${extracted} file${extracted === 1 ? '' : 's'}.` + (failed.length ? `\n\nSkipped/failed:\n${failed.join('\n')}` : '');
-      setStatus(`ZIP extraction finished. Extracted ${extracted} file${extracted === 1 ? '' : 's'}.`, failed.length ? 'info' : 'success');
+      if (extractedFiles.length) {
+        const extractedZip = await helpers.createZipBlob(extractedFiles, 'extracted-files');
+        helpers.downloadBlob(extractedZip, `${helpers.safeFileBase(zipFile.name)}-extracted.zip`);
+      }
+      result.textContent = `Extracted ${extractedFiles.length} file${extractedFiles.length === 1 ? '' : 's'} into one ZIP download.` + (failed.length ? `\n\nSkipped/failed:\n${failed.join('\n')}` : '');
+      setStatus(`ZIP extraction finished. Downloaded ${extractedFiles.length} extracted file${extractedFiles.length === 1 ? '' : 's'} as one ZIP.`, failed.length ? 'info' : 'success');
     } catch (err) {
-      result.textContent = err.message || 'ZIP tool failed.';
-      setStatus(err.message || 'ZIP tool failed.', 'error');
+      const friendly = helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'ZIP tool') : (err.message || 'ZIP tool failed.');
+      result.textContent = friendly;
+      setStatus(friendly, 'error');
     }
   });
 }

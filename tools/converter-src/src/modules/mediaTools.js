@@ -265,7 +265,7 @@ async function convertMedia({ file, refs, helpers, setStatus }) {
 
     await ffmpeg.exec(['-y', ...args]);
     const data = await ffmpeg.readFile(output);
-    const blob = new Blob([data.buffer], { type: preset.outputMime });
+    const blob = new Blob([data], { type: preset.outputMime });
     helpers.downloadBlob(blob, output);
     setStatus(`Done. Downloaded ${output}.`, 'success');
   } finally {
@@ -278,6 +278,11 @@ async function convertMedia({ file, refs, helpers, setStatus }) {
 
 function cancelMediaConversion(refs, setStatus) {
   try {
+    if (!ffmpegInstance && !ffmpegLoading) {
+      refs.progressLabel.textContent = 'No active engine';
+      setStatus('No media engine is currently loaded or converting.', 'info');
+      return;
+    }
     if (ffmpegInstance) {
       ffmpegInstance.terminate();
       ffmpegInstance = null;
@@ -374,7 +379,7 @@ export function render({ root, files, setStatus, helpers }) {
 
       <div class="button-row">
         <button class="secondary-button" id="loadMediaEngine" type="button">Load media engine</button>
-        <button class="action-button" id="convertMedia" type="button">Convert media</button>
+        <button class="action-button" id="convertMedia" type="button" ${file ? '' : 'disabled'}>Convert media</button>
         <button class="secondary-button" id="cancelMedia" type="button">Cancel / unload engine</button>
       </div>
 
@@ -415,16 +420,18 @@ export function render({ root, files, setStatus, helpers }) {
     } catch (err) {
       const raw = err?.message || String(err || '');
       const isWorkerCors = /Failed to construct 'Worker'|cannot be accessed from origin|SecurityError/i.test(raw);
-      setStatus(isWorkerCors
+      const friendly = isWorkerCors
         ? 'Could not start the media worker. The app now uses same-origin worker files, so hard refresh this page and try again.'
-        : raw || 'Could not load media engine.', 'error');
+        : (helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'media engine') : (raw || 'Could not load media engine.'));
+      setStatus(friendly, 'error');
     }
   });
   refs.convertBtn.addEventListener('click', async () => {
     try {
       await convertMedia({ file, refs, helpers, setStatus });
     } catch (err) {
-      setStatus(err.message || 'Could not convert media.', 'error');
+      const friendly = helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'media conversion') : (err.message || 'Could not convert media.');
+      setStatus(friendly, 'error');
     }
   });
   refs.cancelBtn.addEventListener('click', () => cancelMediaConversion(refs, setStatus));

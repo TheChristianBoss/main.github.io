@@ -271,3 +271,30 @@ input[type="range"] { accent-color: var(--gold); }
 .test-fail { color: var(--danger); }
 .test-warn { color: var(--gold-strong); }
 @media (max-width: 760px) { .support-grid { grid-template-columns: 1fr; } }
+
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+  align-items: center;
+  margin: -.35rem 0 1rem;
+}
+.file-remove {
+  border: 1px solid rgba(255,123,123,.35);
+  background: rgba(255,123,123,.08);
+  color: #ffd0d0;
+  border-radius: 999px;
+  padding: .38rem .62rem;
+  font-size: .8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.file-remove:hover, .danger-button:hover {
+  border-color: rgba(255,123,123,.75);
+  background: rgba(255,123,123,.14);
+}
+.danger-button { color: #ffd0d0; border-color: rgba(255,123,123,.35); }
+@media (max-width: 560px) {
+  .file-actions { display: grid; grid-template-columns: 1fr; }
+  .file-remove { width: fit-content; }
+}

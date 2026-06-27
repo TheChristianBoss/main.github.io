@@ -263,6 +263,8 @@ const state = {
   loading: false,
   deviceProfile: detectDeviceProfile(),
   history: [],
+  renderToken: 0,
+  pickerAppendMode: false,
 };
 
 const refs = {};
@@ -287,6 +289,10 @@ function safeFileBase(name = 'converted') {
     .replace(/\.[^/.]+$/, '')
     .replace(/[^a-z0-9-_]+/gi, '-')
     .replace(/^-|-$/g, '') || 'converted';
+}
+
+function fileKey(file) {
+  return [file?.name || '', file?.size || 0, file?.lastModified || 0, file?.type || ''].join('::');
 }
 
 function setStatus(message, type = 'info') {
@@ -538,13 +544,19 @@ function fileSummary(files) {
 
 function renderFileList() {
   refs.fileList.innerHTML = state.files.length
-    ? state.files.map((file) => `
+    ? state.files.map((file, index) => `
         <li>
           <span>${escapeHtml(file.name)}</span>
           <small>${formatBytes(file.size)}${file.type ? ` · ${escapeHtml(file.type)}` : ''}</small>
+          <button class="file-remove" type="button" data-file-index="${index}" aria-label="Remove ${escapeHtml(file.name)}">Remove</button>
         </li>
       `).join('')
     : '<li><span>No files selected yet.</span><small>Drop files above or click Choose Files.</small></li>';
+  if (refs.fileActions) {
+    refs.fileActions.hidden = false;
+    refs.clearFiles.disabled = !state.files.length;
+    refs.addMoreFiles.disabled = !state.files.length;
+  }
 }
 
 function updateFileInputForTool() {
@@ -560,13 +572,17 @@ async function getActiveModule() {
   if (state.loadedModules.has(tool.id)) return state.loadedModules.get(tool.id);
   state.loading = true;
   refs.toolMount.innerHTML = `<div class="module-loading"><div class="spinner"></div><p>Loading ${escapeHtml(tool.label)} module…</p></div>`;
-  const module = await tool.loader();
-  state.loadedModules.set(tool.id, module);
-  state.loading = false;
-  return module;
+  try {
+    const module = await tool.loader();
+    state.loadedModules.set(tool.id, module);
+    return module;
+  } finally {
+    state.loading = false;
+  }
 }
 
 async function renderActiveTool() {
+  const renderToken = ++state.renderToken;
   const tool = TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
   refs.moduleEyebrow.textContent = tool.eyebrow;
   refs.moduleTitle.textContent = tool.title;
@@ -577,6 +593,7 @@ async function renderActiveTool() {
   qsa('.tool-tab').forEach((button) => button.classList.toggle('active', button.dataset.toolId === tool.id));
   try {
     const module = await getActiveModule();
+    if (renderToken !== state.renderToken || tool.id !== state.activeToolId) return;
     module.render({
       root: refs.toolMount,
       files: state.files,
@@ -584,6 +601,7 @@ async function renderActiveTool() {
       helpers,
     });
   } catch (err) {
+    if (renderToken !== state.renderToken) return;
     const friendly = friendlyErrorMessage(err, `${tool.label} module`);
     refs.toolMount.innerHTML = renderErrorBox(friendly, 'Try refreshing the page. If it is a heavy module, check your connection and device file-size recommendation.');
     setStatus(friendly, 'error');
@@ -594,11 +612,10 @@ function setFiles(fileList, options = {}) {
   const incoming = [...(fileList || [])].filter(Boolean);
 
   // Important: choosing "Cancel" in the file picker returns an empty FileList.
-  // Do not treat that as a request to clear the current files. This also protects
-  // drag-and-drop users when the hidden file input opens after a drop/click event.
+  // Do not treat that as a request to clear the current files.
   if (!incoming.length && options.preserveOnEmpty !== false) {
     if (state.files.length) {
-      setStatus(`${fileSummary(state.files)} Still selected. Choose new files to replace them.`);
+      setStatus(`${fileSummary(state.files)} Still selected. Choose new files to replace them, add more files, or clear them.`);
     } else {
       setStatus('No file selected yet. Drop files here or choose files to begin.');
     }
@@ -606,15 +623,49 @@ function setFiles(fileList, options = {}) {
     return;
   }
 
-  const suggestedTool = detectBestToolForFiles(incoming);
+  const nextFiles = options.append ? mergeFiles(state.files, incoming) : incoming;
+  const suggestedTool = detectBestToolForFiles(nextFiles);
   if (suggestedTool && suggestedTool !== state.activeToolId) state.activeToolId = suggestedTool;
   const tool = TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
-  state.files = tool.multiple ? incoming : incoming.slice(0, 1);
+  state.files = tool.multiple ? nextFiles : nextFiles.slice(0, 1);
   refs.fileInput.value = '';
   renderFileList();
   renderSizeAdvice();
   const detected = incoming.length ? ` Smart-detected ${tool.label}.` : '';
-  setStatus(`${fileSummary(state.files)}${detected}`);
+  const action = options.append ? 'Added files.' : 'Selected files.';
+  setStatus(`${action} ${fileSummary(state.files)}${detected}`);
+  renderActiveTool();
+}
+
+function mergeFiles(current, incoming) {
+  const merged = [...current];
+  const seen = new Set(current.map(fileKey));
+  for (const file of incoming) {
+    const key = fileKey(file);
+    if (!seen.has(key)) {
+      merged.push(file);
+      seen.add(key);
+    }
+  }
+  return merged;
+}
+
+function clearSelectedFiles() {
+  state.files = [];
+  refs.fileInput.value = '';
+  renderFileList();
+  renderSizeAdvice();
+  setStatus('Cleared selected files. Drop or choose new files to begin.');
+  renderActiveTool();
+}
+
+function removeFileAt(index) {
+  const removed = state.files[index];
+  state.files = state.files.filter((_, i) => i !== index);
+  refs.fileInput.value = '';
+  renderFileList();
+  renderSizeAdvice();
+  setStatus(removed ? `Removed ${removed.name}. ${fileSummary(state.files)}` : fileSummary(state.files));
   renderActiveTool();
 }
 
@@ -640,16 +691,36 @@ function renderToolTabs() {
 function initDropZone() {
   let suppressPickerUntil = 0;
 
+  function openPicker({ append = false } = {}) {
+    state.pickerAppendMode = append;
+    refs.fileInput.click();
+  }
+
   refs.dropZone.addEventListener('click', () => {
     if (Date.now() < suppressPickerUntil) return;
-    refs.fileInput.click();
+    openPicker({ append: false });
   });
 
   refs.dropZone.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') refs.fileInput.click();
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openPicker({ append: false });
+    }
   });
 
-  refs.fileInput.addEventListener('change', (event) => setFiles(event.target.files));
+  refs.fileInput.addEventListener('change', (event) => {
+    setFiles(event.target.files, { append: state.pickerAppendMode });
+    state.pickerAppendMode = false;
+  });
+
+  refs.addMoreFiles.addEventListener('click', () => openPicker({ append: true }));
+  refs.replaceFiles.addEventListener('click', () => openPicker({ append: false }));
+  refs.clearFiles.addEventListener('click', clearSelectedFiles);
+  refs.fileList.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-file-index]');
+    if (!button) return;
+    removeFileAt(Number(button.dataset.fileIndex));
+  });
 
   ['dragenter', 'dragover'].forEach((name) => refs.dropZone.addEventListener(name, (event) => {
     event.preventDefault();
@@ -665,7 +736,7 @@ function initDropZone() {
 
   refs.dropZone.addEventListener('drop', (event) => {
     suppressPickerUntil = Date.now() + 700;
-    setFiles(event.dataTransfer.files);
+    setFiles(event.dataTransfer.files, { append: Boolean(state.files.length) });
   });
 }
 
@@ -684,6 +755,8 @@ const helpers = {
   deviceProfile: state.deviceProfile,
   getRecommendedLimit,
   getSizeGuide,
+  friendlyErrorMessage,
+  renderErrorBox,
 };
 
 function mount() {
@@ -740,6 +813,11 @@ function mount() {
             <div class="size-advice" id="sizeAdvice"></div>
 
             <ul class="file-list" id="fileList"></ul>
+            <div class="file-actions" id="fileActions">
+              <button class="secondary-button tiny" id="replaceFiles" type="button">Choose / replace files</button>
+              <button class="secondary-button tiny" id="addMoreFiles" type="button" disabled>Add more files</button>
+              <button class="secondary-button tiny danger-button" id="clearFiles" type="button" disabled>Clear selected files</button>
+            </div>
             <div id="toolMount" class="tool-mount"></div>
             <p class="status" id="status" data-type="info">Choose a module and file to begin.</p>
             <div class="history-panel">
@@ -774,6 +852,10 @@ function mount() {
     dropTitle: qs('#dropTitle'),
     dropCopy: qs('#dropCopy'),
     fileList: qs('#fileList'),
+    fileActions: qs('#fileActions'),
+    replaceFiles: qs('#replaceFiles'),
+    addMoreFiles: qs('#addMoreFiles'),
+    clearFiles: qs('#clearFiles'),
     toolMount: qs('#toolMount'),
     status: qs('#status'),
     historyList: qs('#historyList'),

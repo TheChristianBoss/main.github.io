@@ -198,7 +198,7 @@ export function render({ root, files, setStatus, helpers }) {
   }
 
   root.querySelector('#loadFileText').addEventListener('click', async () => {
-    try { await loadFileText(); } catch (err) { setStatus(err.message || 'Could not load file.', 'error'); }
+    try { await loadFileText(); } catch (err) { setStatus(helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'text loading') : (err.message || 'Could not load file.'), 'error'); }
   });
 
   if (files[0]) loadFileText().catch(() => {});
@@ -213,8 +213,9 @@ export function render({ root, files, setStatus, helpers }) {
       result.textContent = converted.text.slice(0, 10000);
       setStatus(`Done. Downloaded .${converted.ext} file (${helpers.formatBytes(blob.size)}).`, 'success');
     } catch (err) {
-      result.textContent = err.message || 'Text conversion failed.';
-      setStatus(err.message || 'Text conversion failed.', 'error');
+      const friendly = helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'text/data conversion') : (err.message || 'Text conversion failed.');
+      result.textContent = friendly;
+      setStatus(friendly, 'error');
     }
   });
 }

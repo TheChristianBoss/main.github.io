@@ -101,3 +101,9 @@ QA / stability upgrade:
 
 
 Media worker note: the @ffmpeg/ffmpeg ESM wrapper files are vendored locally under assets/vendor/ffmpeg so the browser can create same-origin media workers. The large ffmpeg-core wasm is still loaded lazily only when the Audio / Video module is used.
+
+Bug check patch note:
+- Added clear/remove/add-more selected-file controls.
+- Fixed image PDF binary output.
+- Changed ZIP extraction to one ZIP download.
+- Hardened lazy module switching and service-worker cache behavior.

@@ -16,18 +16,13 @@ const IMAGE_PRESETS = {
   favicon: { label: 'Favicon / app icon', format: 'ico', quality: 92, width: 64 },
 };
 
-function arrayBufferToBinaryString(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return binary;
+function asciiBytes(text) {
+  return new TextEncoder().encode(String(text));
 }
 
-function escapePdfText(value) {
-  return String(value).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+function partLength(part) {
+  if (typeof part === 'string') return asciiBytes(part).length;
+  return part.byteLength || part.length || 0;
 }
 
 function buildPdfFromJpegs(pages) {
@@ -44,40 +39,52 @@ function buildPdfFromJpegs(pages) {
     const contentId = nextId++;
     pageObjects.push({ id: pageId, imageId, contentId, width: page.width, height: page.height, name: page.name });
     imageObjects.push({ id: imageId, width: page.width, height: page.height, data: page.jpegBytes });
-    contentObjects.push({ id: contentId, width: page.width, height: page.height });
+    contentObjects.push({ id: contentId, imageId, width: page.width, height: page.height });
   });
 
   const objects = new Map();
-  objects.set(catalogId, `<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
-  objects.set(pagesId, `<< /Type /Pages /Kids [${pageObjects.map((p) => `${p.id} 0 R`).join(' ')}] /Count ${pageObjects.length} >>`);
+  objects.set(catalogId, [`<< /Type /Catalog /Pages ${pagesId} 0 R >>`]);
+  objects.set(pagesId, [`<< /Type /Pages /Kids [${pageObjects.map((page) => `${page.id} 0 R`).join(' ')}] /Count ${pageObjects.length} >>`]);
 
   for (const page of pageObjects) {
-    objects.set(page.id, `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${page.width} ${page.height}] /Resources << /XObject << /Im${page.imageId} ${page.imageId} 0 R >> >> /Contents ${page.contentId} 0 R >>`);
+    objects.set(page.id, [`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${page.width} ${page.height}] /Resources << /XObject << /Im${page.imageId} ${page.imageId} 0 R >> >> /Contents ${page.contentId} 0 R >>`]);
   }
 
   for (const image of imageObjects) {
-    const binary = arrayBufferToBinaryString(image.data.buffer);
-    objects.set(image.id, `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.data.length} >>\nstream\n${binary}\nendstream`);
+    objects.set(image.id, [
+      `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.data.length} >>\nstream\n`,
+      image.data,
+      '\nendstream',
+    ]);
   }
 
   for (const content of contentObjects) {
-    const stream = `q\n${content.width} 0 0 ${content.height} 0 0 cm\n/Im${content.id - 1} Do\nQ`;
-    objects.set(content.id, `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+    const stream = `q\n${content.width} 0 0 ${content.height} 0 0 cm\n/Im${content.imageId} Do\nQ`;
+    objects.set(content.id, [`<< /Length ${asciiBytes(stream).length} >>\nstream\n${stream}\nendstream`]);
   }
 
-  let pdf = '%PDF-1.4\n% Christian Goblin File Converter\n';
+  const parts = [];
   const offsets = [0];
+  let length = 0;
+  const push = (part) => {
+    parts.push(part);
+    length += partLength(part);
+  };
+
+  push('%PDF-1.4\n% Christian Goblin File Converter\n');
   for (let id = 1; id < nextId; id += 1) {
-    offsets[id] = pdf.length;
-    pdf += `${id} 0 obj\n${objects.get(id)}\nendobj\n`;
+    offsets[id] = length;
+    push(`${id} 0 obj\n`);
+    for (const part of objects.get(id)) push(part);
+    push('\nendobj\n');
   }
-  const xrefStart = pdf.length;
-  pdf += `xref\n0 ${nextId}\n0000000000 65535 f \n`;
-  for (let id = 1; id < nextId; id += 1) {
-    pdf += `${String(offsets[id]).padStart(10, '0')} 00000 n \n`;
-  }
-  pdf += `trailer\n<< /Size ${nextId} /Root ${catalogId} 0 R /Info << /Producer (Christian Goblin File Converter) /Title (${escapePdfText(pages[0]?.name || 'Converted Images')}) >> >>\nstartxref\n${xrefStart}\n%%EOF`;
-  return new Blob([pdf], { type: 'application/pdf' });
+
+  const xrefStart = length;
+  push(`xref\n0 ${nextId}\n0000000000 65535 f \n`);
+  for (let id = 1; id < nextId; id += 1) push(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
+  push(`trailer\n<< /Size ${nextId} /Root ${catalogId} 0 R /Info << /Producer (Christian Goblin File Converter) /Title (${escapePdfText(pages[0]?.name || 'Converted Images')}) >> >>\nstartxref\n${xrefStart}\n%%EOF`);
+
+  return new Blob(parts, { type: 'application/pdf' });
 }
 
 function buildIcoFromPngBytes(pngBytes, size = 64) {
@@ -296,8 +303,9 @@ export function render({ root, files, setStatus, helpers }) {
       }
       result.innerHTML = `<div class="compare-stats"><div class="stat-pill"><small>Original</small><strong>${helpers.formatBytes(originalTotal)}</strong></div><div class="stat-pill"><small>Converted</small><strong>${helpers.formatBytes(convertedTotal)}</strong></div><div class="stat-pill"><small>Size change</small><strong>${change > 0 ? change + '% smaller' : Math.abs(change) + '% larger'}</strong></div></div><div class="result-box"><h3>Converted files</h3>${outputs.map((output) => `${helpers.escapeHtml(output.name)} — ${output.width}×${output.height} — ${helpers.formatBytes(output.blob.size)}`).join('\n')}</div>${previewHtml}`;
     } catch (err) {
-      setStatus(err.message || 'Image conversion failed.', 'error');
-      result.innerHTML = `<div class="error-box">${helpers.escapeHtml(err.message || 'Image conversion failed.')}</div>`;
+      const friendly = helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'image conversion') : (err.message || 'Image conversion failed.');
+      setStatus(friendly, 'error');
+      result.innerHTML = helpers.renderErrorBox ? helpers.renderErrorBox(friendly) : `<div class="error-box">${helpers.escapeHtml(friendly)}</div>`;
     }
   });
 }

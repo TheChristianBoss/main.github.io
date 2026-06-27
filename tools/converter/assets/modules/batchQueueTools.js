@@ -131,7 +131,7 @@ export function render({ root, files, setStatus, helpers }) {
         <button class="secondary-button" id="downloadBatch" type="button" disabled>Download all as ZIP</button>
         <button class="secondary-button" id="clearBatch" type="button">Clear results</button>
       </div>
-      <div class="queue-list" id="queueList">${files.length ? files.map((file) => `<div class="queue-item"><span>${escapeHtml(file.name)}</span><small>Waiting • ${helpers.formatBytes(file.size)}</small></div>`).join('') : '<div class="queue-item"><span>No files selected.</span><small>Choose files above.</small></div>'}</div>
+      <div class="queue-list" id="queueList">${files.length ? files.map((file, index) => `<div class="queue-item"><span>${escapeHtml(file.name)}</span><small>Waiting • #${index + 1} • ${helpers.formatBytes(file.size)}</small></div>`).join('') : '<div class="queue-item"><span>No files selected.</span><small>Choose files above.</small></div>'}</div>
       <pre class="result-box" id="batchLog">Batch log will appear here.</pre>
     </div>
   `;
@@ -146,9 +146,9 @@ export function render({ root, files, setStatus, helpers }) {
   const log = root.querySelector('#batchLog');
 
   function renderQueue(statuses = new Map()) {
-    queueList.innerHTML = files.length ? files.map((file) => {
-      const s = statuses.get(file.name) || 'Waiting';
-      return `<div class="queue-item"><span>${escapeHtml(file.name)}</span><small>${escapeHtml(s)} • ${helpers.formatBytes(file.size)}</small></div>`;
+    queueList.innerHTML = files.length ? files.map((file, index) => {
+      const s = statuses.get(index) || 'Waiting';
+      return `<div class="queue-item"><span>${escapeHtml(file.name)}</span><small>${escapeHtml(s)} • #${index + 1} • ${helpers.formatBytes(file.size)}</small></div>`;
     }).join('') : '<div class="queue-item"><span>No files selected.</span><small>Choose files above.</small></div>';
   }
 
@@ -161,17 +161,19 @@ export function render({ root, files, setStatus, helpers }) {
       download.disabled = true;
       log.textContent = '';
       const opts = { maxWidth: maxWidth.value, quality: Number(quality.value) / 100 };
-      for (const file of files) {
-        statuses.set(file.name, 'Converting');
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        statuses.set(index, 'Converting');
         renderQueue(statuses);
         try {
           const output = await convertFile(file, mode.value, helpers, opts);
           outputs.push(output);
-          statuses.set(file.name, `Done → ${output.name}`);
+          statuses.set(index, `Done → ${output.name}`);
           log.textContent += `✓ ${file.name} → ${output.name} (${helpers.formatBytes(output.size)})\n`;
         } catch (err) {
-          statuses.set(file.name, err.message || 'Failed');
-          log.textContent += `✗ ${file.name}: ${err.message || 'Failed'}\n`;
+          const friendly = helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'batch conversion') : (err.message || 'Failed');
+          statuses.set(index, friendly);
+          log.textContent += `✗ ${file.name}: ${friendly}\n`;
         }
       }
       renderQueue(statuses);
@@ -179,7 +181,7 @@ export function render({ root, files, setStatus, helpers }) {
       download.disabled = false;
       setStatus(`Batch complete. ${outputs.length} file${outputs.length === 1 ? '' : 's'} ready.`, 'success');
     } catch (err) {
-      setStatus(err.message || 'Batch conversion failed.', 'error');
+      setStatus(helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'batch conversion') : (err.message || 'Batch conversion failed.'), 'error');
     } finally {
       run.disabled = false;
     }
