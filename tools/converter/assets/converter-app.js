@@ -269,6 +269,10 @@ const state = {
 
 const refs = {};
 
+function getActiveToolDefinition() {
+  return TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
+}
+
 function qs(selector, root = document) {
   return root.querySelector(selector);
 }
@@ -364,7 +368,7 @@ function downloadBlob(blob, filename) {
   link.click();
   link.remove();
   recordHistory(filename, `${formatBytes(blob?.size || 0)} • downloaded`);
-  window.setTimeout(() => URL.revokeObjectURL(url), 750);
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function readFileAsText(file) {
@@ -535,6 +539,45 @@ function detectBestToolForFiles(files) {
   return 'utilities';
 }
 
+
+function toolCompatibilityNotes(tool, files) {
+  const list = [...(files || [])].filter(Boolean);
+  if (!list.length) return [];
+  const kinds = list.map(detectFileKind);
+  const notes = [];
+
+  if (!tool.multiple && list.length > 1) {
+    notes.push(`${tool.label} uses one file at a time. Choose / replace files to swap the selected file.`);
+  }
+
+  const badByTool = {
+    images: kinds.filter((kind) => kind !== 'image').length,
+    media: kinds.filter((kind) => kind !== 'media').length,
+    archives: kinds.filter((kind) => kind !== 'zip').length,
+    'text-data': kinds.filter((kind) => !['json', 'csv', 'markdown', 'html', 'text'].includes(kind)).length,
+    'office-pdf': kinds.filter((kind) => !['pdf', 'docx', 'xlsx', 'csv', 'json', 'text', 'markdown', 'html', 'image'].includes(kind)).length,
+  };
+
+  if (badByTool[tool.id]) {
+    notes.push(`Some selected files may not match the ${tool.label} module. Switch modules or remove incompatible files before converting.`);
+  }
+
+  if (tool.id === 'batch') {
+    notes.push('Batch mode skips files that do not match the chosen batch preset. Use one batch preset at a time.');
+  }
+
+  return notes;
+}
+
+function renderFileWarnings(tool = getActiveToolDefinition()) {
+  if (!refs.fileWarnings) return;
+  const notes = toolCompatibilityNotes(tool, state.files);
+  refs.fileWarnings.hidden = !notes.length;
+  refs.fileWarnings.innerHTML = notes.length
+    ? `<strong>Selected-file note</strong><ul>${notes.map((note) => `<li>${escapeHtml(note)}</li>`).join('')}</ul>`
+    : '';
+}
+
 function fileSummary(files) {
   if (!files.length) return 'No files selected.';
   if (files.length === 1) return `${files[0].name} • ${formatBytes(files[0].size)}${files[0].type ? ` • ${files[0].type}` : ''}`;
@@ -543,10 +586,11 @@ function fileSummary(files) {
 }
 
 function renderFileList() {
+  const tool = getActiveToolDefinition();
   refs.fileList.innerHTML = state.files.length
     ? state.files.map((file, index) => `
         <li>
-          <span>${escapeHtml(file.name)}</span>
+          <span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
           <small>${formatBytes(file.size)}${file.type ? ` · ${escapeHtml(file.type)}` : ''}</small>
           <button class="file-remove" type="button" data-file-index="${index}" aria-label="Remove ${escapeHtml(file.name)}">Remove</button>
         </li>
@@ -555,8 +599,11 @@ function renderFileList() {
   if (refs.fileActions) {
     refs.fileActions.hidden = false;
     refs.clearFiles.disabled = !state.files.length;
-    refs.addMoreFiles.disabled = !state.files.length;
+    refs.addMoreFiles.disabled = !state.files.length || !tool.multiple;
+    refs.addMoreFiles.textContent = tool.multiple ? 'Add more files' : 'One file at a time';
+    refs.addMoreFiles.title = tool.multiple ? 'Append more files to this conversion.' : 'This module uses one file at a time. Use Choose / replace files to swap it.';
   }
+  renderFileWarnings(tool);
 }
 
 function updateFileInputForTool() {
@@ -583,7 +630,7 @@ async function getActiveModule() {
 
 async function renderActiveTool() {
   const renderToken = ++state.renderToken;
-  const tool = TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
+  const tool = getActiveToolDefinition();
   refs.moduleEyebrow.textContent = tool.eyebrow;
   refs.moduleTitle.textContent = tool.title;
   refs.moduleDescription.textContent = tool.description;
@@ -591,6 +638,7 @@ async function renderActiveTool() {
   renderDeviceCard();
   renderSizeAdvice();
   qsa('.tool-tab').forEach((button) => button.classList.toggle('active', button.dataset.toolId === tool.id));
+  renderFileList();
   try {
     const module = await getActiveModule();
     if (renderToken !== state.renderToken || tool.id !== state.activeToolId) return;
@@ -623,16 +671,18 @@ function setFiles(fileList, options = {}) {
     return;
   }
 
-  const nextFiles = options.append ? mergeFiles(state.files, incoming) : incoming;
+  const currentTool = getActiveToolDefinition();
+  const shouldAppend = Boolean(options.append && currentTool.multiple && state.files.length);
+  const nextFiles = shouldAppend ? mergeFiles(state.files, incoming) : incoming;
   const suggestedTool = detectBestToolForFiles(nextFiles);
   if (suggestedTool && suggestedTool !== state.activeToolId) state.activeToolId = suggestedTool;
-  const tool = TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
+  const tool = getActiveToolDefinition();
   state.files = tool.multiple ? nextFiles : nextFiles.slice(0, 1);
   refs.fileInput.value = '';
   renderFileList();
   renderSizeAdvice();
   const detected = incoming.length ? ` Smart-detected ${tool.label}.` : '';
-  const action = options.append ? 'Added files.' : 'Selected files.';
+  const action = shouldAppend ? 'Added files.' : 'Selected files.';
   setStatus(`${action} ${fileSummary(state.files)}${detected}`);
   renderActiveTool();
 }
@@ -669,6 +719,20 @@ function removeFileAt(index) {
   renderActiveTool();
 }
 
+
+function resetConverter() {
+  state.activeToolId = 'images';
+  state.files = [];
+  state.history = [];
+  state.pickerAppendMode = false;
+  refs.fileInput.value = '';
+  renderFileList();
+  renderHistory();
+  renderSizeAdvice();
+  setStatus('Started over. Drop or choose files to begin.', 'info');
+  renderActiveTool();
+}
+
 function renderToolTabs() {
   refs.toolTabs.innerHTML = TOOL_DEFINITIONS.map((tool) => `
     <button class="tool-tab${tool.id === state.activeToolId ? ' active' : ''}" data-tool-id="${tool.id}" type="button">
@@ -682,6 +746,7 @@ function renderToolTabs() {
     if (!button) return;
     state.activeToolId = button.dataset.toolId;
     updateFileInputForTool();
+    renderFileList();
     renderSizeAdvice();
     setStatus(`Switched to ${button.querySelector('span')?.textContent || 'tool'} module.`);
     renderActiveTool();
@@ -713,7 +778,7 @@ function initDropZone() {
     state.pickerAppendMode = false;
   });
 
-  refs.addMoreFiles.addEventListener('click', () => openPicker({ append: true }));
+  refs.addMoreFiles.addEventListener('click', () => openPicker({ append: getActiveToolDefinition().multiple }));
   refs.replaceFiles.addEventListener('click', () => openPicker({ append: false }));
   refs.clearFiles.addEventListener('click', clearSelectedFiles);
   refs.fileList.addEventListener('click', (event) => {
@@ -736,7 +801,7 @@ function initDropZone() {
 
   refs.dropZone.addEventListener('drop', (event) => {
     suppressPickerUntil = Date.now() + 700;
-    setFiles(event.dataTransfer.files, { append: Boolean(state.files.length) });
+    setFiles(event.dataTransfer.files, { append: Boolean(state.files.length && getActiveToolDefinition().multiple) });
   });
 }
 
@@ -813,10 +878,12 @@ function mount() {
             <div class="size-advice" id="sizeAdvice"></div>
 
             <ul class="file-list" id="fileList"></ul>
+            <div class="file-warnings" id="fileWarnings" hidden></div>
             <div class="file-actions" id="fileActions">
               <button class="secondary-button tiny" id="replaceFiles" type="button">Choose / replace files</button>
               <button class="secondary-button tiny" id="addMoreFiles" type="button" disabled>Add more files</button>
               <button class="secondary-button tiny danger-button" id="clearFiles" type="button" disabled>Clear selected files</button>
+              <button class="secondary-button tiny" id="resetConverter" type="button">Start over</button>
             </div>
             <div id="toolMount" class="tool-mount"></div>
             <p class="status" id="status" data-type="info">Choose a module and file to begin.</p>
@@ -853,9 +920,11 @@ function mount() {
     dropCopy: qs('#dropCopy'),
     fileList: qs('#fileList'),
     fileActions: qs('#fileActions'),
+    fileWarnings: qs('#fileWarnings'),
     replaceFiles: qs('#replaceFiles'),
     addMoreFiles: qs('#addMoreFiles'),
     clearFiles: qs('#clearFiles'),
+    resetConverter: qs('#resetConverter'),
     toolMount: qs('#toolMount'),
     status: qs('#status'),
     historyList: qs('#historyList'),
@@ -867,7 +936,8 @@ function mount() {
     sizeAdvice: qs('#sizeAdvice'),
   });
 
-  refs.clearHistory.addEventListener('click', () => { state.history = []; renderHistory(); });
+  refs.clearHistory.addEventListener('click', () => { state.history = []; renderHistory(); setStatus('Cleared session history.', 'info'); });
+  refs.resetConverter.addEventListener('click', resetConverter);
   renderToolTabs();
   initDropZone();
   renderFileList();

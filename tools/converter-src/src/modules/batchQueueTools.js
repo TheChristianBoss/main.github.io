@@ -128,6 +128,7 @@ export function render({ root, files, setStatus, helpers }) {
       </div>
       <div class="button-row">
         <button class="action-button" id="runBatch" type="button" ${files.length ? '' : 'disabled'}>Run batch queue</button>
+        <button class="secondary-button" id="cancelBatch" type="button" disabled>Cancel batch</button>
         <button class="secondary-button" id="downloadBatch" type="button" disabled>Download all as ZIP</button>
         <button class="secondary-button" id="clearBatch" type="button">Clear results</button>
       </div>
@@ -140,8 +141,10 @@ export function render({ root, files, setStatus, helpers }) {
   const maxWidth = root.querySelector('#batchMaxWidth');
   const quality = root.querySelector('#batchQuality');
   const run = root.querySelector('#runBatch');
+  const cancel = root.querySelector('#cancelBatch');
   const download = root.querySelector('#downloadBatch');
   const clear = root.querySelector('#clearBatch');
+  let cancelRequested = false;
   const queueList = root.querySelector('#queueList');
   const log = root.querySelector('#batchLog');
 
@@ -157,11 +160,18 @@ export function render({ root, files, setStatus, helpers }) {
     const statuses = new Map();
     try {
       if (!files.length) throw new Error('Choose files first.');
+      cancelRequested = false;
       run.disabled = true;
+      cancel.disabled = false;
       download.disabled = true;
       log.textContent = '';
       const opts = { maxWidth: maxWidth.value, quality: Number(quality.value) / 100 };
       for (let index = 0; index < files.length; index += 1) {
+        if (cancelRequested) {
+          log.textContent += `Batch cancelled after ${outputs.length} converted file${outputs.length === 1 ? '' : 's'}.
+`;
+          break;
+        }
         const file = files[index];
         statuses.set(index, 'Converting');
         renderQueue(statuses);
@@ -177,14 +187,22 @@ export function render({ root, files, setStatus, helpers }) {
         }
       }
       renderQueue(statuses);
-      if (!outputs.length) throw new Error('No files converted. Check that the files match the selected preset.');
+      if (!outputs.length) throw new Error(cancelRequested ? 'Batch cancelled before any files were converted.' : 'No files converted. Check that the files match the selected preset.');
       download.disabled = false;
-      setStatus(`Batch complete. ${outputs.length} file${outputs.length === 1 ? '' : 's'} ready.`, 'success');
+      setStatus(cancelRequested ? `Batch cancelled. ${outputs.length} converted file${outputs.length === 1 ? '' : 's'} ready to download.` : `Batch complete. ${outputs.length} file${outputs.length === 1 ? '' : 's'} ready.`, cancelRequested ? 'info' : 'success');
     } catch (err) {
       setStatus(helpers.friendlyErrorMessage ? helpers.friendlyErrorMessage(err, 'batch conversion') : (err.message || 'Batch conversion failed.'), 'error');
     } finally {
       run.disabled = false;
+      cancel.disabled = true;
     }
+  });
+
+  cancel.addEventListener('click', () => {
+    cancelRequested = true;
+    cancel.disabled = true;
+    log.textContent += 'Cancel requested. Finishing current file, then stopping batch.\n';
+    setStatus('Cancel requested. The current file will finish, then the batch stops.', 'info');
   });
 
   download.addEventListener('click', async () => {
@@ -196,6 +214,7 @@ export function render({ root, files, setStatus, helpers }) {
 
   clear.addEventListener('click', () => {
     outputs = [];
+    cancelRequested = false;
     renderQueue();
     log.textContent = 'Batch log cleared.';
     download.disabled = true;

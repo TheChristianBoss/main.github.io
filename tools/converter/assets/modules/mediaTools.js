@@ -283,6 +283,11 @@ function cancelMediaConversion(refs, setStatus) {
       setStatus('No media engine is currently loaded or converting.', 'info');
       return;
     }
+    if (ffmpegLoading && !ffmpegInstance) {
+      refs.progressLabel.textContent = 'Engine loading';
+      setStatus('The media engine is still loading and cannot be cancelled cleanly yet. If it stays stuck, refresh the page and try a smaller file.', 'info');
+      return;
+    }
     if (ffmpegInstance) {
       ffmpegInstance.terminate();
       ffmpegInstance = null;

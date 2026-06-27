@@ -11,7 +11,6 @@ function escapeHtml(value) {
 }
 
 function readU16(bytes, offset) { return bytes[offset] | (bytes[offset + 1] << 8); }
-function readU32(bytes, offset) { return (bytes[offset] | (bytes[offset + 1] << 16 >> 16) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0; }
 function readU32le(bytes, offset) { return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0; }
 
 function findEocd(bytes) {

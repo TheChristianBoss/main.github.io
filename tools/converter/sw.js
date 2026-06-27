@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cg-file-converter-shell-v4';
+const CACHE_NAME = 'cg-file-converter-shell-v5';
 const CORE_ASSETS = [
   '/tools/converter/',
   '/tools/converter/index.html',

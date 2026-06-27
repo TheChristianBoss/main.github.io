@@ -279,6 +279,19 @@ input[type="range"] { accent-color: var(--gold); }
   align-items: center;
   margin: -.35rem 0 1rem;
 }
+
+.file-warnings {
+  border: 1px solid rgba(240,207,116,.45);
+  background: rgba(240,207,116,.08);
+  color: var(--muted);
+  border-radius: 14px;
+  padding: .85rem 1rem;
+  margin: -.35rem 0 1rem;
+  line-height: 1.55;
+}
+.file-warnings strong { color: var(--gold-strong); display: block; margin-bottom: .35rem; }
+.file-warnings ul { margin: .25rem 0 0 1.1rem; padding: 0; }
+.file-warnings li { margin: .2rem 0; }
 .file-remove {
   border: 1px solid rgba(255,123,123,.35);
   background: rgba(255,123,123,.08);
