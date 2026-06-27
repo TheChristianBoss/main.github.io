@@ -93,8 +93,55 @@ function fileToUint8(file) {
   return file.arrayBuffer().then((buffer) => new Uint8Array(buffer));
 }
 
+
 function looksLikeMedia(file) {
   return /^audio\//.test(file?.type || '') || /^video\//.test(file?.type || '') || /\.(mp3|wav|m4a|aac|ogg|flac|mp4|webm|mov|avi|mkv|gif)$/i.test(file?.name || '');
+}
+
+function localFormatBytes(bytes = 0) {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / (1024 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function mediaDeviceTierLabel(tier) {
+  if (tier === 'high') return 'high-capacity device';
+  if (tier === 'medium') return 'medium-capacity device';
+  return 'low/unknown-capacity device';
+}
+
+function getMediaLimits(helpers) {
+  const tier = helpers?.deviceProfile?.tier || 'medium';
+  const recommended = typeof helpers?.getRecommendedLimit === 'function'
+    ? helpers.getRecommendedLimit('media', tier)
+    : ({ low: 80, medium: 250, high: 750 }[tier] || 250) * 1024 * 1024;
+  const guide = typeof helpers?.getSizeGuide === 'function' ? helpers.getSizeGuide('media') : null;
+  const hardMax = guide?.max || 1200 * 1024 * 1024;
+  const format = helpers?.formatBytes || localFormatBytes;
+  return { tier, recommended, hardMax, format };
+}
+
+function updateDeviceAdvice(refs, file, helpers) {
+  if (!refs.deviceAdvice) return;
+  const { tier, recommended, hardMax, format } = getMediaLimits(helpers);
+  const size = Number(file?.size || 0);
+  let level = 'info';
+  let copy = `Estimated ${mediaDeviceTierLabel(tier)}. Recommended media file size: ${format(recommended)} or less.`;
+  if (file) {
+    if (size > hardMax) {
+      level = 'danger';
+      copy = `${file.name} is ${format(size)}, which is above the browser caution point of ${format(hardMax)}. Trim or compress it before converting.`;
+    } else if (size > recommended) {
+      level = 'warn';
+      copy = `${file.name} is ${format(size)}. It may still work, but ${format(recommended)} or less is recommended for this device.`;
+    } else {
+      level = 'ok';
+      copy = `${file.name} is ${format(size)}, which is within the recommended media size for this device.`;
+    }
+  }
+  refs.deviceAdvice.dataset.level = level;
+  refs.deviceAdvice.innerHTML = `<strong>Device-aware media recommendation</strong><br>${escapeHtml(copy)}`;
 }
 
 function parseSeconds(value) {
@@ -168,7 +215,11 @@ async function loadFFmpeg(setStatus, refs) {
 async function convertMedia({ file, refs, helpers, setStatus }) {
   if (!file) throw new Error('Choose one audio or video file first.');
   if (!looksLikeMedia(file)) throw new Error('This module expects an audio or video file.');
-  if (file.size > 750 * 1024 * 1024) throw new Error('That file is very large for browser conversion. Try a smaller file or a future cloud mode.');
+  const mediaLimits = getMediaLimits(helpers);
+  if (file.size > mediaLimits.hardMax) throw new Error(`That file is very large for browser conversion (${mediaLimits.format(file.size)}). Recommended for this device is ${mediaLimits.format(mediaLimits.recommended)} or less.`);
+  if (file.size > mediaLimits.recommended) {
+    setStatus(`This file is above the recommended size for your device (${mediaLimits.format(mediaLimits.recommended)}). It may be slow or fail.`, 'info');
+  }
 
   const preset = PRESETS.find((item) => item.id === refs.preset.value) || PRESETS[0];
   const inputExt = (file.name.match(/\.([a-z0-9]+)$/i)?.[1] || 'bin').toLowerCase();
@@ -218,7 +269,7 @@ async function convertMedia({ file, refs, helpers, setStatus }) {
   }
 }
 
-function updateHint(refs, file) {
+function updateHint(refs, file, helpers) {
   const preset = PRESETS.find((item) => item.id === refs.preset.value) || PRESETS[0];
   const isGif = preset.id === 'video-gif';
   const isVideoOutput = preset.id === 'video-mp4' || preset.id === 'video-webm';
@@ -227,6 +278,7 @@ function updateHint(refs, file) {
   refs.hint.textContent = file
     ? `${file.name} will be exported as .${preset.extension}. For large media, conversion can be slow.`
     : `Choose a media file and export as .${preset.extension}.`;
+  updateDeviceAdvice(refs, file, helpers);
 }
 
 export function render({ root, files, setStatus, helpers }) {
@@ -292,6 +344,7 @@ export function render({ root, files, setStatus, helpers }) {
       </div>
 
       <p class="module-hint" id="mediaHint"></p>
+      <div class="media-device-box" id="mediaDeviceAdvice"></div>
 
       <div class="button-row">
         <button class="secondary-button" id="loadMediaEngine" type="button">Load media engine</button>
@@ -318,6 +371,7 @@ export function render({ root, files, setStatus, helpers }) {
     videoOptions: root.querySelector('#videoOptions'),
     gifOptions: root.querySelector('#gifOptions'),
     hint: root.querySelector('#mediaHint'),
+    deviceAdvice: root.querySelector('#mediaDeviceAdvice'),
     loadBtn: root.querySelector('#loadMediaEngine'),
     convertBtn: root.querySelector('#convertMedia'),
     progress: root.querySelector('#mediaProgress'),
@@ -325,8 +379,8 @@ export function render({ root, files, setStatus, helpers }) {
     log: root.querySelector('#mediaLog'),
   };
 
-  updateHint(refs, file);
-  refs.preset.addEventListener('change', () => updateHint(refs, file));
+  updateHint(refs, file, helpers);
+  refs.preset.addEventListener('change', () => updateHint(refs, file, helpers));
   refs.loadBtn.addEventListener('click', async () => {
     try {
       await loadFFmpeg(setStatus, refs);

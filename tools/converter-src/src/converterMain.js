@@ -61,11 +61,163 @@ const TOOL_DEFINITIONS = [
   },
 ];
 
+const MB = 1024 * 1024;
+
+const SIZE_GUIDES = {
+  images: {
+    low: 25 * MB,
+    medium: 90 * MB,
+    high: 250 * MB,
+    max: 400 * MB,
+    subject: 'selected image batch',
+    tip: 'Resize very large photos before batch converting, especially on phones.',
+  },
+  'text-data': {
+    low: 10 * MB,
+    medium: 35 * MB,
+    high: 100 * MB,
+    max: 180 * MB,
+    subject: 'text or data file',
+    tip: 'Huge CSV/JSON files can freeze a browser because the whole file is parsed in memory.',
+  },
+  utilities: {
+    low: 50 * MB,
+    medium: 200 * MB,
+    high: 750 * MB,
+    max: 1200 * MB,
+    subject: 'utility files',
+    tip: 'Hashing is safer for large files than Base64, because Base64 expands the file in memory.',
+  },
+  archives: {
+    low: 50 * MB,
+    medium: 200 * MB,
+    high: 500 * MB,
+    max: 900 * MB,
+    subject: 'ZIP job',
+    tip: 'ZIP creation/extraction may need more memory than the original file size.',
+  },
+  media: {
+    low: 80 * MB,
+    medium: 250 * MB,
+    high: 750 * MB,
+    max: 1200 * MB,
+    subject: 'audio/video file',
+    tip: 'For video, shorter clips and 720p/1080p sources work best in browser mode.',
+  },
+  heavy: {
+    low: 25 * MB,
+    medium: 100 * MB,
+    high: 300 * MB,
+    max: 600 * MB,
+    subject: 'future heavy conversion',
+    tip: 'OCR, office files, and advanced PDF tools may need dedicated lazy modules.',
+  },
+};
+
+function detectDeviceProfile() {
+  const memory = Number(navigator.deviceMemory || 0);
+  const cores = Number(navigator.hardwareConcurrency || 0);
+  const connection = navigator.connection || navigator.webkitConnection || navigator.mozConnection || null;
+  const effectiveType = connection?.effectiveType || '';
+  const saveData = Boolean(connection?.saveData);
+  const ua = navigator.userAgent || '';
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
+
+  let score = 0;
+  if (memory >= 8) score += 2;
+  else if (memory >= 4) score += 1;
+  else if (memory > 0) score -= 1;
+
+  if (cores >= 8) score += 2;
+  else if (cores >= 4) score += 1;
+  else if (cores > 0) score -= 1;
+
+  if (isMobile) score -= 1;
+  if (saveData) score -= 2;
+  if (/slow-2g|2g/.test(effectiveType)) score -= 1;
+
+  const tier = score >= 3 ? 'high' : score >= 1 ? 'medium' : 'low';
+  return { tier, memory, cores, isMobile, effectiveType, saveData };
+}
+
+function tierLabel(tier) {
+  if (tier === 'high') return 'High-capacity device';
+  if (tier === 'medium') return 'Medium-capacity device';
+  return 'Low/unknown-capacity device';
+}
+
+function getSizeGuide(toolId) {
+  return SIZE_GUIDES[toolId] || SIZE_GUIDES.images;
+}
+
+function getRecommendedLimit(toolId, tier = state.deviceProfile?.tier || 'medium') {
+  const guide = getSizeGuide(toolId);
+  return guide[tier] || guide.medium;
+}
+
+function selectedTotalBytes(files = state.files) {
+  return files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+}
+
+function renderDeviceCard() {
+  if (!refs.deviceCard) return;
+  const profile = state.deviceProfile;
+  const parts = [];
+  parts.push(profile.memory ? `${profile.memory} GB memory estimate` : 'memory unknown');
+  parts.push(profile.cores ? `${profile.cores} CPU threads` : 'CPU threads unknown');
+  if (profile.isMobile) parts.push('mobile/tablet style device');
+  if (profile.effectiveType) parts.push(`${profile.effectiveType} network`);
+  if (profile.saveData) parts.push('data-saver on');
+
+  refs.deviceCard.innerHTML = `
+    <strong>${escapeHtml(tierLabel(profile.tier))}</strong>
+    <p>${escapeHtml(parts.join(' • '))}</p>
+    <small>Estimate only. Browsers do not expose exact device strength, but this helps avoid oversized conversions.</small>
+  `;
+}
+
+function renderSizeAdvice() {
+  if (!refs.sizeAdvice) return;
+  const tool = TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
+  const guide = getSizeGuide(tool.id);
+  const limit = getRecommendedLimit(tool.id);
+  const hardMax = guide.max || limit * 2;
+  const total = selectedTotalBytes();
+  const hasFiles = state.files.length > 0;
+  let level = 'info';
+  let headline = `Recommended size: up to ${formatBytes(limit)}`;
+  let copy = `${tool.label}: ${guide.tip}`;
+
+  if (hasFiles) {
+    if (total > hardMax) {
+      level = 'danger';
+      headline = `Too large for reliable browser conversion: ${formatBytes(total)}`;
+      copy = `Recommended for this device/module is ${formatBytes(limit)}. Try a smaller file, trim video first, or wait for a cloud/server mode.`;
+    } else if (total > limit) {
+      level = 'warn';
+      headline = `Above recommended size: ${formatBytes(total)}`;
+      copy = `This may still work, but it could be slow or fail on this device. Recommended: ${formatBytes(limit)} or less for this module.`;
+    } else {
+      level = 'ok';
+      headline = `Selected size looks reasonable: ${formatBytes(total)}`;
+      copy = `This is under the ${formatBytes(limit)} recommendation for your estimated device class.`;
+    }
+  }
+
+  refs.sizeAdvice.dataset.level = level;
+  refs.sizeAdvice.innerHTML = `
+    <strong>${escapeHtml(headline)}</strong>
+    <p>${escapeHtml(copy)}</p>
+    <small>Hard caution point for this module: ${escapeHtml(formatBytes(hardMax))} ${escapeHtml(guide.subject)}.</small>
+  `;
+}
+
 const state = {
   activeToolId: 'images',
   files: [],
   loadedModules: new Map(),
   loading: false,
+  deviceProfile: detectDeviceProfile(),
 };
 
 const refs = {};
@@ -279,6 +431,8 @@ async function renderActiveTool() {
   refs.moduleTitle.textContent = tool.title;
   refs.moduleDescription.textContent = tool.description;
   updateFileInputForTool();
+  renderDeviceCard();
+  renderSizeAdvice();
   qsa('.tool-tab').forEach((button) => button.classList.toggle('active', button.dataset.toolId === tool.id));
   try {
     const module = await getActiveModule();
@@ -298,6 +452,7 @@ function setFiles(fileList) {
   const incoming = [...(fileList || [])].filter(Boolean);
   state.files = tool.multiple ? incoming : incoming.slice(0, 1);
   renderFileList();
+  renderSizeAdvice();
   setStatus(fileSummary(state.files));
   renderActiveTool();
 }
@@ -315,6 +470,7 @@ function renderToolTabs() {
     if (!button) return;
     state.activeToolId = button.dataset.toolId;
     updateFileInputForTool();
+    renderSizeAdvice();
     setStatus(`Switched to ${button.querySelector('span')?.textContent || 'tool'} module.`);
     renderActiveTool();
   });
@@ -348,6 +504,9 @@ const helpers = {
   escapeHtml,
   createZipBlob,
   crc32,
+  deviceProfile: state.deviceProfile,
+  getRecommendedLimit,
+  getSizeGuide,
 };
 
 function mount() {
@@ -364,7 +523,7 @@ function mount() {
         <section class="hero">
           <p class="eyebrow">Private Browser Tool</p>
           <h1>File Converter</h1>
-          <p class="hero-copy">A modular converter for images, text, data, ZIP files, utilities, and planned heavier media tools. Files stay on your device unless you choose a future cloud mode.</p>
+          <p class="hero-copy">A modular converter for images, text, data, ZIP files, utilities, and media tools. It estimates device capacity and recommends safer file sizes before heavy conversions.</p>
         </section>
 
         <section class="converter-layout">
@@ -375,6 +534,7 @@ function mount() {
               <strong>Local by default</strong>
               <p>Current modules run in the browser. Heavy media converters load only when visitors open Audio / Video tools.</p>
             </div>
+            <div class="device-card" id="deviceCard"></div>
           </aside>
 
           <section class="work-card">
@@ -392,6 +552,8 @@ function mount() {
               <h3 id="dropTitle">Drop files here</h3>
               <p id="dropCopy"></p>
             </div>
+
+            <div class="size-advice" id="sizeAdvice"></div>
 
             <ul class="file-list" id="fileList"></ul>
             <div id="toolMount" class="tool-mount"></div>
@@ -429,11 +591,15 @@ function mount() {
     moduleEyebrow: qs('#moduleEyebrow'),
     moduleTitle: qs('#moduleTitle'),
     moduleDescription: qs('#moduleDescription'),
+    deviceCard: qs('#deviceCard'),
+    sizeAdvice: qs('#sizeAdvice'),
   });
 
   renderToolTabs();
   initDropZone();
   renderFileList();
+  renderDeviceCard();
+  renderSizeAdvice();
   renderActiveTool();
 }
 
