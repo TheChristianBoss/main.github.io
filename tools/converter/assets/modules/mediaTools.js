@@ -1,9 +1,14 @@
 let ffmpegInstance = null;
 let ffmpegLoading = null;
 
+// The FFmpeg package's root worker must be same-origin.
+// Do not import @ffmpeg/ffmpeg directly from a CDN here, because browsers
+// block cross-origin module workers such as unpkg's /dist/esm/worker.js.
+// We vendor the small @ffmpeg/ffmpeg and @ffmpeg/util ESM wrappers locally,
+// then lazily fetch the large ffmpeg-core wasm only when the user opens media conversion.
 const FFMPEG_IMPORTS = {
-  ffmpeg: 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js',
-  util: 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js',
+  ffmpeg: new URL('../vendor/ffmpeg/ffmpeg/index.js', import.meta.url).href,
+  util: new URL('../vendor/ffmpeg/util/index.js', import.meta.url).href,
   coreBase: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm',
 };
 
@@ -192,10 +197,12 @@ async function loadFFmpeg(setStatus, refs) {
       refs.progressLabel.textContent = `${pct}%${time ? ` • ${Math.round(time / 1000000)}s processed` : ''}`;
     });
 
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${FFMPEG_IMPORTS.coreBase}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${FFMPEG_IMPORTS.coreBase}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
+    const [coreURL, wasmURL] = await Promise.all([
+      toBlobURL(`${FFMPEG_IMPORTS.coreBase}/ffmpeg-core.js`, 'text/javascript'),
+      toBlobURL(`${FFMPEG_IMPORTS.coreBase}/ffmpeg-core.wasm`, 'application/wasm'),
+    ]);
+
+    await ffmpeg.load({ coreURL, wasmURL });
 
     ffmpegInstance = ffmpeg;
     refs.loadBtn.disabled = false;
@@ -406,7 +413,11 @@ export function render({ root, files, setStatus, helpers }) {
     try {
       await loadFFmpeg(setStatus, refs);
     } catch (err) {
-      setStatus(err.message || 'Could not load media engine.', 'error');
+      const raw = err?.message || String(err || '');
+      const isWorkerCors = /Failed to construct 'Worker'|cannot be accessed from origin|SecurityError/i.test(raw);
+      setStatus(isWorkerCors
+        ? 'Could not start the media worker. The app now uses same-origin worker files, so hard refresh this page and try again.'
+        : raw || 'Could not load media engine.', 'error');
     }
   });
   refs.convertBtn.addEventListener('click', async () => {

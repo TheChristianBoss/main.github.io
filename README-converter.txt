@@ -98,3 +98,6 @@ QA / stability upgrade:
 - Added manifest.webmanifest, sw.js, and an SVG app icon so the converter can be installable/offline-capable for its shell assets.
 - Added friendlier module-loading/conversion error wording in the main app shell.
 - Changed vite.converter.config.js publicDir to tools/converter-src/public so these static support files are included on future rebuilds.
+
+
+Media worker note: the @ffmpeg/ffmpeg ESM wrapper files are vendored locally under assets/vendor/ffmpeg so the browser can create same-origin media workers. The large ffmpeg-core wasm is still loaded lazily only when the Audio / Video module is used.
