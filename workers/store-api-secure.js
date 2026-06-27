@@ -32,7 +32,7 @@ const MAX_QTY_PER_ITEM = 10;
 const STRIPE_SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 const PRODUCT_CACHE_SECONDS = 5 * 60;
 const MAX_SERVICE_ITEMS = 5;
-const MAX_SERVICE_QTY = 3;
+const MAX_SERVICE_QTY = 1;
 const MAX_SERVICE_NOTES = 700;
 
 // Manual service catalog. Safe to commit: prices are server-trusted here, not in the browser.
@@ -44,6 +44,7 @@ const SERVICE_PRODUCTS = {
     name: 'Cyber Security Evaluation',
     category: 'Cyber Security',
     price_cents: 4000,
+    max_qty: 1,
     currency: 'usd',
     short: 'A practical review of basic website and online-security risks.',
     description: 'I will review your website, public-facing setup, or general digital security posture and send practical recommendations. This is a basic evaluation, not a formal penetration test or guaranteed security certification.',
@@ -55,6 +56,7 @@ const SERVICE_PRODUCTS = {
     name: 'Custom Portfolio Website',
     category: 'Web Design',
     price_cents: 4000,
+    max_qty: 1,
     currency: 'usd',
     short: 'A simple custom portfolio website for your work, resume, project, or personal brand.',
     description: 'I will build or set up a simple custom portfolio website for your personal brand, resume, ministry, project, or small business. Custom domain purchase/renewal is a separate add-on.',
@@ -66,6 +68,7 @@ const SERVICE_PRODUCTS = {
     name: 'Custom Domain — 1 Year',
     category: 'Web Design',
     price_cents: 1200,
+    max_qty: 1,
     currency: 'usd',
     short: 'One year of custom domain setup/management as a website add-on.',
     description: 'One year of custom domain setup or management for your website. This is handled as a one-time purchase in this store, not an automatic yearly subscription.',
@@ -77,6 +80,7 @@ const SERVICE_PRODUCTS = {
     name: '3 Month Life Coaching',
     category: 'Coaching',
     price_cents: 11200,
+    max_qty: 1,
     currency: 'usd',
     short: 'A three-month coaching package for goals, planning, and accountability.',
     description: 'A three-month life coaching package focused on goals, accountability, planning, habit-building, and practical personal development. This is coaching, not therapy, medical care, legal advice, or financial advising.',
@@ -160,7 +164,7 @@ function normalizeServiceItems(rawItems) {
     const id = String(raw?.id || raw?.service_id || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
     const service = getService(id);
     if (!service) throw new Error('Invalid service item');
-    const quantity = clampInt(raw?.quantity, 1, MAX_SERVICE_QTY);
+    const quantity = clampInt(raw?.quantity, 1, Number(service.max_qty || MAX_SERVICE_QTY));
     out.push({
       ...service,
       quantity,
@@ -369,7 +373,7 @@ function decodeServiceMetadata(metadata = {}) {
     if (!service) continue;
     out.push({
       ...service,
-      quantity: clampInt(metadata[`service_${i}_qty`], 1, MAX_SERVICE_QTY),
+      quantity: clampInt(metadata[`service_${i}_qty`], 1, Number(service.max_qty || MAX_SERVICE_QTY)),
       notes: cleanText(metadata[`service_${i}_notes`], MAX_SERVICE_NOTES),
       deadline: cleanText(metadata[`service_${i}_deadline`], 120),
       contact_preference: cleanText(metadata[`service_${i}_contact`], 80),
@@ -585,6 +589,7 @@ export default {
           category: s.category,
           short: s.short,
           price_cents: s.price_cents,
+          max_qty: s.max_qty || MAX_SERVICE_QTY,
           currency: s.currency,
           turnaround: s.turnaround,
         })) }, 200, request);

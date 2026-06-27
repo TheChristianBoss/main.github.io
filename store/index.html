@@ -471,7 +471,7 @@
     <div>
       <p class="section-label">Browse</p>
     </div>
-    <p class="store-note">Secure checkout is handled through Stripe. Product, service, and pricing details are verified by the store API before payment.</p>
+    <p class="store-note">Secure checkout is handled through Stripe. Product, service, and pricing details are checked securely before payment.</p>
   </div>
 
   <div class="shop-toolbar" aria-label="Store filters">
@@ -482,12 +482,12 @@
   <div id="grid"></div>
 
   <div class="store-help">
-    <strong>Need help with an order?</strong> Contact <a href="mailto:hello@christiangoblin.com">hello@christiangoblin.com</a>. Shipping and taxes are calculated during checkout.
+    <strong>Need help with an order?</strong> Contact <a href="mailto:hello@christiangoblin.com">hello@christiangoblin.com</a>. Shipping and taxes are calculated during checkout. See <a href="/store/policies.html">store policies</a>.
   </div>
 </main>
 
 <footer>
-  <p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p>
+  <p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="/store/policies.html">Policies</a> &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p>
 </footer>
 
 <script>
@@ -500,6 +500,7 @@
       name: 'Cyber Security Evaluation',
       category: 'Cyber Security',
       price_cents: 4000,
+      max_qty: 1,
       currency: 'usd',
       short: 'A practical review of basic website and online-security risks.',
       description: 'I will review your website, public-facing setup, or general digital security posture and send practical recommendations. This is a basic evaluation, not a formal penetration test or guaranteed security certification.',
@@ -511,6 +512,7 @@
       name: 'Custom Portfolio Website',
       category: 'Web Design',
       price_cents: 4000,
+      max_qty: 1,
       currency: 'usd',
       short: 'A simple custom portfolio website for your work, resume, project, or personal brand.',
       description: 'I will build or set up a simple custom portfolio website for your personal brand, resume, ministry, project, or small business. Custom domain purchase/renewal is a separate add-on.',
@@ -522,6 +524,7 @@
       name: 'Custom Domain — 1 Year',
       category: 'Web Design',
       price_cents: 1200,
+      max_qty: 1,
       currency: 'usd',
       short: 'One year of custom domain setup/management as a website add-on.',
       description: 'One year of custom domain setup or management for your website. This is handled as a one-time purchase in this store, not an automatic yearly subscription.',
@@ -533,6 +536,7 @@
       name: '3 Month Life Coaching',
       category: 'Coaching',
       price_cents: 11200,
+      max_qty: 1,
       currency: 'usd',
       short: 'A three-month coaching package for goals, planning, and accountability.',
       description: 'A three-month life coaching package focused on goals, accountability, planning, habit-building, and practical personal development. This is coaching, not therapy, medical care, legal advice, or financial advising.',
@@ -564,6 +568,10 @@
   function centsToDollars(cents) {
     const n = Number.parseInt(cents, 10);
     return Number.isFinite(n) ? (n / 100).toFixed(2) : '';
+  }
+
+  function slugId(value) {
+    return String(value || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'section';
   }
 
   function inferCategory(product) {
@@ -666,12 +674,13 @@
 
   function renderCollection(title, label, note, items) {
     if (!items.length) return '';
+    const headingId = slugId(label);
     return `
-      <section class="collection-section" aria-labelledby="${esc(label)}">
+      <section class="collection-section" aria-labelledby="${esc(headingId)}">
         <div class="collection-head">
           <div>
             <p class="section-label">${esc(label)}</p>
-            <h2 class="collection-title" id="${esc(label)}">${esc(title)}</h2>
+            <h2 class="collection-title" id="${esc(headingId)}">${esc(title)}</h2>
           </div>
           <p class="collection-note">${esc(note)}</p>
         </div>
@@ -709,7 +718,7 @@
       renderCollection(
         'Services',
         'Paid Requests',
-        'Service requests are handled after checkout. I receive your request details, contact you, and fulfill the work directly.',
+        'Service requests are reviewed after checkout. I receive your request details and contact you to begin.',
         services,
       ),
     ].join('');
@@ -754,7 +763,7 @@
       document.getElementById('grid').innerHTML = `
         <div class="error-msg">
           <strong>Couldn't load the store.</strong>
-          The store API may be waking up, updating, or temporarily unavailable.<br><br>
+          The store may be waking up, updating, or temporarily unavailable.<br><br>
           <button class="cart-btn" type="button" onclick="loadProducts()">Retry</button>
           <p style="margin-top:18px">Still stuck? Contact <a style="color:var(--gold)" href="mailto:hello@christiangoblin.com">hello@christiangoblin.com</a>.</p>
         </div>

@@ -88,12 +88,11 @@
   </main>
 
   <footer>
-    <p>&copy; 2025 ChristianGoblin</p>
+    <p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="/store/policies.html">Policies</a></p>
   </footer>
 
   <script>
     const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
-    localStorage.removeItem('cg_cart');
 
     function money(cents, currency) {
       const n = Number(cents);
@@ -107,9 +106,10 @@
       const ref = document.getElementById('sessionRef');
       const status = document.getElementById('orderStatus');
       if (!sid) {
-        status.textContent = 'Your cart was cleared. If you need help, contact hello@christiangoblin.com.';
+        status.textContent = 'No checkout reference was found. Your cart has not been changed.';
         return;
       }
+      localStorage.removeItem('cg_cart');
       ref.textContent = `Order ref: ${sid.slice(-12)}`;
       try {
         const res = await fetch(`${WORKER}/session?id=${encodeURIComponent(sid)}`);
@@ -120,7 +120,7 @@
         const serviceNote = Number(s.service_count || 0) > 0 ? ' Service request received; I will contact you soon.' : '';
         status.textContent = `Payment status: ${s.payment_status || 'received'}.${total}${serviceNote}`;
       } catch {
-        status.textContent = 'Payment was received. You will receive email updates as the order is processed.';
+        status.textContent = 'Payment was received. If your order included a service, I will contact you using the checkout contact information. If you need help, email hello@christiangoblin.com.';
       }
     }
 

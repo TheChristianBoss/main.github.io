@@ -324,6 +324,40 @@
 
     .continue-link:hover { color: var(--gold); }
 
+    .clear-cart-btn {
+      display: block;
+      margin: 12px auto 0;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .clear-cart-btn:hover { color: #c0392b; }
+
+    .cart-notice {
+      grid-column: 1 / -1;
+      border: 1px solid rgba(201,168,76,0.3);
+      background: rgba(201,168,76,0.08);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+
+    .service-edit-link {
+      color: var(--gold);
+      text-decoration: none;
+      font-size: 12px;
+    }
+
+    .service-edit-link:hover { text-decoration: underline; }
+
     /* ── Empty state ── */
     .empty-cart {
       grid-column: 1 / -1;
@@ -387,11 +421,18 @@
 </main>
 
 <footer>
-  <p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p>
+  <p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="/store/policies.html">Policies</a> &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p>
 </footer>
 
 <script>
   const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
+  const SERVICE_CATALOG = {
+    'cyber-security-evaluation': { name: 'Cyber Security Evaluation', price_cents: 4000, max_qty: 1 },
+    'custom-portfolio-website': { name: 'Custom Portfolio Website', price_cents: 4000, max_qty: 1 },
+    'custom-domain-one-year': { name: 'Custom Domain — 1 Year', price_cents: 1200, max_qty: 1 },
+    'three-month-life-coaching': { name: '3 Month Life Coaching', price_cents: 11200, max_qty: 1 },
+  };
+  let cartNotice = '';
 
   function esc(value) { return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch])); }
   function safeUrl(value) { try { const url = new URL(String(value || ''), window.location.origin); return url.protocol === 'https:' || url.origin === window.location.origin ? url.href : ''; } catch { return ''; } }
@@ -403,20 +444,23 @@
   function itemPrice(item) { return item.type === 'service' ? (Number(item.price_cents) || 0) / 100 : Number.parseFloat(item.price) || 0; }
   function itemName(item) { return item.type === 'service' ? item.service_name : item.product_name; }
   function itemVariant(item) { return item.type === 'service' ? 'Service request' : item.variant_name; }
+  function maxQty(item) { return item.type === 'service' ? (SERVICE_CATALOG[item.service_id]?.max_qty || 1) : 10; }
 
   function normalizeCart(cart) {
     const merged = new Map();
+    let removedStaleService = false;
     for (const item of Array.isArray(cart) ? cart : []) {
       if (item?.type === 'service') {
         const id = String(item.service_id || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
-        if (!id) continue;
+        const service = SERVICE_CATALOG[id];
+        if (!id || !service) { removedStaleService = true; continue; }
         const key = `service:${id}`;
         merged.set(key, {
           type: 'service',
           service_id: id,
-          service_name: String(item.service_name || 'Service'),
-          price_cents: Number.parseInt(item.price_cents, 10) || 0,
-          quantity: clampQty(item.quantity, 3),
+          service_name: service.name,
+          price_cents: Number.parseInt(service.price_cents, 10) || 0,
+          quantity: clampQty(item.quantity, service.max_qty || 1),
           notes: String(item.notes || '').slice(0, 700),
           deadline: String(item.deadline || '').slice(0, 120),
           contact_preference: String(item.contact_preference || '').slice(0, 80),
@@ -439,22 +483,24 @@
       if (existing) existing.quantity = clampQty(existing.quantity + next.quantity, 10);
       else merged.set(key, next);
     }
+    if (removedStaleService) cartNotice = 'An outdated service item was removed from your cart. Please add the current service again from the store if needed.';
     return [...merged.values()];
   }
 
-  function getCart() { try { return normalizeCart(JSON.parse(localStorage.getItem('cg_cart') || '[]')); } catch { return []; } }
+  function getCart() { try { return normalizeCart(JSON.parse(localStorage.getItem('cg_cart') || '[]')); } catch { cartNotice = 'Your saved cart could not be read, so it was reset.'; return []; } }
   function saveCart(cart) { localStorage.setItem('cg_cart', JSON.stringify(normalizeCart(cart))); }
 
   function updateQty(key, delta) {
     const cart = getCart();
     const item = cart.find(i => itemKey(i) === key);
     if (!item) return;
-    item.quantity = clampQty(item.quantity + delta, item.type === 'service' ? 3 : 10);
+    item.quantity = clampQty(item.quantity + delta, maxQty(item));
     saveCart(cart);
     renderCart();
   }
 
   function removeItem(key) { saveCart(getCart().filter(i => itemKey(i) !== key)); renderCart(); }
+  function clearCart() { localStorage.removeItem('cg_cart'); cartNotice = ''; renderCart(); }
 
   function checkoutPayload() {
     const email = document.getElementById('customerEmail')?.value?.trim();
@@ -463,7 +509,7 @@
         ? {
             type: 'service',
             id: item.service_id,
-            quantity: clampQty(item.quantity, 3),
+            quantity: clampQty(item.quantity, maxQty(item)),
             notes: item.notes,
             deadline: item.deadline,
             contact_preference: item.contact_preference,
@@ -504,6 +550,7 @@
     subtitle.textContent = `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
 
     layout.innerHTML = `
+      ${cartNotice ? `<div class="cart-notice">${esc(cartNotice)}</div>` : ''}
       <div class="cart-items">
         ${cart.map(item => {
           const key = itemKey(item);
@@ -519,9 +566,11 @@
                 ${isService && item.notes ? `<div class="item-variant">${esc(item.notes)}</div>` : ''}
                 ${isService && item.deadline ? `<div class="item-variant">Deadline: ${esc(item.deadline)}</div>` : ''}
                 <div class="item-qty">
-                  <button class="qty-btn" data-action="minus" data-key="${esc(key)}">−</button>
-                  <span class="qty-num">${item.quantity}</span>
-                  <button class="qty-btn" data-action="plus" data-key="${esc(key)}">+</button>
+                  ${isService ? `<span class="qty-num">Qty ${item.quantity}</span> <a class="service-edit-link" href="/store/service.html?id=${encodeURIComponent(item.service_id)}">Edit request</a>` : `
+                    <button class="qty-btn" data-action="minus" data-key="${esc(key)}">−</button>
+                    <span class="qty-num">${item.quantity}</span>
+                    <button class="qty-btn" data-action="plus" data-key="${esc(key)}">+</button>
+                  `}
                 </div>
               </div>
               <div class="item-right">
@@ -544,8 +593,8 @@
         <ul class="summary-list">
           <li>Secure payment through Stripe.</li>
           ${hasPhysical ? '<li>Physical shop items are prepared and shipped after checkout.</li>' : ''}
-          ${hasService ? '<li>Service requests are sent to me after payment so I can contact you.</li>' : ''}
-          <li>Quantity is limited to ${hasService ? '3 per service and ' : ''}10 per physical item.</li>
+          ${hasService ? '<li>Service requests are sent to me after payment so I can contact you.</li><li>Each service request is kept to one per checkout line so the details stay clear.</li>' : ''}
+          ${hasPhysical ? '<li>Quantity is limited to 10 per physical item.</li>' : ''}
         </ul>
         <div class="checkout-field">
           <label class="checkout-label" for="customerEmail">Email for checkout autofill</label>
@@ -554,6 +603,8 @@
         <div class="checkout-error" id="checkoutError" role="alert"></div>
         <button class="checkout-btn" id="checkoutBtn">Proceed to Checkout</button>
         <a class="continue-link" href="/store/">Continue Shopping</a>
+        <a class="continue-link" href="/store/policies.html">Store Policies</a>
+        <button class="clear-cart-btn" id="clearCartBtn" type="button">Clear Cart</button>
       </div>`;
 
     document.querySelectorAll('[data-action]').forEach(btn => {
@@ -562,11 +613,19 @@
     document.querySelectorAll('[data-remove]').forEach(btn => {
       btn.addEventListener('click', () => removeItem(btn.dataset.remove));
     });
+    document.getElementById('clearCartBtn')?.addEventListener('click', clearCart);
     document.getElementById('checkoutBtn').addEventListener('click', async () => {
       const btn = document.getElementById('checkoutBtn');
       btn.disabled = true;
       btn.textContent = 'Verifying cart…';
       try {
+        const errorBox = document.getElementById('checkoutError');
+        errorBox.textContent = '';
+        errorBox.classList.remove('show');
+        const email = document.getElementById('customerEmail')?.value?.trim();
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          throw new Error('Please enter a valid email address or leave the email field blank.');
+        }
         const res = await fetch(`${WORKER}/checkout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
