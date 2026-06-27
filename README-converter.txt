@@ -24,3 +24,9 @@ Rebuild:
 
 Local dev:
   npx vite --config vite.converter.config.js
+
+
+Media module notes:
+- Audio/video conversion loads FFmpeg WebAssembly from a CDN only when opened.
+- Supported presets include MP3, WAV, OGG, MP4, WEBM, video-to-MP3, and video-to-GIF.
+- Large files can be slow or fail on low-memory devices because conversion happens in the browser.

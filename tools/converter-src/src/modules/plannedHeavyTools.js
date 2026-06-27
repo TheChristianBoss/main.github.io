@@ -1,23 +1,23 @@
 const PLANNED = [
   {
-    title: 'Audio converter',
-    body: 'MP3, WAV, M4A, OGG, FLAC, trim, compress, and extract audio from video. Best added with a lazy FFmpeg WebAssembly module.',
-  },
-  {
-    title: 'Video converter',
-    body: 'MP4, WEBM, MOV, resize, compress, trim, extract audio, and GIF export. This should not load until the user opens video tools.',
-  },
-  {
     title: 'Office documents',
     body: 'DOCX text extraction, DOCX to HTML, XLSX to CSV/JSON, CSV/JSON to XLSX, and basic document previews.',
   },
   {
-    title: 'PDF tools',
-    body: 'PDF merge, split, remove pages, images to PDF, text to PDF, and metadata tools. Image-to-PDF already has a light version in the Images module.',
+    title: 'Advanced PDF tools',
+    body: 'PDF merge, split, remove pages, text to PDF, metadata tools, and stronger compression options. Image-to-PDF already has a light version in the Images module.',
   },
   {
     title: 'OCR',
     body: 'Image/PDF screenshot to text. This is useful, but should be a separate lazy module because OCR engines are large.',
+  },
+  {
+    title: 'Ebooks and fonts',
+    body: 'EPUB/TXT/HTML flows and font formats like TTF/OTF to WOFF/WOFF2 can be added later as specialized modules.',
+  },
+  {
+    title: 'Cloud mode for huge files',
+    body: 'Very large video, OCR, or office conversions may eventually need an optional backend mode instead of browser-only conversion.',
   },
 ];
 
@@ -26,8 +26,8 @@ export function render({ root, setStatus }) {
     <div class="module-panel">
       <div class="grid-controls two">
         <div class="control full">
-          <h3 style="margin:0;color:var(--gold);font-family:Georgia,serif;">Heavy converters are intentionally separated</h3>
-          <p style="color:var(--muted);line-height:1.7;margin:.6rem 0 0;">This app is now structured so big tools can be added without making every visitor download audio/video/OCR code. When we add these, each one should live in its own lazy module.</p>
+          <h3 style="margin:0;color:var(--gold);font-family:Georgia,serif;">More converters can stay lazy</h3>
+          <p style="color:var(--muted);line-height:1.7;margin:.6rem 0 0;">Audio/video conversion now has its own heavy module. These remaining converter groups can be added without forcing every visitor to download them on the first page load.</p>
         </div>
       </div>
       <div class="check-list">
@@ -42,6 +42,6 @@ export function render({ root, setStatus }) {
   root.querySelector('#copyPlan').addEventListener('click', async () => {
     const text = PLANNED.map((item) => `${item.title}: ${item.body}`).join('\n\n');
     await navigator.clipboard.writeText(text);
-    setStatus('Copied heavy module roadmap.', 'success');
+    setStatus('Copied remaining module roadmap.', 'success');
   });
 }

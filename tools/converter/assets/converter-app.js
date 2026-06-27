@@ -40,11 +40,21 @@ const TOOL_DEFINITIONS = [
     loader: () => import('./modules/zipTools.js'),
   },
   {
+    id: 'media',
+    label: 'Audio / Video',
+    eyebrow: 'Heavy lazy module',
+    title: 'Audio & Video Converter',
+    description: 'Convert, trim, compress, and extract media with a FFmpeg WebAssembly engine that loads only when this module is used.',
+    accept: 'audio/*,video/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,.mp4,.webm,.mov,.avi,.mkv,.gif',
+    multiple: false,
+    loader: () => import('./modules/mediaTools.js'),
+  },
+  {
     id: 'heavy',
-    label: 'Heavy types',
+    label: 'More types',
     eyebrow: 'Planned lazy modules',
-    title: 'Audio, Video, OCR & Office',
-    description: 'A planning area for bigger converters that should load only when requested.',
+    title: 'OCR, Office & Advanced PDF',
+    description: 'A planning area for other bigger converters that should load only when requested.',
     accept: '*/*',
     multiple: true,
     loader: () => import('./modules/plannedHeavyTools.js'),
@@ -363,7 +373,7 @@ function mount() {
             <div class="tool-tabs" id="toolTabs"></div>
             <div class="privacy-card">
               <strong>Local by default</strong>
-              <p>Current modules run in the browser. Heavy media converters are kept separate so normal visitors do not load them until needed.</p>
+              <p>Current modules run in the browser. Heavy media converters load only when visitors open Audio / Video tools.</p>
             </div>
           </aside>
 
@@ -400,7 +410,7 @@ function mount() {
           </article>
           <article>
             <h3>Heavy modules</h3>
-            <p>Audio, video, OCR, DOCX, and XLSX can be added as lazy modules later.</p>
+            <p>Audio/video now load as a separate heavy module; OCR, DOCX, and XLSX can be added the same way later.</p>
           </article>
         </section>
       </main>
