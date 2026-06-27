@@ -590,12 +590,27 @@ async function renderActiveTool() {
   }
 }
 
-function setFiles(fileList) {
+function setFiles(fileList, options = {}) {
   const incoming = [...(fileList || [])].filter(Boolean);
+
+  // Important: choosing "Cancel" in the file picker returns an empty FileList.
+  // Do not treat that as a request to clear the current files. This also protects
+  // drag-and-drop users when the hidden file input opens after a drop/click event.
+  if (!incoming.length && options.preserveOnEmpty !== false) {
+    if (state.files.length) {
+      setStatus(`${fileSummary(state.files)} Still selected. Choose new files to replace them.`);
+    } else {
+      setStatus('No file selected yet. Drop files here or choose files to begin.');
+    }
+    refs.fileInput.value = '';
+    return;
+  }
+
   const suggestedTool = detectBestToolForFiles(incoming);
   if (suggestedTool && suggestedTool !== state.activeToolId) state.activeToolId = suggestedTool;
   const tool = TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
   state.files = tool.multiple ? incoming : incoming.slice(0, 1);
+  refs.fileInput.value = '';
   renderFileList();
   renderSizeAdvice();
   const detected = incoming.length ? ` Smart-detected ${tool.label}.` : '';
@@ -623,20 +638,35 @@ function renderToolTabs() {
 }
 
 function initDropZone() {
-  refs.dropZone.addEventListener('click', () => refs.fileInput.click());
+  let suppressPickerUntil = 0;
+
+  refs.dropZone.addEventListener('click', () => {
+    if (Date.now() < suppressPickerUntil) return;
+    refs.fileInput.click();
+  });
+
   refs.dropZone.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') refs.fileInput.click();
   });
+
   refs.fileInput.addEventListener('change', (event) => setFiles(event.target.files));
+
   ['dragenter', 'dragover'].forEach((name) => refs.dropZone.addEventListener(name, (event) => {
     event.preventDefault();
+    event.stopPropagation();
     refs.dropZone.classList.add('is-dragging');
   }));
+
   ['dragleave', 'drop'].forEach((name) => refs.dropZone.addEventListener(name, (event) => {
     event.preventDefault();
+    event.stopPropagation();
     refs.dropZone.classList.remove('is-dragging');
   }));
-  refs.dropZone.addEventListener('drop', (event) => setFiles(event.dataTransfer.files));
+
+  refs.dropZone.addEventListener('drop', (event) => {
+    suppressPickerUntil = Date.now() + 700;
+    setFiles(event.dataTransfer.files);
+  });
 }
 
 const helpers = {
