@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   root: 'tools/converter-src',
-  publicDir: false,
+  publicDir: 'public',
   base: '/tools/converter/',
   build: {
     outDir: '../converter',

@@ -91,3 +91,10 @@ Rebuild command:
 
 Local dev command:
   npx vite --config vite.converter.config.js
+
+QA / stability upgrade:
+- Added /tools/converter/privacy.html with customer-facing privacy and conversion-limit notes.
+- Added /tools/converter/test.html for local module/browser/PWA checks. No public failed-conversion report form is included.
+- Added manifest.webmanifest, sw.js, and an SVG app icon so the converter can be installable/offline-capable for its shell assets.
+- Added friendlier module-loading/conversion error wording in the main app shell.
+- Changed vite.converter.config.js publicDir to tools/converter-src/public so these static support files are included on future rebuilds.

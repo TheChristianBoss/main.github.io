@@ -294,6 +294,41 @@ function setStatus(message, type = 'info') {
   refs.status.dataset.type = type;
 }
 
+
+function friendlyErrorMessage(err, context = 'conversion') {
+  const raw = String(err?.message || err || 'Unknown error');
+  const lower = raw.toLowerCase();
+  if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to fetch')) {
+    return `Could not load a helper needed for this ${context}. Check your connection and try again. Some heavy modules load extra browser code only when needed.`;
+  }
+  if (lower.includes('memory') || lower.includes('allocation') || lower.includes('out of bounds')) {
+    return `This ${context} likely used more memory than the browser could safely provide. Try a smaller file, lower the output size, or close other tabs.`;
+  }
+  if (lower.includes('encrypted') || lower.includes('password')) {
+    return `This file appears to be encrypted or password-protected. Browser conversion may not be able to open it.`;
+  }
+  if (lower.includes('unsupported') || lower.includes('not supported')) {
+    return `This format or feature is not supported by this browser yet. Try Chrome or Edge, or choose a different output format.`;
+  }
+  if (lower.includes('could not read') || lower.includes('invalid')) {
+    return `The file could not be read as the selected type. It may be corrupted, encrypted, or not the format its extension suggests.`;
+  }
+  if (lower.includes('timeout') || lower.includes('aborted')) {
+    return `The ${context} was stopped before it finished. Try a smaller file or a simpler preset.`;
+  }
+  return raw;
+}
+
+function renderErrorBox(message, detail = '') {
+  return `
+    <div class="error-box">
+      <strong>Conversion could not continue.</strong>
+      <p>${escapeHtml(message)}</p>
+      ${detail ? `<small>${escapeHtml(detail)}</small>` : '<small>Keep a backup of the original file and try a smaller or simpler conversion.</small>'}
+    </div>
+  `;
+}
+
 function renderHistory() {
   if (!refs.historyList) return;
   if (!state.history.length) {
@@ -549,7 +584,9 @@ async function renderActiveTool() {
       helpers,
     });
   } catch (err) {
-    refs.toolMount.innerHTML = `<div class="error-box">${escapeHtml(err.message || 'Module failed to load.')}</div>`;
+    const friendly = friendlyErrorMessage(err, `${tool.label} module`);
+    refs.toolMount.innerHTML = renderErrorBox(friendly, 'Try refreshing the page. If it is a heavy module, check your connection and device file-size recommendation.');
+    setStatus(friendly, 'error');
   }
 }
 
@@ -626,6 +663,8 @@ function mount() {
         <a class="brand" href="/">Christian<span>Goblin</span></a>
         <nav>
           <a href="/tools/">Tools</a>
+          <a href="/tools/converter/privacy.html">Privacy</a>
+          <a href="/tools/converter/test.html">Test</a>
           <a href="/store/">Store</a>
         </nav>
       </header>
@@ -634,6 +673,10 @@ function mount() {
           <p class="eyebrow">Private Browser Tool</p>
           <h1>File Converter</h1>
           <p class="hero-copy">A modular converter for images, documents, PDFs, spreadsheets, text/data, ZIP files, utilities, and media tools. It smart-detects file types, estimates device capacity, and recommends safer file sizes before heavy conversions.</p>
+          <div class="hero-actions">
+            <a class="hero-link" href="/tools/converter/privacy.html">Privacy & limits</a>
+            <a class="hero-link subtle" href="/tools/converter/test.html">Open test page</a>
+          </div>
         </section>
 
         <section class="converter-layout">
@@ -643,6 +686,7 @@ function mount() {
             <div class="privacy-card">
               <strong>Local by default</strong>
               <p>Current modules run in the browser. Heavy PDF/media helpers load only when visitors open those modules. Your files are not uploaded by the static site.</p>
+              <a class="small-card-link" href="/tools/converter/privacy.html">Read privacy and limitations</a>
             </div>
             <div class="device-card" id="deviceCard"></div>
           </aside>
@@ -677,16 +721,16 @@ function mount() {
 
         <section class="roadmap-grid">
           <article>
-            <h3>Light modules</h3>
-            <p>Images, JSON, CSV, Markdown, text, Base64, URL tools, hashes, presets, and previews.</p>
+            <h3>Safe mode</h3>
+            <p>Images, text, data, hashes, simple ZIP, and many PDF/spreadsheet jobs are safest for everyday browser use.</p>
           </article>
           <article>
-            <h3>Medium modules</h3>
-            <p>ZIP, PDFs, DOCX text extraction, spreadsheet conversion, and batch queue downloads.</p>
+            <h3>Heavy mode</h3>
+            <p>Audio/video and advanced document work use more memory and may need smaller files or a stronger device.</p>
           </article>
           <article>
-            <h3>Heavy modules</h3>
-            <p>Audio/video load as a separate heavy module; OCR, ebooks, fonts, and cloud mode can stay optional later.</p>
+            <h3>Stability tools</h3>
+            <p>Use the test page after updates to check module loading, browser support, sample downloads, and basic app health.</p>
           </article>
         </section>
       </main>
