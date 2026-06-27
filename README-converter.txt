@@ -1,6 +1,6 @@
-Christian Goblin File Converter
+Christian Goblin File Converter — Full Modular Upgrade
 
-Live deployed folder:
+Live built app:
   tools/converter/
 
 Editable Vite source:
@@ -9,33 +9,85 @@ Editable Vite source:
 Build config:
   vite.converter.config.js
 
-Current browser-local modules:
-  - Images: PNG, JPEG, WEBP, SVG to raster formats, batch images to ZIP, images to PDF
-  - Text/Data: JSON pretty/minify, CSV/JSON, CSV/TSV, simple JSON/YAML, Markdown/HTML/Text
-  - Utilities: SHA-256 file hashes, Base64 encode/decode, URL encode/decode
-  - ZIP: create ZIP, list ZIP contents, extract simple ZIP files when browser support allows
-  - Audio/Video: MP3, WAV, OGG, MP4, WEBM, video-to-MP3, video-to-GIF
-  - Heavy modules roadmap: OCR, DOCX, XLSX, advanced PDF
+Tools hub card:
+  tools/index.html
 
-Design notes:
-  The app is modular. The main page loads quickly, and individual converter modules are imported only when a user selects them.
-  The app estimates device capacity using browser hints like CPU threads, approximate memory, mobile/tablet indicators, and save-data/network hints. It then recommends safer file sizes per module. The estimate is not exact, but it helps users avoid oversized browser conversions.
+Current modules:
+  1. Images
+     - PNG / JPEG / WEBP conversion
+     - SVG to image
+     - Images to PDF
+     - ICO favicon output
+     - Resize by max width/height or percentage
+     - Rotate 90/180/270
+     - Quality presets: smallest, best quality, web, email, social, favicon
+     - Batch image ZIP
+     - Before/after preview and size comparison
 
-Rebuild:
+  2. Docs / Sheets / PDF
+     - Merge PDFs
+     - Split PDF into page files ZIP
+     - Keep/reorder PDF pages
+     - Remove PDF pages
+     - PDF metadata view
+     - Images to PDF
+     - TXT / MD / HTML to PDF
+     - DOCX to plain text
+     - DOCX to HTML
+     - XLSX to CSV
+     - XLSX to JSON
+     - CSV to XLSX
+     - JSON to XLSX
+
+  3. Text / Data
+     - JSON pretty/minify
+     - CSV to JSON
+     - JSON to CSV
+     - CSV/TSV conversion
+     - JSON to simple YAML
+     - simple YAML to JSON
+     - Markdown to HTML
+     - HTML to text
+
+  4. Batch Queue
+     - Batch image conversion
+     - Batch JSON/CSV/Markdown conversion
+     - Per-file status
+     - Download all outputs as one ZIP
+
+  5. Utilities
+     - SHA-256 hashing
+     - Base64 encode/decode
+     - URL encode/decode
+     - File details
+
+  6. ZIP
+     - Create ZIP
+     - List ZIP contents
+     - Extract simple ZIPs where browser support allows
+
+  7. Audio / Video
+     - MP3/WAV/OGG audio export
+     - MP4/WEBM video export
+     - Video to MP3
+     - Video to GIF
+     - Trim, resize, bitrate options
+     - Cancel/unload media engine
+
+  8. OCR / Advanced planning
+     - Future OCR, ebook, font, advanced PDF, and cloud mode planning
+
+Privacy model:
+  Most conversion happens locally in the browser. The static site does not upload files.
+  The PDF and media modules lazy-load browser libraries only when those modules are opened.
+
+Notes:
+  - Large media/PDF/Office files can still fail due to browser memory limits.
+  - Encrypted/password-protected PDFs or unusual DOCX/XLSX files may not work.
+  - The device-size warning is an estimate based on limited browser hints.
+
+Rebuild command:
   npx vite build --config vite.converter.config.js
 
-Local dev:
+Local dev command:
   npx vite --config vite.converter.config.js
-
-
-Media module notes:
-- Audio/video conversion loads FFmpeg WebAssembly from a CDN only when opened.
-- Supported presets include MP3, WAV, OGG, MP4, WEBM, video-to-MP3, and video-to-GIF.
-- Large files can be slow or fail on low-memory devices because conversion happens in the browser.
-
-Device-aware recommendations:
-- Images: about 25 MB on low/unknown devices, 90 MB on medium devices, 250 MB on high-capacity devices.
-- Text/Data: about 10 MB, 35 MB, or 100 MB depending on device estimate.
-- ZIP: about 50 MB, 200 MB, or 500 MB depending on device estimate.
-- Audio/Video: about 80 MB, 250 MB, or 750 MB depending on device estimate.
-

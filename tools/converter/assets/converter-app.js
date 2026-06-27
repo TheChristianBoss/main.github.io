@@ -4,10 +4,22 @@ const TOOL_DEFINITIONS = [
     label: 'Images',
     eyebrow: 'Light module',
     title: 'Image Converter',
-    description: 'Convert, resize, batch-export, and turn images into a simple PDF.',
+    description: 'Convert, resize, rotate, batch-export, make favicons, and turn images into a simple PDF.',
     accept: 'image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg',
     multiple: true,
+    signatures: ['image'],
     loader: () => import('./modules/imageTools.js'),
+  },
+  {
+    id: 'office-pdf',
+    label: 'Docs / Sheets / PDF',
+    eyebrow: 'Medium lazy module',
+    title: 'Document, Spreadsheet & PDF Tools',
+    description: 'Merge/split PDFs, turn text/images into PDF, extract DOCX text, and convert XLSX/CSV/JSON files.',
+    accept: '.pdf,.docx,.xlsx,.csv,.json,.txt,.md,.markdown,.html,image/png,image/jpeg,image/webp,image/svg+xml,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/*,application/json',
+    multiple: true,
+    signatures: ['pdf', 'docx', 'xlsx'],
+    loader: () => import('./modules/officePdfTools.js'),
   },
   {
     id: 'text-data',
@@ -17,16 +29,29 @@ const TOOL_DEFINITIONS = [
     description: 'Convert JSON, CSV, TSV, YAML-style text, Markdown, HTML, and plain text.',
     accept: '.txt,.json,.csv,.tsv,.md,.markdown,.html,.yaml,.yml,text/*,application/json,text/csv,text/markdown,text/html',
     multiple: false,
+    signatures: ['text', 'json', 'csv', 'markdown', 'html'],
     loader: () => import('./modules/textDataTools.js'),
+  },
+  {
+    id: 'batch',
+    label: 'Batch Queue',
+    eyebrow: 'Workflow module',
+    title: 'Batch Conversion Queue',
+    description: 'Convert compatible files one by one, track status, and download all results as one ZIP.',
+    accept: '*/*',
+    multiple: true,
+    signatures: ['batch'],
+    loader: () => import('./modules/batchQueueTools.js'),
   },
   {
     id: 'utilities',
     label: 'Utilities',
     eyebrow: 'Light module',
     title: 'Encode, Decode & Hash',
-    description: 'Create SHA-256 hashes, Base64 encode files, and URL encode/decode text.',
+    description: 'Create SHA-256 hashes, Base64 encode files, URL encode/decode text, and inspect file details.',
     accept: '*/*',
     multiple: true,
+    signatures: ['utility'],
     loader: () => import('./modules/utilityTools.js'),
   },
   {
@@ -34,9 +59,10 @@ const TOOL_DEFINITIONS = [
     label: 'ZIP',
     eyebrow: 'Medium module',
     title: 'ZIP Tools',
-    description: 'Bundle files into a ZIP and inspect simple ZIP archives locally.',
+    description: 'Bundle files into a ZIP and inspect/extract simple ZIP archives locally.',
     accept: '*/*,.zip,application/zip',
     multiple: true,
+    signatures: ['zip'],
     loader: () => import('./modules/zipTools.js'),
   },
   {
@@ -47,16 +73,18 @@ const TOOL_DEFINITIONS = [
     description: 'Convert, trim, compress, and extract media with a FFmpeg WebAssembly engine that loads only when this module is used.',
     accept: 'audio/*,video/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,.mp4,.webm,.mov,.avi,.mkv,.gif',
     multiple: false,
+    signatures: ['media'],
     loader: () => import('./modules/mediaTools.js'),
   },
   {
     id: 'heavy',
-    label: 'More types',
+    label: 'OCR / Advanced',
     eyebrow: 'Planned lazy modules',
-    title: 'OCR, Office & Advanced PDF',
+    title: 'OCR, Ebooks, Fonts & Cloud Mode',
     description: 'A planning area for other bigger converters that should load only when requested.',
     accept: '*/*',
     multiple: true,
+    signatures: ['future'],
     loader: () => import('./modules/plannedHeavyTools.js'),
   },
 ];
@@ -95,6 +123,22 @@ const SIZE_GUIDES = {
     max: 900 * MB,
     subject: 'ZIP job',
     tip: 'ZIP creation/extraction may need more memory than the original file size.',
+  },
+  'office-pdf': {
+    low: 25 * MB,
+    medium: 100 * MB,
+    high: 300 * MB,
+    max: 600 * MB,
+    subject: 'document/PDF job',
+    tip: 'PDF, DOCX, and XLSX files can require several times their file size in memory while parsing.',
+  },
+  batch: {
+    low: 40 * MB,
+    medium: 180 * MB,
+    high: 600 * MB,
+    max: 900 * MB,
+    subject: 'batch conversion',
+    tip: 'Batch jobs are safest when each file is smaller and outputs are downloaded as one ZIP.',
   },
   media: {
     low: 80 * MB,
@@ -218,6 +262,7 @@ const state = {
   loadedModules: new Map(),
   loading: false,
   deviceProfile: detectDeviceProfile(),
+  history: [],
 };
 
 const refs = {};
@@ -249,6 +294,26 @@ function setStatus(message, type = 'info') {
   refs.status.dataset.type = type;
 }
 
+function renderHistory() {
+  if (!refs.historyList) return;
+  if (!state.history.length) {
+    refs.historyList.innerHTML = '<li><span>No conversions yet.</span><small>Downloads you create in this session will appear here.</small></li>';
+    return;
+  }
+  refs.historyList.innerHTML = state.history.slice(0, 8).map((item) => `
+    <li>
+      <span>${escapeHtml(item.name)}</span>
+      <small>${escapeHtml(item.detail)}</small>
+    </li>
+  `).join('');
+}
+
+function recordHistory(name, detail = '') {
+  state.history.unshift({ name, detail, at: new Date().toISOString() });
+  state.history = state.history.slice(0, 20);
+  renderHistory();
+}
+
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -257,6 +322,7 @@ function downloadBlob(blob, filename) {
   document.body.appendChild(link);
   link.click();
   link.remove();
+  recordHistory(filename, `${formatBytes(blob?.size || 0)} • downloaded`);
   window.setTimeout(() => URL.revokeObjectURL(url), 750);
 }
 
@@ -388,6 +454,46 @@ async function createZipBlob(inputFiles, zipNamePrefix = 'converted-files') {
   return new Blob([...chunks, ...central, end], { type: 'application/zip' });
 }
 
+function extensionOf(file) {
+  return (String(file?.name || '').match(/\.([a-z0-9]+)$/i)?.[1] || '').toLowerCase();
+}
+
+function detectFileKind(file) {
+  const ext = extensionOf(file);
+  const type = String(file?.type || '').toLowerCase();
+  if (type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(ext)) return 'image';
+  if (type.startsWith('audio/') || type.startsWith('video/') || ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'mp4', 'webm', 'mov', 'avi', 'mkv', 'gif'].includes(ext)) return 'media';
+  if (ext === 'pdf' || type === 'application/pdf') return 'pdf';
+  if (ext === 'docx') return 'docx';
+  if (ext === 'xlsx' || ext === 'xls') return 'xlsx';
+  if (ext === 'zip' || type === 'application/zip') return 'zip';
+  if (ext === 'json' || type.includes('json')) return 'json';
+  if (ext === 'csv' || ext === 'tsv') return 'csv';
+  if (['md', 'markdown'].includes(ext)) return 'markdown';
+  if (ext === 'html' || type.includes('html')) return 'html';
+  if (type.startsWith('text/') || ['txt', 'yaml', 'yml', 'xml', 'log'].includes(ext)) return 'text';
+  return 'utility';
+}
+
+function detectBestToolForFiles(files) {
+  const list = [...(files || [])].filter(Boolean);
+  if (!list.length) return state.activeToolId;
+  const kinds = list.map(detectFileKind);
+  const unique = [...new Set(kinds)];
+  if (list.length > 1) {
+    if (unique.length === 1 && unique[0] === 'image') return 'images';
+    if (unique.every((kind) => ['pdf', 'image'].includes(kind))) return 'office-pdf';
+    return 'batch';
+  }
+  const kind = kinds[0];
+  if (kind === 'image') return 'images';
+  if (['pdf', 'docx', 'xlsx'].includes(kind)) return 'office-pdf';
+  if (kind === 'zip') return 'archives';
+  if (kind === 'media') return 'media';
+  if (['json', 'csv', 'markdown', 'html', 'text'].includes(kind)) return 'text-data';
+  return 'utilities';
+}
+
 function fileSummary(files) {
   if (!files.length) return 'No files selected.';
   if (files.length === 1) return `${files[0].name} • ${formatBytes(files[0].size)}${files[0].type ? ` • ${files[0].type}` : ''}`;
@@ -448,12 +554,15 @@ async function renderActiveTool() {
 }
 
 function setFiles(fileList) {
-  const tool = TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
   const incoming = [...(fileList || [])].filter(Boolean);
+  const suggestedTool = detectBestToolForFiles(incoming);
+  if (suggestedTool && suggestedTool !== state.activeToolId) state.activeToolId = suggestedTool;
+  const tool = TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
   state.files = tool.multiple ? incoming : incoming.slice(0, 1);
   renderFileList();
   renderSizeAdvice();
-  setStatus(fileSummary(state.files));
+  const detected = incoming.length ? ` Smart-detected ${tool.label}.` : '';
+  setStatus(`${fileSummary(state.files)}${detected}`);
   renderActiveTool();
 }
 
@@ -504,6 +613,7 @@ const helpers = {
   escapeHtml,
   createZipBlob,
   crc32,
+  recordHistory,
   deviceProfile: state.deviceProfile,
   getRecommendedLimit,
   getSizeGuide,
@@ -523,7 +633,7 @@ function mount() {
         <section class="hero">
           <p class="eyebrow">Private Browser Tool</p>
           <h1>File Converter</h1>
-          <p class="hero-copy">A modular converter for images, text, data, ZIP files, utilities, and media tools. It estimates device capacity and recommends safer file sizes before heavy conversions.</p>
+          <p class="hero-copy">A modular converter for images, documents, PDFs, spreadsheets, text/data, ZIP files, utilities, and media tools. It smart-detects file types, estimates device capacity, and recommends safer file sizes before heavy conversions.</p>
         </section>
 
         <section class="converter-layout">
@@ -532,7 +642,7 @@ function mount() {
             <div class="tool-tabs" id="toolTabs"></div>
             <div class="privacy-card">
               <strong>Local by default</strong>
-              <p>Current modules run in the browser. Heavy media converters load only when visitors open Audio / Video tools.</p>
+              <p>Current modules run in the browser. Heavy PDF/media helpers load only when visitors open those modules. Your files are not uploaded by the static site.</p>
             </div>
             <div class="device-card" id="deviceCard"></div>
           </aside>
@@ -558,21 +668,25 @@ function mount() {
             <ul class="file-list" id="fileList"></ul>
             <div id="toolMount" class="tool-mount"></div>
             <p class="status" id="status" data-type="info">Choose a module and file to begin.</p>
+            <div class="history-panel">
+              <div class="history-head"><strong>Session history</strong><button class="secondary-button tiny" id="clearHistory" type="button">Clear</button></div>
+              <ul class="file-list history-list" id="historyList"></ul>
+            </div>
           </section>
         </section>
 
         <section class="roadmap-grid">
           <article>
             <h3>Light modules</h3>
-            <p>Images, JSON, CSV, Markdown, text, Base64, URL tools, and hashes.</p>
+            <p>Images, JSON, CSV, Markdown, text, Base64, URL tools, hashes, presets, and previews.</p>
           </article>
           <article>
             <h3>Medium modules</h3>
-            <p>ZIP bundling and simple image-to-PDF exports without loading video/audio code.</p>
+            <p>ZIP, PDFs, DOCX text extraction, spreadsheet conversion, and batch queue downloads.</p>
           </article>
           <article>
             <h3>Heavy modules</h3>
-            <p>Audio/video now load as a separate heavy module; OCR, DOCX, and XLSX can be added the same way later.</p>
+            <p>Audio/video load as a separate heavy module; OCR, ebooks, fonts, and cloud mode can stay optional later.</p>
           </article>
         </section>
       </main>
@@ -588,6 +702,8 @@ function mount() {
     fileList: qs('#fileList'),
     toolMount: qs('#toolMount'),
     status: qs('#status'),
+    historyList: qs('#historyList'),
+    clearHistory: qs('#clearHistory'),
     moduleEyebrow: qs('#moduleEyebrow'),
     moduleTitle: qs('#moduleTitle'),
     moduleDescription: qs('#moduleDescription'),
@@ -595,9 +711,11 @@ function mount() {
     sizeAdvice: qs('#sizeAdvice'),
   });
 
+  refs.clearHistory.addEventListener('click', () => { state.history = []; renderHistory(); });
   renderToolTabs();
   initDropZone();
   renderFileList();
+  renderHistory();
   renderDeviceCard();
   renderSizeAdvice();
   renderActiveTool();

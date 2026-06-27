@@ -2,8 +2,19 @@ const IMAGE_FORMATS = [
   { label: 'PNG', ext: 'png', mime: 'image/png', quality: false },
   { label: 'JPEG', ext: 'jpg', mime: 'image/jpeg', quality: true },
   { label: 'WEBP', ext: 'webp', mime: 'image/webp', quality: true },
+  { label: 'ICO favicon', ext: 'ico', mime: 'image/x-icon', quality: true, icon: true },
   { label: 'Image PDF', ext: 'pdf', mime: 'application/pdf', quality: true, pdf: true },
 ];
+
+const IMAGE_PRESETS = {
+  custom: { label: 'Custom settings' },
+  smallest: { label: 'Smallest file size', format: 'webp', quality: 70, width: 1200 },
+  best: { label: 'Best quality', format: 'png', quality: 100, width: '' },
+  web: { label: 'Web optimized', format: 'webp', quality: 84, width: 1600 },
+  email: { label: 'Email friendly', format: 'jpg', quality: 78, width: 1200 },
+  social: { label: 'Social media', format: 'jpg', quality: 88, width: 1080 },
+  favicon: { label: 'Favicon / app icon', format: 'ico', quality: 92, width: 64 },
+};
 
 function arrayBufferToBinaryString(buffer) {
   const bytes = new Uint8Array(buffer);
@@ -69,28 +80,68 @@ function buildPdfFromJpegs(pages) {
   return new Blob([pdf], { type: 'application/pdf' });
 }
 
+function buildIcoFromPngBytes(pngBytes, size = 64) {
+  const header = new Uint8Array([
+    0, 0, 1, 0, 1, 0,
+    size >= 256 ? 0 : size, size >= 256 ? 0 : size, 0, 0, 1, 0, 32, 0,
+    pngBytes.length & 255, (pngBytes.length >>> 8) & 255, (pngBytes.length >>> 16) & 255, (pngBytes.length >>> 24) & 255,
+    22, 0, 0, 0,
+  ]);
+  return new Blob([header, pngBytes], { type: 'image/x-icon' });
+}
+
 async function drawImageToCanvas(file, helpers, options) {
   const img = await helpers.loadImageFromFile(file);
   const widthLimit = Number.parseInt(options.maxWidth, 10);
   const heightLimit = Number.parseInt(options.maxHeight, 10);
+  const percent = Number.parseFloat(options.scalePercent || '100');
+  const rotate = Number.parseInt(options.rotate || '0', 10) || 0;
   const widthScale = Number.isFinite(widthLimit) && widthLimit > 0 && img.width > widthLimit ? widthLimit / img.width : 1;
   const heightScale = Number.isFinite(heightLimit) && heightLimit > 0 && img.height > heightLimit ? heightLimit / img.height : 1;
-  const scale = Math.min(widthScale, heightScale);
+  const percentScale = Number.isFinite(percent) && percent > 0 ? percent / 100 : 1;
+  const scale = Math.min(widthScale, heightScale) * percentScale;
+  const drawWidth = Math.max(1, Math.round(img.width * scale));
+  const drawHeight = Math.max(1, Math.round(img.height * scale));
+  const rotated = Math.abs(rotate % 180) === 90;
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(img.width * scale));
-  canvas.height = Math.max(1, Math.round(img.height * scale));
-  const ctx = canvas.getContext('2d', { alpha: true });
+  canvas.width = rotated ? drawHeight : drawWidth;
+  canvas.height = rotated ? drawWidth : drawHeight;
+  const ctx = canvas.getContext('2d', { alpha: !options.background });
   if (options.background) {
     ctx.fillStyle = options.background;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  if (rotate) {
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((rotate * Math.PI) / 180);
+    ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+  } else {
+    ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
+  }
   return canvas;
 }
 
 async function convertSingleImage(file, helpers, format, options) {
-  const needsBackground = format.mime === 'image/jpeg' || format.pdf;
-  const canvas = await drawImageToCanvas(file, helpers, { ...options, background: needsBackground ? '#ffffff' : '' });
+  const needsBackground = format.mime === 'image/jpeg' || format.pdf || options.forceBackground;
+  const canvas = await drawImageToCanvas(file, helpers, { ...options, background: needsBackground ? (options.backgroundColor || '#ffffff') : '' });
+
+  if (format.icon) {
+    const iconCanvas = document.createElement('canvas');
+    const size = Math.min(256, Math.max(16, Number.parseInt(options.maxWidth, 10) || 64));
+    iconCanvas.width = size;
+    iconCanvas.height = size;
+    const ctx = iconCanvas.getContext('2d');
+    ctx.fillStyle = options.backgroundColor || '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+    const scale = Math.min(size / canvas.width, size / canvas.height);
+    const w = canvas.width * scale;
+    const h = canvas.height * scale;
+    ctx.drawImage(canvas, (size - w) / 2, (size - h) / 2, w, h);
+    const png = await helpers.canvasToBlob(iconCanvas, 'image/png');
+    const ico = buildIcoFromPngBytes(new Uint8Array(await png.arrayBuffer()), size);
+    return { name: `${helpers.safeFileBase(file.name)}.ico`, blob: ico, width: size, height: size };
+  }
+
   const blob = await helpers.canvasToBlob(canvas, format.mime, format.quality ? options.quality : undefined);
   return {
     name: `${helpers.safeFileBase(file.name)}.${format.ext}`,
@@ -104,6 +155,12 @@ export function render({ root, files, setStatus, helpers }) {
   root.innerHTML = `
     <div class="module-panel">
       <div class="grid-controls">
+        <div class="control">
+          <label for="imagePreset">Preset</label>
+          <select id="imagePreset">
+            ${Object.entries(IMAGE_PRESETS).map(([id, preset]) => `<option value="${id}">${preset.label}</option>`).join('')}
+          </select>
+        </div>
         <div class="control">
           <label for="imageFormat">Output format</label>
           <select id="imageFormat">
@@ -122,6 +179,23 @@ export function render({ root, files, setStatus, helpers }) {
           <label for="maxHeight">Max height, optional</label>
           <input id="maxHeight" type="number" min="1" placeholder="Keep original">
         </div>
+        <div class="control">
+          <label for="scalePercent">Resize percentage</label>
+          <input id="scalePercent" type="number" min="1" max="400" value="100">
+        </div>
+        <div class="control">
+          <label for="rotateImage">Rotate</label>
+          <select id="rotateImage">
+            <option value="0">No rotation</option>
+            <option value="90">90° right</option>
+            <option value="180">180°</option>
+            <option value="270">90° left</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="backgroundColor">JPEG/ICO background</label>
+          <input id="backgroundColor" type="color" value="#ffffff">
+        </div>
         <div class="control full">
           <label>Supported now</label>
           <div class="badge-list">
@@ -129,6 +203,9 @@ export function render({ root, files, setStatus, helpers }) {
             <span class="badge">SVG → PNG/JPEG/WEBP/PDF</span>
             <span class="badge">Batch images → ZIP</span>
             <span class="badge">Images → PDF</span>
+            <span class="badge">ICO favicon</span>
+            <span class="badge">Rotate / resize presets</span>
+            <span class="badge">Before/after preview</span>
           </div>
         </div>
       </div>
@@ -139,14 +216,26 @@ export function render({ root, files, setStatus, helpers }) {
     </div>
   `;
 
+  const presetSelect = root.querySelector('#imagePreset');
   const formatSelect = root.querySelector('#imageFormat');
   const qualityInput = root.querySelector('#imageQuality');
   const qualityLabel = root.querySelector('#qualityLabel');
   const maxWidth = root.querySelector('#maxWidth');
   const maxHeight = root.querySelector('#maxHeight');
+  const scalePercent = root.querySelector('#scalePercent');
+  const rotateImage = root.querySelector('#rotateImage');
+  const backgroundColor = root.querySelector('#backgroundColor');
   const result = root.querySelector('#imageResult');
 
   qualityInput.addEventListener('input', () => { qualityLabel.textContent = qualityInput.value; });
+  presetSelect.addEventListener('change', () => {
+    const preset = IMAGE_PRESETS[presetSelect.value];
+    if (!preset || presetSelect.value === 'custom') return;
+    if (preset.format) formatSelect.value = preset.format;
+    if (preset.quality) { qualityInput.value = preset.quality; qualityLabel.textContent = preset.quality; }
+    if (preset.width !== undefined) maxWidth.value = preset.width;
+    if (preset.format === 'ico') maxHeight.value = preset.width || 64;
+  });
 
   root.querySelector('#convertImages').addEventListener('click', async () => {
     if (!files.length) return;
@@ -155,6 +244,9 @@ export function render({ root, files, setStatus, helpers }) {
       quality: Number(qualityInput.value) / 100,
       maxWidth: maxWidth.value,
       maxHeight: maxHeight.value,
+      scalePercent: scalePercent.value,
+      rotate: rotateImage.value,
+      backgroundColor: backgroundColor.value,
     };
     setStatus(`Converting ${files.length} image${files.length === 1 ? '' : 's'}…`);
     result.innerHTML = '';
@@ -192,7 +284,17 @@ export function render({ root, files, setStatus, helpers }) {
         setStatus(`Done. Downloaded ZIP with ${outputs.length} converted images (${helpers.formatBytes(zip.size)}).`, 'success');
       }
 
-      result.innerHTML = `<div class="result-box"><h3>Converted files</h3>${outputs.map((output) => `${helpers.escapeHtml(output.name)} — ${output.width}×${output.height} — ${helpers.formatBytes(output.blob.size)}`).join('\n')}</div>`;
+      const originalTotal = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+      const convertedTotal = outputs.reduce((sum, output) => sum + Number(output.blob.size || 0), 0);
+      const change = originalTotal ? Math.round((1 - (convertedTotal / originalTotal)) * 100) : 0;
+      let previewHtml = '';
+      if (outputs.length === 1 && outputs[0].blob.type.startsWith('image/')) {
+        const originalUrl = URL.createObjectURL(files[0]);
+        const convertedUrl = URL.createObjectURL(outputs[0].blob);
+        window.setTimeout(() => { URL.revokeObjectURL(originalUrl); URL.revokeObjectURL(convertedUrl); }, 15000);
+        previewHtml = `<div class="preview-grid"><div class="preview-card"><strong>Original</strong><img src="${originalUrl}" alt="Original preview"></div><div class="preview-card"><strong>Converted</strong><img src="${convertedUrl}" alt="Converted preview"></div></div>`;
+      }
+      result.innerHTML = `<div class="compare-stats"><div class="stat-pill"><small>Original</small><strong>${helpers.formatBytes(originalTotal)}</strong></div><div class="stat-pill"><small>Converted</small><strong>${helpers.formatBytes(convertedTotal)}</strong></div><div class="stat-pill"><small>Size change</small><strong>${change > 0 ? change + '% smaller' : Math.abs(change) + '% larger'}</strong></div></div><div class="result-box"><h3>Converted files</h3>${outputs.map((output) => `${helpers.escapeHtml(output.name)} — ${output.width}×${output.height} — ${helpers.formatBytes(output.blob.size)}`).join('\n')}</div>${previewHtml}`;
     } catch (err) {
       setStatus(err.message || 'Image conversion failed.', 'error');
       result.innerHTML = `<div class="error-box">${helpers.escapeHtml(err.message || 'Image conversion failed.')}</div>`;

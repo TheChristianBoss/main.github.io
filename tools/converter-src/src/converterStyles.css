@@ -149,3 +149,78 @@ input[type="range"] { accent-color: var(--gold); }
 .media-device-box[data-level="warn"] { border-color: rgba(240,207,116,.55); background: rgba(240,207,116,.08); }
 .media-device-box[data-level="danger"] { border-color: rgba(255,123,123,.45); background: rgba(255,123,123,.08); }
 .media-device-box[data-level="danger"] strong { color: var(--danger); }
+
+.history-panel {
+  margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255,255,255,.025);
+  padding: 1rem;
+}
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .75rem;
+}
+.history-head strong { color: var(--gold-strong); }
+.secondary-button.tiny { padding: .45rem .75rem; font-size: .82rem; }
+.queue-list {
+  display: grid;
+  gap: .65rem;
+  margin-top: 1rem;
+}
+.queue-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid var(--line);
+  background: #0b0b0b;
+  border-radius: 13px;
+  padding: .75rem .9rem;
+}
+.queue-item span { overflow-wrap: anywhere; }
+.queue-item small { color: var(--muted); text-align: right; }
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.preview-card {
+  border: 1px solid var(--line);
+  background: #090909;
+  border-radius: 16px;
+  padding: .9rem;
+}
+.preview-card strong { color: var(--gold-strong); }
+.preview-card img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  display: block;
+  margin-top: .75rem;
+  border-radius: 12px;
+  background: #050505;
+  border: 1px solid var(--line);
+}
+.compare-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .75rem;
+  margin-top: 1rem;
+}
+.stat-pill {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: .75rem;
+  background: rgba(212,168,63,.07);
+}
+.stat-pill small { display:block; color: var(--muted); margin-bottom: .25rem; }
+.stat-pill strong { color: var(--gold-strong); }
+@media (max-width: 760px) {
+  .preview-grid, .compare-stats { grid-template-columns: 1fr; }
+  .queue-item { display: grid; }
+  .queue-item small { text-align: left; }
+}

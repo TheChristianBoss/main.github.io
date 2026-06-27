@@ -269,6 +269,25 @@ async function convertMedia({ file, refs, helpers, setStatus }) {
   }
 }
 
+function cancelMediaConversion(refs, setStatus) {
+  try {
+    if (ffmpegInstance) {
+      ffmpegInstance.terminate();
+      ffmpegInstance = null;
+      ffmpegLoading = null;
+      refs.log.textContent = `${refs.log.textContent}
+Conversion cancelled. Media engine was unloaded and can be loaded again.`.trim();
+      refs.progress.value = 0;
+      refs.progressLabel.textContent = 'Cancelled';
+      refs.loadBtn.disabled = false;
+      refs.convertBtn.disabled = false;
+      setStatus('Cancelled media conversion. Load the media engine again before the next run.', 'info');
+    }
+  } catch (err) {
+    setStatus(err.message || 'Could not cancel conversion.', 'error');
+  }
+}
+
 function updateHint(refs, file, helpers) {
   const preset = PRESETS.find((item) => item.id === refs.preset.value) || PRESETS[0];
   const isGif = preset.id === 'video-gif';
@@ -349,6 +368,7 @@ export function render({ root, files, setStatus, helpers }) {
       <div class="button-row">
         <button class="secondary-button" id="loadMediaEngine" type="button">Load media engine</button>
         <button class="action-button" id="convertMedia" type="button">Convert media</button>
+        <button class="secondary-button" id="cancelMedia" type="button">Cancel / unload engine</button>
       </div>
 
       <div class="progress-wrap">
@@ -374,6 +394,7 @@ export function render({ root, files, setStatus, helpers }) {
     deviceAdvice: root.querySelector('#mediaDeviceAdvice'),
     loadBtn: root.querySelector('#loadMediaEngine'),
     convertBtn: root.querySelector('#convertMedia'),
+    cancelBtn: root.querySelector('#cancelMedia'),
     progress: root.querySelector('#mediaProgress'),
     progressLabel: root.querySelector('#mediaProgressLabel'),
     log: root.querySelector('#mediaLog'),
@@ -395,6 +416,7 @@ export function render({ root, files, setStatus, helpers }) {
       setStatus(err.message || 'Could not convert media.', 'error');
     }
   });
+  refs.cancelBtn.addEventListener('click', () => cancelMediaConversion(refs, setStatus));
 
   if (!file) setStatus('Choose one audio or video file to begin.', 'info');
 }

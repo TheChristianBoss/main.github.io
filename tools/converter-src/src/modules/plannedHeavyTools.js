@@ -1,23 +1,23 @@
 const PLANNED = [
   {
-    title: 'Office documents',
-    body: 'DOCX text extraction, DOCX to HTML, XLSX to CSV/JSON, CSV/JSON to XLSX, and basic document previews.',
+    title: 'OCR module',
+    body: 'Image/PDF screenshot to text. This should stay lazy because OCR engines are large and can use a lot of memory.',
   },
   {
-    title: 'Advanced PDF tools',
-    body: 'PDF merge, split, remove pages, text to PDF, metadata tools, and stronger compression options. Image-to-PDF already has a light version in the Images module.',
+    title: 'Ebooks',
+    body: 'EPUB to HTML/TXT and HTML/Markdown to EPUB. Useful, but it should be a separate focused module.',
   },
   {
-    title: 'OCR',
-    body: 'Image/PDF screenshot to text. This is useful, but should be a separate lazy module because OCR engines are large.',
+    title: 'Fonts',
+    body: 'TTF/OTF to WOFF/WOFF2 and font preview tools. These require specialized libraries and licensing care.',
   },
   {
-    title: 'Ebooks and fonts',
-    body: 'EPUB/TXT/HTML flows and font formats like TTF/OTF to WOFF/WOFF2 can be added later as specialized modules.',
+    title: 'Advanced PDF cleanup',
+    body: 'Stronger compression, OCR layers, redaction, form flattening, and password handling. These are harder in a browser-only app.',
   },
   {
     title: 'Cloud mode for huge files',
-    body: 'Very large video, OCR, or office conversions may eventually need an optional backend mode instead of browser-only conversion.',
+    body: 'Very large video, OCR, PDF, and office conversions may eventually need an optional backend mode instead of browser-only conversion.',
   },
 ];
 
@@ -26,15 +26,15 @@ export function render({ root, setStatus }) {
     <div class="module-panel">
       <div class="grid-controls two">
         <div class="control full">
-          <h3 style="margin:0;color:var(--gold);font-family:Georgia,serif;">More converters can stay lazy</h3>
-          <p style="color:var(--muted);line-height:1.7;margin:.6rem 0 0;">Audio/video conversion now has its own heavy module. These remaining converter groups can be added without forcing every visitor to download them on the first page load.</p>
+          <h3 style="margin:0;color:var(--gold);font-family:Georgia,serif;">Advanced converters can stay lazy</h3>
+          <p style="color:var(--muted);line-height:1.7;margin:.6rem 0 0;">The converter now has image, text/data, PDF, DOCX, XLSX, ZIP, batch queue, utilities, and audio/video modules. These remaining converter groups are best added as optional heavy modules so every visitor does not download them immediately.</p>
         </div>
       </div>
       <div class="check-list">
         ${PLANNED.map((item) => `<p><strong style="color:var(--text);">${item.title}</strong><br>${item.body}</p>`).join('')}
       </div>
       <div class="button-row">
-        <button class="secondary-button" id="copyPlan" type="button">Copy roadmap text</button>
+        <button class="secondary-button" id="copyPlan" type="button">Copy advanced roadmap text</button>
       </div>
     </div>
   `;
@@ -42,6 +42,6 @@ export function render({ root, setStatus }) {
   root.querySelector('#copyPlan').addEventListener('click', async () => {
     const text = PLANNED.map((item) => `${item.title}: ${item.body}`).join('\n\n');
     await navigator.clipboard.writeText(text);
-    setStatus('Copied remaining module roadmap.', 'success');
+    setStatus('Copied advanced module roadmap.', 'success');
   });
 }
