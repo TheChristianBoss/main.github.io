@@ -53,6 +53,13 @@
 
         .form-status.success { color: #6fbf73; }
         .form-status.error { color: #e06a6a; }
+        .form-privacy {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            line-height: 1.55;
+            margin-top: 0.85rem;
+        }
+        .form-privacy a { color: var(--accent); }
     </style>
 </head>
 <body>
@@ -125,6 +132,7 @@
             <textarea id="message" rows="6" class="form-textarea" placeholder="Describe your request..." required></textarea>
 
             <button id="submitBtn" class="submit-btn btn btn-primary">Submit Request</button>
+            <p class="form-privacy">By submitting, your name, email, and message are sent so I can respond to your request. Do not send passwords or private credentials. Read the <a href="/privacy.html">Privacy Policy</a> and <a href="/terms.html">Terms</a>.</p>
 
             <div id="formStatus" class="form-status" role="alert"></div>
         </div>

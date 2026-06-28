@@ -421,7 +421,7 @@
 </main>
 
 <footer>
-  <p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="/store/policies.html">Policies</a> &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p>
+  <p>&copy; 2025 ChristianGoblin &nbsp;·&nbsp; <a href="/store/policies.html">Store Policies</a> &nbsp;·&nbsp; <a href="/privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="/terms.html">Terms</a> &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p>
 </footer>
 
 <script>
@@ -592,6 +592,7 @@
         <p class="summary-muted">Final prices are verified securely at checkout. ${hasPhysical ? 'Shipping and taxes are calculated during checkout.' : ''}</p>
         <ul class="summary-list">
           <li>Secure payment through Stripe.</li>
+          <li>See <a href="/privacy.html">Privacy</a>, <a href="/terms.html">Terms</a>, and <a href="/store/policies.html">Store Policies</a>.</li>
           ${hasPhysical ? '<li>Physical shop items are prepared and shipped after checkout.</li>' : ''}
           ${hasService ? '<li>Service requests are sent to me after payment so I can contact you.</li><li>Each service request is kept to one per checkout line so the details stay clear.</li>' : ''}
           ${hasPhysical ? '<li>Quantity is limited to 10 per physical item.</li>' : ''}
@@ -604,6 +605,8 @@
         <button class="checkout-btn" id="checkoutBtn">Proceed to Checkout</button>
         <a class="continue-link" href="/store/">Continue Shopping</a>
         <a class="continue-link" href="/store/policies.html">Store Policies</a>
+        <a class="continue-link" href="/privacy.html">Privacy</a>
+        <a class="continue-link" href="/terms.html">Terms</a>
         <button class="clear-cart-btn" id="clearCartBtn" type="button">Clear Cart</button>
       </div>`;
 
