@@ -1,12 +1,15 @@
 import { exportToDOCX } from "../utils/docxExport";
 import { getScoreColor } from "../utils/resumeUtils";
 
-export default function HistoryPanel({ scoreHistory, versions, onRestoreVersion }) {
+export default function HistoryPanel({ scoreHistory, versions, onRestoreVersion, onClearHistory }) {
   const CHART_H = 100; // fixed chart height in px
 
   return (
     <div className="ats-card">
-      <h2 className="ats-title">🕐 History & Score Trend</h2>
+      <h2 className="ats-title ats-title--sm">History & Score Trend</h2>
+      <div className="ats-result-actions">
+        <button className="ats-btn ats-btn--small ats-btn--danger-outline" onClick={onClearHistory} disabled={!scoreHistory.length && !versions.length}>Clear saved history</button>
+      </div>
 
       {/* Score trend chart */}
       {scoreHistory.length > 0 && (

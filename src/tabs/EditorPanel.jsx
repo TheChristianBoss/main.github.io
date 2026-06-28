@@ -169,6 +169,23 @@ export default function EditorPanel({
     onSaveVersion(reordered, `Reordered sections: ${sectionOrder.join(" → ")}`);
   };
 
+  const copyResume = async () => {
+    if (!editedResume?.trim()) return;
+    try {
+      await navigator.clipboard.writeText(editedResume);
+      alert("Resume text copied.");
+    } catch {
+      alert("Copy failed. Select the text manually and copy it.");
+    }
+  };
+
+  const clearEditor = () => {
+    if (!editedResume?.trim()) return;
+    if (!window.confirm("Clear the editor text? Save a version first if you need to keep it.")) return;
+    onSaveVersion(editedResume, "Before clearing editor");
+    setEditedResume("");
+  };
+
   // ── Resume merge ──────────────────────────────────────────────────────────
 
   const mergeResumes = () => {
@@ -187,27 +204,33 @@ export default function EditorPanel({
 
   return (
     <div className="ats-card">
-      <h2 className="ats-title">✏️ Resume Editor</h2>
-      <p style={{ color: "var(--muted)", marginBottom: 12 }}>
-        Edit your resume directly below, or use the one-click fixes to apply improvements automatically.
+      <h2 className="ats-title ats-title--sm">Resume Editor</h2>
+      <p className="ats-muted" style={{ marginBottom: 12 }}>
+        Edit your resume directly below. Save a version before making large changes so you can restore it later.
       </p>
 
       {/* One-click fix buttons */}
       <div className="ats-fix-buttons">
-        <button className="ats-btn ats-btn--fix" onClick={previewKeywordInjection}>
-          ➕ Add Missing Keywords
+        <button className="ats-btn ats-btn--fix" onClick={previewKeywordInjection} disabled={!editedResume?.trim()}>
+          Add Missing Keywords
         </button>
-        <button className="ats-btn ats-btn--fix" onClick={improveFormatting}>
-          🔧 Improve Formatting
+        <button className="ats-btn ats-btn--fix" onClick={improveFormatting} disabled={!editedResume?.trim()}>
+          Improve Formatting
         </button>
-        <button className="ats-btn ats-btn--fix" onClick={strengthenBullets}>
-          💪 Strengthen Bullet Points
+        <button className="ats-btn ats-btn--fix" onClick={strengthenBullets} disabled={!editedResume?.trim()}>
+          Strengthen Bullet Points
         </button>
-        <button className="ats-btn ats-btn--fix" onClick={() => onSaveVersion(editedResume, "Manual save")}>
-          💾 Save Version
+        <button className="ats-btn ats-btn--fix" onClick={() => onSaveVersion(editedResume, "Manual save")} disabled={!editedResume?.trim()}>
+          Save Version
         </button>
-        <button className="ats-btn ats-btn--fix" onClick={() => exportToDOCX(editedResume, "my-resume")}>
-          ⬇ Export as .docx
+        <button className="ats-btn ats-btn--fix" onClick={copyResume} disabled={!editedResume?.trim()}>
+          Copy Text
+        </button>
+        <button className="ats-btn ats-btn--fix" onClick={() => exportToDOCX(editedResume, "my-resume")} disabled={!editedResume?.trim()}>
+          Export as .docx
+        </button>
+        <button className="ats-btn ats-btn--fix ats-btn--danger-outline" onClick={clearEditor} disabled={!editedResume?.trim()}>
+          Clear Editor
         </button>
       </div>
 
@@ -309,7 +332,7 @@ export default function EditorPanel({
       {/* Bullet rewrite log */}
       {rewrittenBullets.length > 0 && (
         <div className="ats-section">
-          <h3 className="ats-section-title">🔄 Bullet Point Rewrites Applied</h3>
+          <h3 className="ats-section-title">Bullet Point Rewrites Applied</h3>
           {rewrittenBullets.map((r, i) => (
             <div key={i} className="ats-bullet-rewrite">
               <div className="ats-bullet-before">Before: {r.original}</div>
@@ -330,7 +353,7 @@ export default function EditorPanel({
 
       {/* Section reorder — now actually functional */}
       <div className="ats-section" style={{ marginTop: 16 }}>
-        <h3 className="ats-section-title">🗂 Section Order (drag to reorder, then Apply)</h3>
+        <h3 className="ats-section-title">Section Order (drag to reorder, then Apply)</h3>
         <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: 10 }}>
           ATS prefers: Summary → Skills → Experience → Education → Projects. Drag the pills, then click Apply to reorder your resume text.
         </p>
@@ -362,7 +385,7 @@ export default function EditorPanel({
       {/* Resume merge */}
       {resumeB?.trim() && (
         <div className="ats-section" style={{ marginTop: 20 }}>
-          <h3 className="ats-section-title">🔀 Resume Merge System</h3>
+          <h3 className="ats-section-title">Resume Merge System</h3>
           <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
             Combine Resume A skills + Resume B experience into one optimized resume.
           </p>
@@ -373,7 +396,7 @@ export default function EditorPanel({
             <>
               <textarea rows="10" value={mergedResume} readOnly className="ats-textarea" style={{ marginTop: 12 }} />
               <button className="ats-btn ats-btn--small" onClick={() => exportToDOCX(mergedResume, "merged-resume")}>
-                ⬇ Export Merged Resume (.docx)
+                Export Merged Resume (.docx)
               </button>
             </>
           )}

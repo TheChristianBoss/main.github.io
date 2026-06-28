@@ -1,18 +1,15 @@
-import { useState, useCallback, useReducer } from "react";
+import { useState, useCallback, useReducer, useEffect } from "react";
 import "./ATS.css";
 
-import jobCategories from "./data/jobCategories";
 import roleKeywords from "./data/roleKeywords";
 import { scoreResume, rewriteBullet, normalizeKeyword } from "./utils/resumeUtils";
 
+import ErrorBoundary from "./components/ErrorBoundary";
 import InputPanel      from "./tabs/InputPanel";
 import ResultsPanel    from "./tabs/ResultsPanel";
 import EditorPanel     from "./tabs/EditorPanel";
 import HistoryPanel    from "./tabs/HistoryPanel";
 import ComparisonPanel from "./tabs/ComparisonPanel";
-
-// ─── STATE REDUCER ────────────────────────────────────────────────────────────
-// All analysis results in one object so they're updated atomically.
 
 const initialAnalysis = null;
 
@@ -24,7 +21,6 @@ function analysisReducer(state, action) {
   }
 }
 
-// ─── IGNORED WORDS (for auto-tailor JD token filtering) ──────────────────────
 const ignoredWords = [
   "the","and","for","with","you","your","are","this","that","will","have",
   "from","our","job","work","team","role","was","has","not","but","can",
@@ -38,46 +34,49 @@ const skillDatabase = [
   "ci/cd","kubernetes","terraform","redux","graphql","rest api",
 ];
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+const DRAFT_KEY = "cg_ats_checker_draft_v2";
+const HISTORY_KEY = "cg_score_history";
+const VERSIONS_KEY = "cg_resume_versions";
+
+function loadJson(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key) || "null") ?? fallback; } catch { return fallback; }
+}
 
 export default function App() {
-  // — Inputs —
-  const [category,       setCategory]       = useState("");
-  const [role,           setRole]           = useState("");
-  const [resume,         setResume]         = useState("");
-  const [jobDescription, setJobDescription] = useState("");
-  const [comparisonMode, setComparisonMode] = useState(false);
-  const [resumeB,        setResumeB]        = useState("");
+  const draft = loadJson(DRAFT_KEY, {});
 
-  // — Analysis results (atomic) —
+  const [category,       setCategory]       = useState(draft.category || "");
+  const [role,           setRole]           = useState(draft.role || "");
+  const [resume,         setResume]         = useState(draft.resume || "");
+  const [jobDescription, setJobDescription] = useState(draft.jobDescription || "");
+  const [comparisonMode, setComparisonMode] = useState(Boolean(draft.comparisonMode));
+  const [resumeB,        setResumeB]        = useState(draft.resumeB || "");
+
   const [analysis,      dispatchAnalysis] = useReducer(analysisReducer, initialAnalysis);
   const [analysisBData, setAnalysisBData] = useState(null);
 
-  // — Editor —
-  const [editedResume, setEditedResume] = useState("");
+  const [editedResume, setEditedResume] = useState(draft.resume || "");
   const [activeTab,    setActiveTab]    = useState("input");
 
-  // — Auto-tailor —
   const [tailoredResume, setTailoredResume] = useState("");
   const [isTailoring,    setIsTailoring]    = useState(false);
 
-  // — History (persisted to localStorage) —
-  const [versions,      setVersions]      = useState(() => {
-    try { return JSON.parse(localStorage.getItem("cg_resume_versions") || "[]"); } catch { return []; }
-  });
-  const [scoreHistory,  setScoreHistory]  = useState(() => {
-    try { return JSON.parse(localStorage.getItem("cg_score_history") || "[]"); } catch { return []; }
-  });
+  const [versions,      setVersions]      = useState(() => loadJson(VERSIONS_KEY, []));
+  const [scoreHistory,  setScoreHistory]  = useState(() => loadJson(HISTORY_KEY, []));
 
-  // ── Version helpers ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const payload = { category, role, resume, jobDescription, comparisonMode, resumeB };
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(payload)); } catch {}
+  }, [category, role, resume, jobDescription, comparisonMode, resumeB]);
 
   const saveVersion = useCallback((text, label) => {
+    if (!text?.trim()) return;
     setVersions((prev) => {
       const next = [
-        ...prev,
-        { id: prev.length + 1, label: label || `Version ${prev.length + 1}`, text, timestamp: new Date().toLocaleTimeString() },
+        ...prev.slice(-19),
+        { id: Date.now(), label: label || `Version ${prev.length + 1}`, text, timestamp: new Date().toLocaleString() },
       ];
-      try { localStorage.setItem("cg_resume_versions", JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(VERSIONS_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
   }, []);
@@ -85,9 +84,34 @@ export default function App() {
   const restoreVersion = (v) => {
     setEditedResume(v.text);
     setResume(v.text);
+    setActiveTab("editor");
   };
 
-  // ── Main analysis ──────────────────────────────────────────────────────────
+  const clearHistory = () => {
+    if (!window.confirm("Clear saved ATS score history and resume versions?")) return;
+    setVersions([]);
+    setScoreHistory([]);
+    try {
+      localStorage.removeItem(VERSIONS_KEY);
+      localStorage.removeItem(HISTORY_KEY);
+    } catch {}
+  };
+
+  const resetAll = () => {
+    if (!window.confirm("Start over and clear the current resume, job description, comparison resume, and analysis?")) return;
+    setResume("");
+    setResumeB("");
+    setJobDescription("");
+    setCategory("");
+    setRole("");
+    setComparisonMode(false);
+    setEditedResume("");
+    setTailoredResume("");
+    setAnalysisBData(null);
+    dispatchAnalysis({ type: "CLEAR" });
+    setActiveTab("input");
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+  };
 
   const analyzeResume = useCallback(() => {
     if (!resume.trim()) return;
@@ -98,10 +122,9 @@ export default function App() {
     dispatchAnalysis({ type: "SET", payload: result });
     setEditedResume(resume);
 
-    // Score history (persisted)
     setScoreHistory((prev) => {
       const next = [
-        ...prev,
+        ...prev.slice(-29),
         {
           score: result.score,
           role:  role || "General",
@@ -109,11 +132,10 @@ export default function App() {
           label: `Run ${prev.length + 1}`,
         },
       ];
-      try { localStorage.setItem("cg_score_history", JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
 
-    // Resume B comparison
     if (comparisonMode && resumeB.trim()) {
       const bResult = scoreResume(resumeB, role, jobDescription);
       setAnalysisBData(bResult);
@@ -127,115 +149,132 @@ export default function App() {
     }, 100);
   }, [resume, resumeB, role, jobDescription, comparisonMode]);
 
-  // ── Auto-tailor ────────────────────────────────────────────────────────────
-
   const autoTailor = () => {
     if (!resume.trim() || !jobDescription.trim()) return;
+    if (!window.confirm("Auto-tailor adds missing terms only when they are truthfully supported by your experience. Review the result before using it.")) return;
     setIsTailoring(true);
     setTimeout(() => {
       const jdTokens = normalizeKeyword(jobDescription).split(/\W+/).filter((w) => w.length > 3 && !ignoredWords.includes(w));
       const resumeNorm = normalizeKeyword(resume);
-      // Only inject tokens that are in the skillDatabase allowlist, preventing garbage tokens
       const toInject = [...new Set(jdTokens)]
         .filter((t) => skillDatabase.includes(t) && !resumeNorm.includes(t))
         .slice(0, 8);
 
       let tailored = resume;
       if (toInject.length > 0) {
-        tailored += `\n\nTailored Skills (matched to job):\n${toInject.join(", ")}`;
+        tailored += `\n\nTailored Skills to Review\n${toInject.join(", ")}`;
       }
       tailored = tailored.split("\n").map((line) => rewriteBullet(line.trim()) || line).join("\n");
 
       setTailoredResume(tailored);
       setEditedResume(tailored);
-      saveVersion(tailored, "Auto-tailored to JD");
+      saveVersion(tailored, "Auto-tailored draft to review");
       setIsTailoring(false);
-    }, 800);
+    }, 500);
   };
 
-  // ── Tabs ───────────────────────────────────────────────────────────────────
-
   const tabs = [
-    { id: "input",      label: "📄 Input"    },
-    { id: "results",    label: "📊 Results"  },
-    { id: "editor",     label: "✏️ Editor"   },
-    { id: "history",    label: "🕐 History"  },
-    // Comparison tab only shown when mode is active
-    ...(comparisonMode ? [{ id: "comparison", label: "⚖️ Compare" }] : []),
+    { id: "input",      label: "Input"    },
+    { id: "results",    label: "Results"  },
+    { id: "editor",     label: "Editor"   },
+    { id: "history",    label: "History"  },
+    ...(comparisonMode ? [{ id: "comparison", label: "Compare" }] : []),
   ];
 
   return (
-    <div className="ats-app">
-      <header className="ats-header">
-        <div className="ats-header-inner">
-          {/* Fixed: correct tool name */}
-          <a href="/" className="ats-logo" style={{ textDecoration: "none", color: "inherit" }}>
-            <span style={{ color: "var(--accent-ui)" }}>CG</span>&nbsp;Resume Builder
-          </a>
-        </div>
-      </header>
+    <ErrorBoundary>
+      <div className="ats-app">
+        <header className="ats-header">
+          <div className="ats-header-inner">
+            <a href="/tools/ats/" className="ats-logo" style={{ textDecoration: "none", color: "inherit" }}>
+              <span style={{ color: "var(--accent-ui)" }}>CG</span>&nbsp;ATS Checker
+            </a>
+            <nav className="ats-nav" aria-label="ATS tool links">
+              <a className="ats-nav-link" href="/tools/">Tools</a>
+              <a className="ats-nav-link" href="/tools/resume/">Resume Builder</a>
+              <a className="ats-nav-link" href="/tools/cover/">Cover Letter</a>
+            </nav>
+          </div>
+        </header>
 
-      <main className="ats-main">
-        <div className="ats-tabs">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              className={`ats-tab${activeTab === t.id ? " ats-tab--active" : ""}`}
-              onClick={() => setActiveTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <main className="ats-main">
+          <section className="ats-card ats-intro-card">
+            <h1 className="ats-title">ATS Resume Checker</h1>
+            <p className="ats-sub" style={{ marginLeft: 0, marginRight: 0 }}>
+              Check a resume against a role or job description using a browser-local heuristic scan. This is a guidance tool, not a guarantee of applicant-tracking-system performance.
+            </p>
+            <div className="ats-badges" style={{ justifyContent: "flex-start" }}>
+              <span className="badge">No signup</span>
+              <span className="badge">Local file parsing</span>
+              <span className="badge">PDF / DOCX / image OCR</span>
+              <span className="badge">Heuristic score</span>
+            </div>
+          </section>
 
-        {activeTab === "input" && (
-          <InputPanel
-            category={category}         setCategory={setCategory}
-            role={role}                 setRole={setRole}
-            resume={resume}             setResume={setResume}
-            jobDescription={jobDescription} setJobDescription={setJobDescription}
-            comparisonMode={comparisonMode} setComparisonMode={setComparisonMode}
-            resumeB={resumeB}           setResumeB={setResumeB}
-            onAnalyze={analyzeResume}
-            onAutoTailor={autoTailor}
-            isTailoring={isTailoring}
-            tailoredResume={tailoredResume}
-          />
-        )}
+          <div className="ats-tabs">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                className={`ats-tab${activeTab === t.id ? " ats-tab--active" : ""}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+            <button className="ats-tab ats-tab--danger" onClick={resetAll}>Start over</button>
+          </div>
 
-        {activeTab === "results" && (
-          <ResultsPanel analysis={analysis} />
-        )}
+          {activeTab === "input" && (
+            <InputPanel
+              category={category}         setCategory={setCategory}
+              role={role}                 setRole={setRole}
+              resume={resume}             setResume={setResume}
+              jobDescription={jobDescription} setJobDescription={setJobDescription}
+              comparisonMode={comparisonMode} setComparisonMode={setComparisonMode}
+              resumeB={resumeB}           setResumeB={setResumeB}
+              onAnalyze={analyzeResume}
+              onAutoTailor={autoTailor}
+              isTailoring={isTailoring}
+              tailoredResume={tailoredResume}
+              onClearAnalysis={() => { dispatchAnalysis({ type: "CLEAR" }); setAnalysisBData(null); }}
+            />
+          )}
 
-        {activeTab === "editor" && (
-          <EditorPanel
-            editedResume={editedResume}
-            setEditedResume={setEditedResume}
-            missingCriticalKeywords={analysis?.missingCritical ?? []}
-            missingPhrases={analysis?.missingPhrases ?? []}
-            role={role}
-            roleKeywords={roleKeywords}
-            resumeB={resumeB}
-            onSaveVersion={saveVersion}
-          />
-        )}
+          {activeTab === "results" && (
+            <ResultsPanel analysis={analysis} />
+          )}
 
-        {activeTab === "history" && (
-          <HistoryPanel
-            scoreHistory={scoreHistory}
-            versions={versions}
-            onRestoreVersion={restoreVersion}
-          />
-        )}
+          {activeTab === "editor" && (
+            <EditorPanel
+              editedResume={editedResume}
+              setEditedResume={setEditedResume}
+              missingCriticalKeywords={analysis?.missingCritical ?? []}
+              missingPhrases={analysis?.missingPhrases ?? []}
+              role={role}
+              roleKeywords={roleKeywords}
+              resumeB={resumeB}
+              onSaveVersion={saveVersion}
+            />
+          )}
 
-        {activeTab === "comparison" && comparisonMode && (
-          <ComparisonPanel
-            analysis={analysis}
-            analysisBData={analysisBData}
-            comparisonMode={comparisonMode}
-          />
-        )}
-      </main>
-    </div>
+          {activeTab === "history" && (
+            <HistoryPanel
+              scoreHistory={scoreHistory}
+              versions={versions}
+              onRestoreVersion={restoreVersion}
+              onClearHistory={clearHistory}
+            />
+          )}
+
+          {activeTab === "comparison" && comparisonMode && (
+            <ComparisonPanel
+              analysis={analysis}
+              analysisBData={analysisBData}
+              comparisonMode={comparisonMode}
+            />
+          )}
+        </main>
+      </div>
+    </ErrorBoundary>
   );
 }

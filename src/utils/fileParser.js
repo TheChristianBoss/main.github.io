@@ -1,156 +1,111 @@
-// ─── FILE PARSING UTILITIES ──────────────────────────────────────────────────
-// PDF and DOCX text extraction, shared between upload handlers.
+// Browser file parsing utilities for the ATS checker.
 
 import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-// ─── PDF ──────────────────────────────────────────────────────────────────────
+const TESSERACT_CDN = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+let tesseractLoadPromise = null;
 
-export const extractPDFText = async (file) => {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
-  let allLines = [];
+function friendlyFileError(err, fallback) {
+  const message = err?.message || String(err || "");
+  if (/password|encrypted/i.test(message)) return "This file appears to be encrypted or password-protected. Remove the password or paste the resume text.";
+  if (/Invalid PDF|PDF|document/i.test(message)) return fallback || "This file could not be read. Try exporting it again as PDF/DOCX or paste the text.";
+  return message || fallback;
+}
 
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
+const loadTesseract = () => {
+  if (typeof window === "undefined") throw new Error("Image OCR only works in a browser.");
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
 
-    const byY = {};
-    content.items.forEach((item) => {
-      if (!item.str.trim()) return;
-      const y = Math.round(item.transform[5] / 2) * 2;
-      if (!byY[y]) byY[y] = [];
-      byY[y].push({ x: item.transform[4], str: item.str });
-    });
-
-    const sortedYs = Object.keys(byY).map(Number).sort((a, b) => b - a);
-    sortedYs.forEach((y) => {
-      const items = byY[y].sort((a, b) => a.x - b.x);
-      const lineText = items.map((it) => it.str).join(" ").trim();
-      if (lineText) allLines.push(lineText);
-    });
-
-    if (i < pdf.numPages) allLines.push("");
-  }
-
-  return allLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-};
-
-// ─── DOCX ─────────────────────────────────────────────────────────────────────
-
-export const extractDOCXText = async (file) => {
-  const buf = await file.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-
-  const xmlChunks = [];
-  let i = 0;
-  while (i < bytes.length - 4) {
-    if (bytes[i] === 0x50 && bytes[i+1] === 0x4b && bytes[i+2] === 0x03 && bytes[i+3] === 0x04) {
-      const compression = bytes[i+8]  | (bytes[i+9]  << 8);
-      const compSize    = bytes[i+18] | (bytes[i+19] << 8) | (bytes[i+20] << 16) | (bytes[i+21] << 24);
-      const nameLen     = bytes[i+26] | (bytes[i+27] << 8);
-      const extraLen    = bytes[i+28] | (bytes[i+29] << 8);
-      const nameStart   = i + 30;
-      const dataStart   = nameStart + nameLen + extraLen;
-      const name        = new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLen));
-
-      if (name === "word/document.xml") {
-        const compressed = bytes.slice(dataStart, dataStart + compSize);
-        let xmlBytes;
-        if (compression === 0) {
-          xmlBytes = compressed;
-        } else {
-          const ds = new DecompressionStream("deflate-raw");
-          const writer = ds.writable.getWriter();
-          writer.write(compressed);
-          writer.close();
-          const reader = ds.readable.getReader();
-          const parts = [];
-          let done = false;
-          while (!done) {
-            const { value, done: d } = await reader.read();
-            if (value) parts.push(value);
-            done = d;
-          }
-          const total = parts.reduce((s, p) => s + p.length, 0);
-          xmlBytes = new Uint8Array(total);
-          let offset = 0;
-          for (const p of parts) { xmlBytes.set(p, offset); offset += p.length; }
-        }
-        xmlChunks.push(new TextDecoder("utf-8").decode(xmlBytes));
-        break;
-      }
-      i = dataStart + compSize;
-    } else {
-      i++;
-    }
-  }
-
-  if (xmlChunks.length === 0) throw new Error("word/document.xml not found — is this a valid .docx?");
-
-  const xmlText = xmlChunks[0];
-  const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xmlText, "application/xml");
-
-  const getParagraphText = (para) =>
-    Array.from(para.getElementsByTagNameNS("*", "t")).map((t) => t.textContent).join("").trim();
-
-  const body = xmlDoc.getElementsByTagNameNS("*", "body")[0];
-  if (!body) throw new Error("No body element found in document.xml");
-
-  const lines = [];
-  Array.from(body.childNodes).forEach((node) => {
-    const localName = node.localName || node.nodeName.replace(/^.*:/, "");
-    if (localName === "p") {
-      lines.push(getParagraphText(node));
-    } else if (localName === "tbl") {
-      const rows = Array.from(node.getElementsByTagNameNS("*", "tr"));
-      rows.forEach((row) => {
-        const cells = Array.from(row.childNodes).filter((c) => {
-          const n = c.localName || c.nodeName.replace(/^.*:/, "");
-          return n === "tc";
-        });
-        const cellTexts = cells.map((cell) => {
-          const cellParas = Array.from(cell.getElementsByTagNameNS("*", "p"));
-          return cellParas.map(getParagraphText).filter(Boolean).join(" ");
-        }).filter(Boolean);
-        if (cellTexts.length > 0) lines.push(cellTexts.join("   |   "));
-        lines.push("");
-      });
-    }
-  });
-
-  const processed = lines.map((line) => {
-    if ((line.match(/\s*\|\s*/g) || []).length >= 2) {
-      const parts = line.split(/\s*\|\s*/).map((p) => p.trim()).filter(Boolean);
-      const hasContact = parts.some((p) => /@/.test(p) || /\d{3}/.test(p) || /FL|Tampa/i.test(p));
-      if (hasContact) return parts.join("   |   ");
-    }
-    return line;
-  });
-
-  const rawText = processed.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-
-  const lineCount = rawText.split("\n").filter((l) => l.trim()).length;
-  const pipeCount = (rawText.match(/\s*\|\s*/g) || []).length;
-
-  if (lineCount <= 3 && pipeCount >= 5) {
-    const fragments = rawText.split(/\s*\|\s*/).map((f) => f.trim()).filter(Boolean);
-    const reconstructed = [];
-    fragments.forEach((frag) => {
-      if (/•/.test(frag)) {
-        const bullets = frag.split("•").map((b) => b.trim()).filter(Boolean);
-        bullets.forEach((b) => reconstructed.push("• " + b));
+  if (!tesseractLoadPromise) {
+    tesseractLoadPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${TESSERACT_CDN}"]`);
+      if (existing) {
+        existing.addEventListener("load", () => resolve(window.Tesseract), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Could not load the OCR engine.")), { once: true });
         return;
       }
-      reconstructed.push(frag);
+
+      const script = document.createElement("script");
+      script.src = TESSERACT_CDN;
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      script.onload = () => {
+        if (window.Tesseract) resolve(window.Tesseract);
+        else reject(new Error("OCR engine loaded, but Tesseract was not available."));
+      };
+      script.onerror = () => reject(new Error("Could not load the OCR engine. Check your internet connection and try again."));
+      document.head.appendChild(script);
     });
-    return reconstructed.join("\n").replace(/\n{3,}/g, "\n\n").trim();
   }
 
-  return rawText;
+  return tesseractLoadPromise;
+};
+
+export const extractImageText = async (file, onProgress) => {
+  try {
+    const Tesseract = await loadTesseract();
+    const result = await Tesseract.recognize(file, "eng", {
+      logger: (message) => {
+        if (!onProgress || !message) return;
+        if (message.status) {
+          const pct = typeof message.progress === "number" ? Math.round(message.progress * 100) : null;
+          onProgress(pct === null ? message.status : `${message.status} ${pct}%`);
+        }
+      },
+    });
+
+    return result?.data?.text?.replace(/\n{3,}/g, "\n\n").trim() || "";
+  } catch (err) {
+    throw new Error(friendlyFileError(err, "Could not run OCR. Try a clearer image, a smaller screenshot, or paste the text."));
+  }
+};
+
+export const extractPDFText = async (file, onProgress) => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+    const allLines = [];
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      onProgress?.(`Extracting PDF page ${i} of ${pdf.numPages}…`);
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+
+      const byY = {};
+      content.items.forEach((item) => {
+        if (!item.str?.trim()) return;
+        const y = Math.round(item.transform[5] / 2) * 2;
+        if (!byY[y]) byY[y] = [];
+        byY[y].push({ x: item.transform[4], str: item.str });
+      });
+
+      const sortedYs = Object.keys(byY).map(Number).sort((a, b) => b - a);
+      sortedYs.forEach((y) => {
+        const items = byY[y].sort((a, b) => a.x - b.x);
+        const lineText = items.map((it) => it.str).join(" ").trim();
+        if (lineText) allLines.push(lineText);
+      });
+
+      if (i < pdf.numPages) allLines.push("");
+    }
+
+    return allLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  } catch (err) {
+    throw new Error(friendlyFileError(err, "Could not extract PDF text. Try a text-based PDF or paste the resume text."));
+  }
+};
+
+export const extractDOCXText = async (file) => {
+  try {
+    const mammoth = await import("mammoth/mammoth.browser");
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    const text = result?.value?.replace(/\n{3,}/g, "\n\n").trim() || "";
+    return text;
+  } catch (err) {
+    throw new Error(friendlyFileError(err, "Could not extract DOCX text. Save the file again as .docx/PDF or paste the text."));
+  }
 };
