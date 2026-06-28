@@ -1383,3 +1383,139 @@ button.rb-kw-chip:hover { transform: scale(1.05); }
   background: rgba(232,197,71,0.08);
   border-color: rgba(232,197,71,0.6);
 }
+
+/* ─── PUBLIC POLISH: UTILITY BAR / AUTOSAVE / PRINT ─────────────────────── */
+.rb-utility-card {
+  background: linear-gradient(135deg, rgba(232,197,71,0.10), rgba(255,255,255,0.02));
+  border: 1px solid rgba(232,197,71,0.28);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rb-utility-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 240px;
+}
+.rb-utility-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.rb-utility-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.rb-score-placeholder {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(232,197,71,.35);
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+}
+.rb-utility-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.rb-small-action {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+.rb-small-action:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.rb-small-action:disabled { opacity: .45; cursor: not-allowed; }
+.rb-small-action--danger { color: #fca5a5; border-color: rgba(239,68,68,.35); }
+.rb-small-action--danger:hover:not(:disabled) { background: rgba(239,68,68,.08); border-color: var(--danger); color: #fecaca; }
+.rb-utility-warnings {
+  flex: 1 1 100%;
+  border-top: 1px solid rgba(232,197,71,.18);
+  padding-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.rb-utility-warnings strong { color: var(--accent); }
+.rb-utility-warnings ul { margin: 6px 0 0 18px; }
+.rb-draft-banner {
+  margin-top: 14px;
+  background: rgba(232,197,71,.08);
+  border: 1px solid rgba(232,197,71,.25);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 10px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.rb-draft-banner button,
+.rb-crash-actions button {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+.rb-crash-card {
+  max-width: 720px;
+  margin: 120px auto;
+  background: var(--surface);
+  border: 1px solid rgba(239,68,68,.35);
+  border-radius: 12px;
+  padding: 28px;
+}
+.rb-crash-card h1 { color: var(--accent); margin-bottom: 10px; }
+.rb-crash-card p { color: var(--muted); margin-bottom: 16px; }
+.rb-crash-card pre {
+  white-space: pre-wrap;
+  background: #050505;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  color: #fca5a5;
+  overflow: auto;
+}
+.rb-crash-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+@media (max-width: 760px) {
+  .rb-utility-card { align-items: stretch; }
+  .rb-utility-left, .rb-utility-actions { width: 100%; }
+  .rb-utility-actions { justify-content: stretch; }
+  .rb-small-action { flex: 1 1 45%; }
+}
+
+@media print {
+  body { background: #fff !important; }
+  #tools-navbar,
+  .rb-header,
+  .rb-utility-card,
+  .rb-ats-panel,
+  .rb-editor-col > .rb-card,
+  .rb-export-row,
+  .rb-preview-toolbar,
+  .rb-steps-bar,
+  .rb-guided-nav { display: none !important; }
+  .rb-main { display: block !important; padding: 0 !important; max-width: none !important; }
+  .rb-preview-col { margin: 0 !important; }
+  .rb-resume-preview { box-shadow: none !important; border: none !important; margin: 0 auto !important; }
+}

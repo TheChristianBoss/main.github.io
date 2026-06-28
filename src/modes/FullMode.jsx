@@ -3,6 +3,7 @@ import SectionField from "../components/SectionField";
 import ATSPanel from "../components/ATSPanel";
 import ResumePreview from "../components/ResumePreview";
 import ScoreRing from "../components/ScoreRing";
+import ResumeUtilityBar from "../components/ResumeUtilityBar";
 import { SCORE_COLOR } from "../engine/analyzeResume";
 import jobCategories from "../data/jobCategories";
 
@@ -42,6 +43,7 @@ export default function FullMode({
   onRoleChange, onCategoryChange, onSwitchMode,
   portrait, setPortrait, view, setView,
   onExportPDF, onExportDOCX, exportLoading,
+  lastSavedAt, exportWarnings, onStartOver, onCopyText, onDownloadTXT, onPrint,
 }) {
   const portraitRef = useRef(null);
 
@@ -97,6 +99,16 @@ export default function FullMode({
 
       <main className="rb-main">
         <section className="rb-editor-col">
+          <ResumeUtilityBar
+            data={data}
+            analysis={analysis}
+            lastSavedAt={lastSavedAt}
+            warnings={exportWarnings}
+            onStartOver={onStartOver}
+            onCopyText={onCopyText}
+            onDownloadTXT={onDownloadTXT}
+            onPrint={onPrint}
+          />
           {view === "form" ? (
             <>
               {/* Role Picker */}

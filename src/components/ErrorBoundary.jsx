@@ -1,6 +1,6 @@
-import React from "react";
+import { Component } from 'react';
 
-export default class ErrorBoundary extends React.Component {
+export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { error: null };
@@ -10,24 +10,22 @@ export default class ErrorBoundary extends React.Component {
     return { error };
   }
 
-  componentDidCatch(error, info) {
-    console.error("ATS tool crashed:", error, info);
-  }
-
   render() {
     if (this.state.error) {
       return (
-        <div className="ats-card ats-error-card">
-          <h2 className="ats-title">Something went wrong</h2>
-          <p className="ats-muted">
-            The checker hit an unexpected browser error. Your files are processed locally, so try refreshing the page and reloading the resume.
-          </p>
-          <pre className="parse-preview">{this.state.error?.message || String(this.state.error)}</pre>
-          <button className="ats-btn" onClick={() => window.location.reload()}>Reload ATS Checker</button>
+        <div className="rb-app">
+          <div className="rb-crash-card">
+            <h1>Resume Builder hit a problem.</h1>
+            <p>Your browser draft should still be saved locally. Reload the page, or start a new resume if the draft is corrupted.</p>
+            <pre>{this.state.error?.message || String(this.state.error)}</pre>
+            <div className="rb-crash-actions">
+              <button onClick={() => window.location.reload()}>Reload</button>
+              <button onClick={() => { localStorage.removeItem('cg_resume_builder_draft_v2'); window.location.reload(); }}>Clear saved draft</button>
+            </div>
+          </div>
         </div>
       );
     }
-
     return this.props.children;
   }
 }

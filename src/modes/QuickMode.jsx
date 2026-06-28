@@ -6,6 +6,7 @@ import FillableSection from "../components/FillableSection";
 import ATSPanel from "../components/ATSPanel";
 import ResumePreview from "../components/ResumePreview";
 import ScoreRing from "../components/ScoreRing";
+import ResumeUtilityBar from "../components/ResumeUtilityBar";
 import { SCORE_COLOR } from "../engine/analyzeResume";
 
 const SECTION_PLACEHOLDERS = {
@@ -18,7 +19,7 @@ const SECTION_PLACEHOLDERS = {
   volunteer: "Organization | Role | 2022–2023\n• [What you did]",
 };
 
-export default function QuickMode({ data, setData, analysis, role, category, onRoleChange, onCategoryChange, onSwitchMode, portrait, onExportPDF, onExportDOCX, exportLoading }) {
+export default function QuickMode({ data, setData, analysis, role, category, onRoleChange, onCategoryChange, onSwitchMode, portrait, onExportPDF, onExportDOCX, exportLoading, lastSavedAt, exportWarnings, onStartOver, onCopyText, onDownloadTXT, onPrint }) {
   const [generated, setGenerated] = useState(false);
   const [view, setView] = useState("form");
 
@@ -73,6 +74,16 @@ export default function QuickMode({ data, setData, analysis, role, category, onR
 
       <main className="rb-main">
         <section className="rb-editor-col">
+          <ResumeUtilityBar
+            data={data}
+            analysis={analysis}
+            lastSavedAt={lastSavedAt}
+            warnings={exportWarnings}
+            onStartOver={onStartOver}
+            onCopyText={onCopyText}
+            onDownloadTXT={onDownloadTXT}
+            onPrint={onPrint}
+          />
           {!generated ? (
             <div className="rb-quick-steps">
               <div className="rb-card">

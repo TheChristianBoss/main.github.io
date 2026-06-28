@@ -1,4 +1,4 @@
-export default function ModePicker({ onSelect }) {
+export default function ModePicker({ onSelect, hasDraft, draftSavedAt, onStartOver }) {
   const modes = [
     {
       id: "quick",
@@ -33,7 +33,13 @@ export default function ModePicker({ onSelect }) {
     <div className="rb-mode-picker">
       <div className="rb-mode-picker-header">
         <h2 className="rb-mode-picker-title">How would you like to build your resume?</h2>
-        <p className="rb-mode-picker-sub">Choose the approach that fits your situation.</p>
+        <p className="rb-mode-picker-sub">Choose the approach that fits your situation. Your draft autosaves locally in this browser.</p>
+        {hasDraft && (
+          <div className="rb-draft-banner">
+            <span>Saved draft restored{draftSavedAt ? ` from ${new Date(draftSavedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}.</span>
+            <button type="button" onClick={onStartOver}>Start over</button>
+          </div>
+        )}
       </div>
       <div className="rb-mode-cards">
         {modes.map((m) => (

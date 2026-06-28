@@ -1,15 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Builds the Resume Builder into tools/resume/, matching the site's live
-// URL structure. `base` is set so generated asset URLs resolve correctly
-// when served from /tools/resume/ instead of the site root.
+// Builds the Resume Builder bundle into tools/resume/ for /tools/resume/.
+// Vite emits resume-index.html because the source HTML is resume-index.html;
+// after building, copy tools/resume/resume-index.html to tools/resume/index.html
+// and remove the temporary resume-index.html before deploying.
 export default defineConfig({
   plugins: [react()],
   base: '/tools/resume/',
   build: {
     outDir: 'tools/resume',
-    emptyOutDir: false, // preserve favicon.svg / icons.svg already in tools/resume/
+    emptyOutDir: false,
     rollupOptions: {
       input: 'resume-index.html',
     },

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import jobCategories from "../data/jobCategories";
 import ScoreRing from "../components/ScoreRing";
+import ResumeUtilityBar from "../components/ResumeUtilityBar";
 import ResumePreview from "../components/ResumePreview";
 import { SCORE_COLOR } from "../engine/analyzeResume";
 
@@ -51,7 +52,7 @@ const STEPS = [
   { id: "review", label: "Review" },
 ];
 
-export default function GuidedMode({ data, setData, analysis, role, category, onRoleChange, onCategoryChange, onSwitchMode, portrait, onExportPDF, onExportDOCX, exportLoading }) {
+export default function GuidedMode({ data, setData, analysis, role, category, onRoleChange, onCategoryChange, onSwitchMode, portrait, onExportPDF, onExportDOCX, exportLoading, lastSavedAt, exportWarnings, onStartOver, onCopyText, onDownloadTXT, onPrint }) {
   const [step, setStep] = useState(0);
 
   const updateField = (id, value) => setData((prev) => ({ ...prev, [id]: value }));
@@ -216,6 +217,16 @@ export default function GuidedMode({ data, setData, analysis, role, category, on
 
       <main className="rb-main">
         <section className="rb-editor-col">
+          <ResumeUtilityBar
+            data={data}
+            analysis={analysis}
+            lastSavedAt={lastSavedAt}
+            warnings={exportWarnings}
+            onStartOver={onStartOver}
+            onCopyText={onCopyText}
+            onDownloadTXT={onDownloadTXT}
+            onPrint={onPrint}
+          />
           {/* Progress Bar */}
           <div className="rb-steps-bar">
             {STEPS.map((s, i) => (
