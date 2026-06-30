@@ -1,17 +1,19 @@
 :root {
-  --cover-bg: #090806;
-  --cover-panel: rgba(21, 17, 12, 0.88);
-  --cover-panel-2: rgba(31, 25, 17, 0.92);
-  --cover-line: rgba(213, 169, 92, 0.28);
-  --cover-text: #f7ead0;
-  --cover-muted: #cbb991;
-  --cover-gold: #c9944a;
-  --cover-danger: #e7a19a;
-  --cover-good: #9dd6a4;
+  --cover-bg: #070707;
+  --cover-panel: #101010;
+  --cover-panel-2: #171717;
+  --cover-line: rgba(255, 255, 255, 0.12);
+  --cover-line-strong: rgba(212, 168, 63, 0.35);
+  --cover-text: #f5f1e8;
+  --cover-muted: #aaa196;
+  --cover-gold: #d4a83f;
+  --cover-gold-strong: #f0cf74;
+  --cover-danger: #ff7b7b;
+  --cover-good: #8ee6a6;
 }
 
 body {
-  background: radial-gradient(circle at 20% 0%, rgba(201, 148, 74, 0.16), transparent 28rem), var(--cover-bg);
+  background: radial-gradient(circle at 50% -15%, rgba(212, 168, 63, 0.08), transparent 34rem), linear-gradient(180deg, #090909, var(--cover-bg) 44rem);
 }
 
 .cg-cover-app {
@@ -42,7 +44,7 @@ body {
   margin: 0;
   font-size: clamp(2.15rem, 5vw, 4.5rem);
   line-height: 0.95;
-  color: #ffe7b7;
+  color: var(--cover-text);
 }
 
 .hero-copy {
@@ -56,8 +58,8 @@ body {
 .panel,
 .letter-preview-wrap {
   border: 1px solid var(--cover-line);
-  background: linear-gradient(180deg, rgba(27, 22, 16, 0.94), rgba(12, 10, 8, 0.94));
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.32);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
   border-radius: 22px;
 }
 
@@ -69,7 +71,7 @@ body {
 }
 
 .hero-card strong {
-  color: #ffe0a3;
+  color: var(--cover-gold-strong);
 }
 
 .hero-card span,
@@ -78,7 +80,7 @@ body {
 }
 
 #saveStatus {
-  color: #d9b675;
+  color: var(--cover-muted);
   font-size: 0.9rem;
 }
 
@@ -87,7 +89,7 @@ body {
   border-radius: 16px;
   padding: 12px 16px;
   margin: 0 0 20px;
-  background: rgba(14, 12, 9, 0.88);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--cover-muted);
 }
 
@@ -130,15 +132,15 @@ body {
 .panel h2,
 .preview-toolbar h2 {
   margin: 0;
-  color: #ffe4ad;
+  color: var(--cover-text);
   font-size: 1.15rem;
 }
 
 .step-badge,
 .pill {
-  border: 1px solid rgba(201, 148, 74, 0.42);
-  color: #e7c27e;
-  background: rgba(201, 148, 74, 0.12);
+  border: 1px solid var(--cover-line);
+  color: var(--cover-gold-strong);
+  background: rgba(212, 168, 63, 0.08);
   border-radius: 999px;
   padding: 5px 10px;
   font-size: 0.78rem;
@@ -166,7 +168,7 @@ body {
 
 .field span,
 .design-label {
-  color: #f4d89e;
+  color: var(--cover-muted);
   font-weight: 800;
   font-size: 0.9rem;
 }
@@ -175,9 +177,9 @@ body {
 .field textarea,
 .field select {
   width: 100%;
-  color: #fff4dc;
-  background: rgba(0, 0, 0, 0.36);
-  border: 1px solid rgba(213, 169, 92, 0.28);
+  color: var(--cover-text);
+  background: #090909;
+  border: 1px solid var(--cover-line);
   border-radius: 14px;
   padding: 12px 13px;
   font: inherit;
@@ -192,8 +194,8 @@ body {
 .field input:focus,
 .field textarea:focus,
 .field select:focus {
-  border-color: rgba(244, 202, 124, 0.75);
-  box-shadow: 0 0 0 4px rgba(201, 148, 74, 0.12);
+  border-color: var(--cover-line-strong);
+  box-shadow: 0 0 0 3px rgba(212, 168, 63, 0.09);
 }
 
 .field input[type="color"] {
@@ -215,26 +217,25 @@ body {
 }
 
 button {
-  border: 1px solid rgba(213, 169, 92, 0.35);
+  border: 1px solid var(--cover-line);
   border-radius: 14px;
   padding: 11px 14px;
-  color: #ffe6b4;
-  background: rgba(201, 148, 74, 0.12);
+  color: var(--cover-text);
+  background: #151515;
   cursor: pointer;
   font-weight: 800;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(244, 202, 124, 0.78);
-  background: rgba(201, 148, 74, 0.2);
+  border-color: var(--cover-line-strong);
+  background: #1c1c1c;
 }
 
 button.primary {
-  background: linear-gradient(135deg, #d6a04f, #84531e);
-  color: #120c05;
-  border-color: rgba(255, 226, 168, 0.7);
+  background: linear-gradient(135deg, var(--cover-gold-strong), #b9841f);
+  color: #111;
+  border-color: transparent;
 }
 
 .warning-list,
@@ -260,7 +261,7 @@ button.primary {
 
 .keyword-box h3 {
   margin: 0 0 8px;
-  color: #f5d99f;
+  color: var(--cover-gold-strong);
 }
 
 .term-row {
@@ -284,9 +285,9 @@ button.primary {
 }
 
 .term.missing {
-  color: #f0d19b;
-  background: rgba(164, 112, 31, 0.18);
-  border-color: rgba(223, 169, 86, 0.22);
+  color: var(--cover-gold-strong);
+  background: rgba(212, 168, 63, 0.08);
+  border-color: rgba(212, 168, 63, 0.22);
 }
 
 .letter-preview-wrap {

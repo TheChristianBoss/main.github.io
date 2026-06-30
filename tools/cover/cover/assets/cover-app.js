@@ -204,7 +204,7 @@ function generateLetter() {
   state.letterText = paragraphs.map((p) => normalizeSpaces(p)).filter(Boolean).join('\n\n');
   saveState(true);
   render();
-  setStatus('Draft built from your details. Review it, personalize it, then export.', 'success');
+  setStatus('Live view updated from your details. Review it, personalize it, then export.', 'success');
   setTimeout(() => document.getElementById('letterText')?.focus(), 100);
 }
 
@@ -213,7 +213,7 @@ function formatLetterText() {
 }
 
 function generatePlaceholderLetter() {
-  return 'Your cover letter will appear here. Fill in the basics and click “Build draft,” or write your own letter in the editable text box.';
+  return 'Your cover letter will appear here. Fill in the basics and click “Update live view,” or write your own letter in the editable text box.';
 }
 
 function addressBlock() {
@@ -268,7 +268,7 @@ function getWarnings() {
   if (basics.email && !/^\S+@\S+\.\S+$/.test(basics.email)) warnings.push('Your email address may be misspelled.');
   if (!text(job.title)) warnings.push('Add the job title to make the letter more targeted.');
   if (!text(job.company)) warnings.push('Add the company name to avoid a generic letter.');
-  if (!text(state.letterText)) warnings.push('Build a draft or write your letter before exporting.');
+  if (!text(state.letterText)) warnings.push('Update the live view or write your letter before exporting.');
   const count = wordCount();
   if (count > 520) warnings.push('The letter is long. Consider trimming it closer to one page.');
   if (count < 170 && text(state.letterText)) warnings.push('The letter is short. Consider adding one concrete achievement.');
@@ -443,7 +443,7 @@ function render() {
       </div>
     </section>
 
-    <div id="statusBar" class="status-bar info">Fill in the details, build a draft, then personalize before sending.</div>
+    <div id="statusBar" class="status-bar info">Fill in the details, update the live view, then personalize before sending.</div>
 
     <section class="cover-grid">
       <div class="form-stack">
@@ -459,29 +459,7 @@ function render() {
         </section>
 
         <section class="panel">
-          <div class="panel-title-row"><h2>Job target</h2><span class="step-badge">2</span></div>
-          <div class="field-grid">
-            ${renderInput('job.title', 'Job title', 'Cybersecurity Analyst')}
-            ${renderInput('job.company', 'Company', 'Acme Corp')}
-            ${renderInput('job.hiringManager', 'Hiring manager, optional', 'Jordan Lee')}
-            ${renderInput('job.source', 'Where you found it, optional', 'company website')}
-            ${renderTextArea('job.description', 'Job description, optional', 'Paste the job post here to see repeated terms and improve targeting.', 6)}
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title-row"><h2>Your fit</h2><span class="step-badge">3</span></div>
-          <div class="field-grid">
-            ${renderInput('fit.experience', 'Relevant experience', '3 years, 6 months, recent graduate, etc.')}
-            ${renderTextArea('fit.skills', 'Skills and strengths', 'One per line works best: customer service, React, lab procedures, scheduling...', 4)}
-            ${renderTextArea('fit.achievements', 'Concrete achievements', 'Use numbers if possible: reduced errors by 20%, trained 5 new employees...', 4)}
-            ${renderTextArea('fit.whyCompany', 'Why this company or role?', 'Mention something specific and honest about the organization or job.', 3)}
-            ${renderTextArea('fit.callToAction', 'Closing sentence', 'I would welcome the opportunity to discuss how my background can support your team.', 2)}
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title-row"><h2>Style</h2><span class="step-badge">4</span></div>
+          <div class="panel-title-row"><h2>Style</h2><span class="step-badge">2</span></div>
           <div class="field-grid compact-grid">
             ${renderSelect('settings.tone', 'Tone', [
               { value: 'professional', label: 'Professional' },
@@ -507,15 +485,37 @@ function render() {
             <label class="field" for="settings-accent"><span>Accent color</span><input id="settings-accent" data-path="settings.accent" type="color" value="${escapeHtml(state.settings.accent)}"></label>
           </div>
           <div class="action-row">
-            <button class="primary" id="generateBtn" type="button">Build draft</button>
+            <button class="primary" id="generateBtn" type="button">Update live view</button>
             <button id="clearLetterBtn" type="button">Clear letter only</button>
             <button id="startOverBtn" type="button">Start over</button>
           </div>
         </section>
 
         <section class="panel">
+          <div class="panel-title-row"><h2>Job target</h2><span class="step-badge">3</span></div>
+          <div class="field-grid">
+            ${renderInput('job.title', 'Job title', 'Cybersecurity Analyst')}
+            ${renderInput('job.company', 'Company', 'Acme Corp')}
+            ${renderInput('job.hiringManager', 'Hiring manager, optional', 'Jordan Lee')}
+            ${renderInput('job.source', 'Where you found it, optional', 'company website')}
+            ${renderTextArea('job.description', 'Job description, optional', 'Paste the job post here to see repeated terms and improve targeting.', 6)}
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title-row"><h2>Your fit</h2><span class="step-badge">4</span></div>
+          <div class="field-grid">
+            ${renderInput('fit.experience', 'Relevant experience', '3 years, 6 months, recent graduate, etc.')}
+            ${renderTextArea('fit.skills', 'Skills and strengths', 'One per line works best: customer service, React, lab procedures, scheduling...', 4)}
+            ${renderTextArea('fit.achievements', 'Concrete achievements', 'Use numbers if possible: reduced errors by 20%, trained 5 new employees...', 4)}
+            ${renderTextArea('fit.whyCompany', 'Why this company or role?', 'Mention something specific and honest about the organization or job.', 3)}
+            ${renderTextArea('fit.callToAction', 'Closing sentence', 'I would welcome the opportunity to discuss how my background can support your team.', 2)}
+          </div>
+        </section>
+
+        <section class="panel">
           <div class="panel-title-row"><h2>Edit letter text</h2><span class="step-badge">5</span></div>
-          <label class="field full" for="letterText"><span>Editable draft</span><textarea id="letterText" data-path="letterText" rows="12" placeholder="Build a draft or write your own letter here.">${escapeHtml(state.letterText)}</textarea></label>
+          <label class="field full" for="letterText"><span>Editable draft</span><textarea id="letterText" data-path="letterText" rows="12" placeholder="Update the live view or write your own letter here.">${escapeHtml(state.letterText)}</textarea></label>
           <p class="muted">The builder gives you a structured starting point. Read, revise, and make sure every claim is true before sending.</p>
         </section>
       </div>
