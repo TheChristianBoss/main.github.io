@@ -47,7 +47,7 @@ const templates = [
     layout: "flyer",
     defaults: {
       title: "Event Flyer",
-      subtitle: "Date - Time - Location - Details",
+      subtitle: "Date â€¢ Time â€¢ Location â€¢ Details",
       footer: "Add contact info, address, or call to action",
       backgroundColor: "#1e1b4b",
       accentColor: "#a78bfa",
@@ -64,7 +64,7 @@ const templates = [
     layout: "quoteCard",
     defaults: {
       title: "A strong quote or statement goes here.",
-      subtitle: "- Source or reference",
+      subtitle: "â€” Source or reference",
       footer: "Shareable quote card",
       backgroundColor: "#052e16",
       accentColor: "#86efac",
@@ -101,35 +101,35 @@ const exportSizes = [
   },
   {
     id: "square-1080",
-    name: "Square 1080 x 1080",
+    name: "Square 1080 Ã— 1080",
     description: "Good for social posts and profile graphics.",
     size: { width: 1080, height: 1080 },
     fileSuffix: "square-1080"
   },
   {
     id: "thumbnail-1280",
-    name: "Thumbnail 1280 x 720",
+    name: "Thumbnail 1280 Ã— 720",
     description: "Good for YouTube thumbnails and wide banners.",
     size: { width: 1280, height: 720 },
     fileSuffix: "thumbnail-1280x720"
   },
   {
     id: "poster-1080",
-    name: "Poster 1080 x 1350",
+    name: "Poster 1080 Ã— 1350",
     description: "Good for tall social posts and promotional graphics.",
     size: { width: 1080, height: 1350 },
     fileSuffix: "poster-1080x1350"
   },
   {
     id: "flyer-letter",
-    name: "Flyer 816 x 1056",
+    name: "Flyer 816 Ã— 1056",
     description: "Good for printable letter-ratio flyers.",
     size: { width: 816, height: 1056 },
     fileSuffix: "flyer-816x1056"
   },
   {
     id: "icon-1024",
-    name: "Icon 1024 x 1024",
+    name: "Icon 1024 Ã— 1024",
     description: "Good for badges, icons, and profile marks.",
     size: { width: 1024, height: 1024 },
     fileSuffix: "icon-1024"
@@ -159,6 +159,14 @@ function createDesign(templateId, sizePresetId = "template-default") {
     size: getSizeForDesign(template.id, sizePresetId),
     layout: template.layout,
     fileName: template.fileName,
+    imageSettings: {
+      x: 50,
+      y: 50,
+      size: 32,
+      opacity: 100,
+      fit: "cover",
+      shape: "rounded"
+    },
     ...template.defaults
   };
 }
@@ -176,14 +184,6 @@ function getDesignFileName(design) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
-}
-
-function makeId() {
-  if (window.crypto?.randomUUID) {
-    return window.crypto.randomUUID();
-  }
-
-  return `layer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 99) {
@@ -319,23 +319,23 @@ function drawBorder(ctx, width, height) {
   ctx.restore();
 }
 
-function drawImageLayer(ctx, design, layer) {
-  if (!layer?.element) return;
+function drawFreeImageLayer(ctx, design, userImage) {
+  if (!userImage?.element) return;
 
   const { width, height } = design.size;
-  const image = layer.element;
+  const settings = design.imageSettings || {};
+  const image = userImage.element;
   const imageWidth = image.naturalWidth || image.width;
   const imageHeight = image.naturalHeight || image.height;
 
   if (!imageWidth || !imageHeight) return;
 
-  const centerX = (Number(layer.x ?? 50) / 100) * width;
-  const centerY = (Number(layer.y ?? 50) / 100) * height;
-  const sizePercent = clamp(Number(layer.size ?? 32), 5, 150);
-  const opacity = clamp(Number(layer.opacity ?? 100) / 100, 0.05, 1);
-  const shape = layer.shape || "rounded";
-  const fit = layer.fit || "cover";
-  const rotation = ((Number(layer.rotation ?? 0) * Math.PI) / 180);
+  const centerX = (Number(settings.x ?? 50) / 100) * width;
+  const centerY = (Number(settings.y ?? 50) / 100) * height;
+  const sizePercent = clamp(Number(settings.size ?? 32), 5, 150);
+  const opacity = clamp(Number(settings.opacity ?? 100) / 100, 0.05, 1);
+  const shape = settings.shape || "rounded";
+  const fit = settings.fit || "cover";
 
   let boxWidth = width * (sizePercent / 100);
   let boxHeight = boxWidth * (imageHeight / imageWidth);
@@ -344,21 +344,19 @@ function drawImageLayer(ctx, design, layer) {
     boxHeight = boxWidth;
   }
 
+  const x = centerX - boxWidth / 2;
+  const y = centerY - boxHeight / 2;
+  const radius = shape === "circle" ? boxWidth / 2 : Math.min(40, boxWidth * 0.12);
+
   ctx.save();
-  ctx.translate(centerX, centerY);
-  ctx.rotate(rotation);
   ctx.globalAlpha = opacity;
   ctx.shadowColor = "rgba(0,0,0,0.36)";
   ctx.shadowBlur = 28;
   ctx.shadowOffsetY = 14;
 
-  const x = -boxWidth / 2;
-  const y = -boxHeight / 2;
-  const radius = shape === "circle" ? boxWidth / 2 : Math.min(40, boxWidth * 0.12);
-
   if (shape === "circle") {
     ctx.beginPath();
-    ctx.arc(0, 0, Math.min(boxWidth, boxHeight) / 2, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, Math.min(boxWidth, boxHeight) / 2, 0, Math.PI * 2);
     ctx.closePath();
     ctx.clip();
 
@@ -374,22 +372,29 @@ function drawImageLayer(ctx, design, layer) {
     if (fit === "contain") {
       drawImageContain(ctx, image, x, y, boxWidth, boxHeight);
     } else {
-      drawImageCover(ctx, image, x, y, boxWidth, boxHeight);
-    }
-  } else {
-    if (fit === "contain") {
-      drawImageContain(ctx, image, x, y, boxWidth, boxHeight);
-    } else {
       ctx.drawImage(image, x, y, boxWidth, boxHeight);
     }
+  } else {
+    ctx.drawImage(image, x, y, boxWidth, boxHeight);
   }
 
   ctx.restore();
-}
 
-function drawImageLayers(ctx, design, imageLayers) {
-  for (const layer of imageLayers) {
-    drawImageLayer(ctx, design, layer);
+  if (shape !== "original") {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = Math.max(3, width * 0.004);
+
+    if (shape === "circle") {
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, Math.min(boxWidth, boxHeight) / 2, 0, Math.PI * 2);
+      ctx.closePath();
+    } else {
+      roundedRect(ctx, x, y, boxWidth, boxHeight, radius);
+    }
+
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -444,7 +449,7 @@ function drawThumbnail(ctx, design) {
   ctx.font = `bold ${Math.max(70, width * 0.085)}px Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("PLAY", width * 0.785, height * 0.46);
+  ctx.fillText("?", width * 0.785, height * 0.46);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
@@ -512,7 +517,7 @@ function drawQuoteCard(ctx, design) {
 
   ctx.fillStyle = design.accentColor;
   ctx.font = `bold ${Math.max(110, width * 0.148)}px Georgia, serif`;
-  ctx.fillText('"', width / 2, height * 0.09);
+  ctx.fillText("â€œ", width / 2, height * 0.09);
 
   ctx.fillStyle = design.titleColor;
   ctx.font = `bold ${Math.max(42, width * 0.065)}px Georgia, serif`;
@@ -576,7 +581,7 @@ function drawLogoBadge(ctx, design) {
   ctx.fillText(design.footer, centerX, height * 0.897);
 }
 
-function renderDesign(canvas, design, imageLayers) {
+function renderDesign(canvas, design, userImage) {
   const ctx = canvas.getContext("2d");
   const { width, height } = design.size;
 
@@ -598,7 +603,7 @@ function renderDesign(canvas, design, imageLayers) {
     drawSquarePost(ctx, design);
   }
 
-  drawImageLayers(ctx, design, imageLayers);
+  drawFreeImageLayer(ctx, design, userImage);
 }
 
 function canvasToBlob(canvas, type = "image/png", quality) {
@@ -617,14 +622,14 @@ function canvasToBlob(canvas, type = "image/png", quality) {
   });
 }
 
-async function renderDesignToBlob(design, imageLayers) {
+async function renderDesignToBlob(design, userImage) {
   const canvas = document.createElement("canvas");
-  renderDesign(canvas, design, imageLayers);
+  renderDesign(canvas, design, userImage);
   return canvasToBlob(canvas, "image/png");
 }
 
-async function renderDesignToPdfBlob(design, imageLayers) {
-  const imageBlob = await renderDesignToBlob(design, imageLayers);
+async function renderDesignToPdfBlob(design, userImage) {
+  const imageBlob = await renderDesignToBlob(design, userImage);
   const imageBytes = await imageBlob.arrayBuffer();
 
   const pdfDoc = await PDFDocument.create();
@@ -662,10 +667,32 @@ async function renderDesignToPdfBlob(design, imageLayers) {
   });
 }
 
-function makeManifest(design, activeTemplate, imageLayers) {
+
+
+function getImageLayerStyle(design, userImage) {
+  if (!userImage?.element) return undefined;
+
+  const settings = design.imageSettings || {};
+  const image = userImage.element;
+  const imageWidth = image.naturalWidth || image.width || 1;
+  const imageHeight = image.naturalHeight || image.height || 1;
+  const shape = settings.shape || "rounded";
+  const widthPercent = clamp(Number(settings.size ?? 32), 5, 150);
+
+  return {
+    left: `${clamp(Number(settings.x ?? 50), 0, 100)}%`,
+    top: `${clamp(Number(settings.y ?? 50), 0, 100)}%`,
+    width: `${widthPercent}%`,
+    aspectRatio: shape === "circle" ? "1 / 1" : `${imageWidth} / ${imageHeight}`,
+    borderRadius:
+      shape === "circle" ? "999px" : shape === "rounded" ? "24px" : "6px"
+  };
+}
+
+function makeManifest(design, activeTemplate, userImage) {
   return {
     generator: "Goblin Asset Forge",
-    version: "0.8-open-beta",
+    version: "0.7-open-beta",
     generatedAt: new Date().toISOString(),
     template: {
       id: activeTemplate.id,
@@ -681,19 +708,15 @@ function makeManifest(design, activeTemplate, imageLayers) {
       backgroundColor: design.backgroundColor,
       accentColor: design.accentColor,
       titleColor: design.titleColor,
-      subtitleColor: design.subtitleColor
+      subtitleColor: design.subtitleColor,
+      imageSettings: design.imageSettings
     },
-    imageLayers: imageLayers.map((layer) => ({
-      id: layer.id,
-      name: layer.name,
-      x: layer.x,
-      y: layer.y,
-      size: layer.size,
-      opacity: layer.opacity,
-      rotation: layer.rotation,
-      fit: layer.fit,
-      shape: layer.shape
-    })),
+    uploadedImage: userImage
+      ? {
+          name: userImage.name,
+          includedInExports: true
+        }
+      : null,
     privacy: "Generated in the browser. No server upload is required for this prototype."
   };
 }
@@ -707,60 +730,63 @@ function downloadBlob(blob, fileName) {
   URL.revokeObjectURL(url);
 }
 
-function getLayerStyle(design, layer) {
-  if (!layer?.element) return undefined;
-
-  const image = layer.element;
-  const imageWidth = image.naturalWidth || image.width || 1;
-  const imageHeight = image.naturalHeight || image.height || 1;
-  const shape = layer.shape || "rounded";
-  const widthPercent = clamp(Number(layer.size ?? 32), 5, 150);
-
-  return {
-    left: `${clamp(Number(layer.x ?? 50), 0, 100)}%`,
-    top: `${clamp(Number(layer.y ?? 50), 0, 100)}%`,
-    width: `${widthPercent}%`,
-    aspectRatio: shape === "circle" ? "1 / 1" : `${imageWidth} / ${imageHeight}`,
-    borderRadius:
-      shape === "circle" ? "999px" : shape === "rounded" ? "24px" : "6px",
-    transform: `translate(-50%, -50%) rotate(${Number(layer.rotation ?? 0)}deg)`
-  };
-}
-
 export default function App() {
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
-  const actionRef = useRef(null);
+  const resizeRef = useRef(null);
   const [design, setDesign] = useState(() => createDesign("square-post"));
-  const [imageLayers, setImageLayers] = useState([]);
-  const [selectedLayerId, setSelectedLayerId] = useState(null);
+  const [userImage, setUserImage] = useState(null);
   const [imageError, setImageError] = useState("");
   const [zipStatus, setZipStatus] = useState("");
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [isResizingImage, setIsResizingImage] = useState(false);
   const [undoSnapshot, setUndoSnapshot] = useState(null);
 
   const activeTemplate = getTemplateById(design.templateId);
-  const selectedLayer = imageLayers.find((layer) => layer.id === selectedLayerId) || null;
 
   useEffect(() => {
     if (canvasRef.current) {
-      renderDesign(canvasRef.current, design, imageLayers);
+      renderDesign(canvasRef.current, design, userImage);
     }
-  }, [design, imageLayers]);
+  }, [design, userImage]);
 
-  function captureUndo() {
+
+  function captureImageUndo() {
     setUndoSnapshot({
-      imageLayers,
-      selectedLayerId
+      userImage,
+      imageSettings: {
+        ...(design.imageSettings || {})
+      }
     });
   }
 
   function undoLastImageAction() {
     if (!undoSnapshot) return;
 
-    setImageLayers(undoSnapshot.imageLayers);
-    setSelectedLayerId(undoSnapshot.selectedLayerId);
+    setUserImage(undoSnapshot.userImage);
+    setDesign((current) => ({
+      ...current,
+      imageSettings: {
+        ...(undoSnapshot.imageSettings || current.imageSettings || {})
+      }
+    }));
     setUndoSnapshot(null);
     setZipStatus("Undid last image action.");
+  }
+
+  function deleteImageLayer(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+
+    if (!userImage) return;
+
+    captureImageUndo();
+    setUserImage(null);
+    setZipStatus("Image layer deleted. Use Undo to restore it.");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   function updateField(field, value) {
@@ -771,21 +797,119 @@ export default function App() {
     setZipStatus("");
   }
 
-  function updateSelectedLayer(field, value) {
-    if (!selectedLayerId) return;
-
-    setImageLayers((current) =>
-      current.map((layer) =>
-        layer.id === selectedLayerId
-          ? {
-              ...layer,
-              [field]: value
-            }
-          : layer
-      )
-    );
+  function updateImageSetting(field, value) {
+    setDesign((current) => ({
+      ...current,
+      imageSettings: {
+        ...(current.imageSettings || {}),
+        [field]: value
+      }
+    }));
     setZipStatus("");
   }
+
+  function moveImageToPointer(event) {
+    if (!userImage || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+
+    const x = clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100);
+    const y = clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100);
+
+    setDesign((current) => ({
+      ...current,
+      imageSettings: {
+        ...(current.imageSettings || {}),
+        x,
+        y
+      }
+    }));
+    setZipStatus("");
+  }
+
+  function startImageDrag(event) {
+    if (!userImage) return;
+
+    captureImageUndo();
+
+    event.preventDefault();
+    setIsDraggingImage(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    moveImageToPointer(event);
+  }
+
+  function continueImageDrag(event) {
+    if (!isDraggingImage) return;
+
+    event.preventDefault();
+    moveImageToPointer(event);
+  }
+
+  function stopImageDrag(event) {
+    if (!isDraggingImage) return;
+
+    setIsDraggingImage(false);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  }
+
+  function startImageResize(event) {
+    if (!userImage || !canvasRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    captureImageUndo();
+    setIsResizingImage(true);
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const settings = design.imageSettings || {};
+
+    resizeRef.current = {
+      pointerId: event.pointerId,
+      centerX: rect.left + (Number(settings.x ?? 50) / 100) * rect.width,
+      centerY: rect.top + (Number(settings.y ?? 50) / 100) * rect.height,
+      rect
+    };
+
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function continueImageResize(event) {
+    if (!isResizingImage || !resizeRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const { centerX, rect } = resizeRef.current;
+    const newWidthPercent = clamp(
+      (Math.abs(event.clientX - centerX) * 2 / rect.width) * 100,
+      5,
+      150
+    );
+
+    setDesign((current) => ({
+      ...current,
+      imageSettings: {
+        ...(current.imageSettings || {}),
+        size: Math.round(newWidthPercent)
+      }
+    }));
+    setZipStatus("");
+  }
+
+  function stopImageResize(event) {
+    if (!isResizingImage) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setIsResizingImage(false);
+    resizeRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  }
+
 
   function changeTemplate(templateId) {
     setDesign((current) => createDesign(templateId, current.sizePresetId || "template-default"));
@@ -801,277 +925,82 @@ export default function App() {
     setZipStatus("");
   }
 
-  function canvasPointToPercent(event) {
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-
-    return {
-      x: clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100),
-      y: clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100),
-      rect
-    };
-  }
-
-  function startLayerDrag(event, layerId) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const layer = imageLayers.find((item) => item.id === layerId);
-    if (!layer || !canvasRef.current) return;
-
-    captureUndo();
-    setSelectedLayerId(layerId);
-
-    const point = canvasPointToPercent(event);
-
-    actionRef.current = {
-      type: "drag",
-      layerId,
-      pointerId: event.pointerId,
-      offsetX: point.x - Number(layer.x ?? 50),
-      offsetY: point.y - Number(layer.y ?? 50)
-    };
-
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  }
-
-  function startLayerResize(event, layerId) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const layer = imageLayers.find((item) => item.id === layerId);
-    if (!layer || !canvasRef.current) return;
-
-    captureUndo();
-    setSelectedLayerId(layerId);
-
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const centerX = rect.left + (Number(layer.x ?? 50) / 100) * rect.width;
-
-    actionRef.current = {
-      type: "resize",
-      layerId,
-      pointerId: event.pointerId,
-      centerX,
-      rect
-    };
-
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  }
-
-  function startLayerRotate(event, layerId) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const layer = imageLayers.find((item) => item.id === layerId);
-    if (!layer || !canvasRef.current) return;
-
-    captureUndo();
-    setSelectedLayerId(layerId);
-
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const centerX = rect.left + (Number(layer.x ?? 50) / 100) * rect.width;
-    const centerY = rect.top + (Number(layer.y ?? 50) / 100) * rect.height;
-
-    actionRef.current = {
-      type: "rotate",
-      layerId,
-      pointerId: event.pointerId,
-      centerX,
-      centerY
-    };
-
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  }
-
-  function continueLayerAction(event) {
-    const action = actionRef.current;
-    if (!action) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (action.type === "drag") {
-      const point = canvasPointToPercent(event);
-
-      setImageLayers((current) =>
-        current.map((layer) =>
-          layer.id === action.layerId
-            ? {
-                ...layer,
-                x: clamp(point.x - action.offsetX, 0, 100),
-                y: clamp(point.y - action.offsetY, 0, 100)
-              }
-            : layer
-        )
-      );
-    }
-
-    if (action.type === "resize") {
-      const newWidthPercent = clamp(
-        (Math.abs(event.clientX - action.centerX) * 2 / action.rect.width) * 100,
-        5,
-        150
-      );
-
-      setImageLayers((current) =>
-        current.map((layer) =>
-          layer.id === action.layerId
-            ? {
-                ...layer,
-                size: Math.round(newWidthPercent)
-              }
-            : layer
-        )
-      );
-    }
-
-    if (action.type === "rotate") {
-      const angle =
-        Math.atan2(event.clientY - action.centerY, event.clientX - action.centerX) *
-          (180 / Math.PI) +
-        90;
-
-      setImageLayers((current) =>
-        current.map((layer) =>
-          layer.id === action.layerId
-            ? {
-                ...layer,
-                rotation: Math.round(angle)
-              }
-            : layer
-        )
-      );
-    }
-
-    setZipStatus("");
-  }
-
-  function stopLayerAction(event) {
-    if (!actionRef.current) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    actionRef.current = null;
-  }
-
   function handleImageUpload(event) {
-    const files = Array.from(event.target.files || []);
+    const file = event.target.files?.[0];
 
-    if (!files.length) return;
+    if (!file) return;
 
-    const validFiles = files.filter((file) => file.type.startsWith("image/"));
-
-    if (validFiles.length !== files.length) {
-      setImageError("Only image files were added. Non-image files were skipped.");
-    } else {
-      setImageError("");
-    }
-
-    const oversized = validFiles.find((file) => file.size > 8 * 1024 * 1024);
-    if (oversized) {
-      setImageError("One image is over 8 MB. Try smaller files for smoother browser rendering.");
+    if (!file.type.startsWith("image/")) {
+      setImageError("Choose a PNG, JPG, WebP, GIF, or SVG image file.");
       return;
     }
 
-    captureUndo();
+    if (file.size > 8 * 1024 * 1024) {
+      setImageError("This image is over 8 MB. Try a smaller file for smoother browser rendering.");
+      return;
+    }
 
-    Promise.all(
-      validFiles.map(
-        (file, index) =>
-          new Promise((resolve) => {
-            const reader = new FileReader();
+    const reader = new FileReader();
 
-            reader.onload = () => {
-              const dataUrl = String(reader.result || "");
-              const image = new Image();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      const image = new Image();
 
-              image.onload = () => {
-                resolve({
-                  id: makeId(),
-                  name: file.name,
-                  src: dataUrl,
-                  element: image,
-                  x: clamp(50 + index * 4, 5, 95),
-                  y: clamp(50 + index * 4, 5, 95),
-                  size: 32,
-                  opacity: 100,
-                  rotation: 0,
-                  fit: "cover",
-                  shape: "rounded"
-                });
-              };
+      image.onload = () => {
+        setUserImage({
+          name: file.name,
+          src: dataUrl,
+          element: image
+        });
 
-              image.onerror = () => resolve(null);
-              image.src = dataUrl;
-            };
+        setDesign((current) => ({
+          ...current,
+          imageSettings: {
+            ...(current.imageSettings || {}),
+            x: 50,
+            y: 50
+          }
+        }));
 
-            reader.onerror = () => resolve(null);
-            reader.readAsDataURL(file);
-          })
-      )
-    ).then((newLayers) => {
-      const cleanLayers = newLayers.filter(Boolean);
+        setImageError("");
+        setZipStatus("");
+      };
 
-      if (!cleanLayers.length) {
-        setImageError("The browser could not load those images.");
-        return;
-      }
+      image.onerror = () => {
+        setImageError("The browser could not load that image. Try a different file.");
+      };
 
-      setImageLayers((current) => [...current, ...cleanLayers]);
-      setSelectedLayerId(cleanLayers[cleanLayers.length - 1].id);
-      setZipStatus("");
-    });
+      image.src = dataUrl;
+    };
+
+    reader.onerror = () => {
+      setImageError("The browser could not read that file.");
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  function clearUserImage() {
+    setUserImage(null);
+    setImageError("");
+    setZipStatus("");
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   }
 
-  function deleteSelectedLayer(event) {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-
-    if (!selectedLayerId) return;
-
-    captureUndo();
-
-    setImageLayers((current) => current.filter((layer) => layer.id !== selectedLayerId));
-    setSelectedLayerId(null);
-    setZipStatus("Image layer deleted. Use Undo to restore it.");
-  }
-
-  function clearAllImages() {
-    if (!imageLayers.length) return;
-
-    captureUndo();
-    setImageLayers([]);
-    setSelectedLayerId(null);
-    setZipStatus("All image layers cleared. Use Undo to restore them.");
-  }
-
-  function resetSelectedLayer() {
-    if (!selectedLayerId) return;
-
-    captureUndo();
-
-    setImageLayers((current) =>
-      current.map((layer) =>
-        layer.id === selectedLayerId
-          ? {
-              ...layer,
-              x: 50,
-              y: 50,
-              size: 32,
-              opacity: 100,
-              rotation: 0
-            }
-          : layer
-      )
-    );
+  function resetImagePosition() {
+    setDesign((current) => ({
+      ...current,
+      imageSettings: {
+        ...(current.imageSettings || {}),
+        x: 50,
+        y: 50,
+        size: 32,
+        opacity: 100
+      }
+    }));
     setZipStatus("");
   }
 
@@ -1091,7 +1020,7 @@ export default function App() {
     try {
       setZipStatus("Building PDF...");
 
-      const pdfBlob = await renderDesignToPdfBlob(design, imageLayers);
+      const pdfBlob = await renderDesignToPdfBlob(design, userImage);
       downloadBlob(pdfBlob, `asset-forge-${getDesignFileName(design).replace(/\.png$/, ".pdf")}`);
 
       setZipStatus("PDF ready.");
@@ -1105,9 +1034,9 @@ export default function App() {
       setZipStatus("Building asset pack...");
 
       const zip = new JSZip();
-      const imageBlob = await renderDesignToBlob(design, imageLayers);
-      const pdfBlob = await renderDesignToPdfBlob(design, imageLayers);
-      const manifest = makeManifest(design, activeTemplate, imageLayers);
+      const imageBlob = await renderDesignToBlob(design, userImage);
+      const pdfBlob = await renderDesignToPdfBlob(design, userImage);
+      const manifest = makeManifest(design, activeTemplate, userImage);
       const pngName = `asset-forge-${getDesignFileName(design)}`;
       const pdfName = pngName.replace(/\.png$/, ".pdf");
 
@@ -1157,15 +1086,21 @@ export default function App() {
         backgroundColor: design.backgroundColor,
         accentColor: design.accentColor,
         titleColor: design.titleColor,
-        subtitleColor: design.subtitleColor
+        subtitleColor: design.subtitleColor,
+        imageSettings: design.imageSettings
       };
 
       const manifest = {
         generator: "Goblin Asset Forge",
-        version: "0.8-open-beta",
+        version: "0.7-open-beta",
         generatedAt: new Date().toISOString(),
         exports: [],
-        imageLayerCount: imageLayers.length,
+        uploadedImage: userImage
+          ? {
+              name: userImage.name,
+              includedInExports: true
+            }
+          : null,
         privacy: "Generated in the browser. No server upload is required for this prototype."
       };
 
@@ -1175,7 +1110,7 @@ export default function App() {
           ...sharedDesignData
         };
 
-        const blob = await renderDesignToBlob(templateDesign, imageLayers);
+        const blob = await renderDesignToBlob(templateDesign, userImage);
         const fileName = `asset-forge-${template.fileName}`;
 
         imageFolder.file(fileName, blob);
@@ -1229,8 +1164,9 @@ export default function App() {
         <p className="eyebrow">Open Beta</p>
         <h1>Goblin Asset Forge</h1>
         <p>
-          Create browser-only image assets without paid design services. Upload
-          multiple images, drag, resize, rotate, delete, and export PNG, PDF, or ZIP.
+          Create browser-only image assets without paid design services. Choose
+          a template, customize it, drag your uploaded image anywhere, then
+          export PNG, PDF, or ZIP packs.
         </p>
       </section>
 
@@ -1269,7 +1205,7 @@ export default function App() {
           </label>
 
           <p className="template-note size-note">
-            Output: {design.size.width} x {design.size.height}px. Template style
+            Output: {design.size.width} Ã— {design.size.height}px. Template style
             and export size can be mixed.
           </p>
 
@@ -1301,148 +1237,114 @@ export default function App() {
 
           <div className="upload-panel">
             <label>
-              Upload image layers
+              Optional draggable image / logo
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                multiple
                 onChange={handleImageUpload}
               />
             </label>
 
-            <p className="upload-hint">
-              Add one or more images. Select a layer on the preview, then drag,
-              resize, or rotate it.
-            </p>
+            {userImage ? (
+              <div className="image-status">
+                <span>Using: {userImage.name}</span>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={clearUserImage}
+                >
+                  Clear image
+                </button>
+              </div>
+            ) : (
+              <p className="upload-hint">
+                Add a logo, portrait, product photo, or texture. Then drag it
+                directly on the preview.
+              </p>
+            )}
 
             {imageError ? <p className="error-note">{imageError}</p> : null}
           </div>
 
-          {imageLayers.length ? (
+          {userImage ? (
             <div className="image-controls">
-              <h3>Image layers</h3>
+              <h3>Image layer</h3>
+              <p className="drag-note">Drag the image directly on the preview.</p>
 
               <label>
-                Selected layer
+                Fit
                 <select
-                  value={selectedLayerId || ""}
-                  onChange={(event) => setSelectedLayerId(event.target.value)}
+                  value={design.imageSettings?.fit || "cover"}
+                  onChange={(event) => updateImageSetting("fit", event.target.value)}
                 >
-                  <option value="">Choose a layer</option>
-                  {imageLayers.map((layer, index) => (
-                    <option key={layer.id} value={layer.id}>
-                      {index + 1}. {layer.name}
-                    </option>
-                  ))}
+                  <option value="cover">Cover cropped frame</option>
+                  <option value="contain">Contain full image</option>
                 </select>
               </label>
 
-              {selectedLayer ? (
-                <>
-                  <p className="drag-note">
-                    Drag the layer. Use the yellow corner to resize and the round
-                    top handle to rotate.
-                  </p>
+              <label>
+                Shape
+                <select
+                  value={design.imageSettings?.shape || "rounded"}
+                  onChange={(event) => updateImageSetting("shape", event.target.value)}
+                >
+                  <option value="original">Original rectangle</option>
+                  <option value="rounded">Rounded rectangle</option>
+                  <option value="circle">Circle crop</option>
+                </select>
+              </label>
 
-                  <label>
-                    Fit
-                    <select
-                      value={selectedLayer.fit || "cover"}
-                      onChange={(event) => updateSelectedLayer("fit", event.target.value)}
-                    >
-                      <option value="cover">Cover cropped frame</option>
-                      <option value="contain">Contain full image</option>
-                    </select>
-                  </label>
+              <label>
+                Size <span>{design.imageSettings?.size ?? 32}%</span>
+                <input
+                  type="range"
+                  min="5"
+                  max="150"
+                  value={design.imageSettings?.size ?? 32}
+                  onChange={(event) =>
+                    updateImageSetting("size", Number(event.target.value))
+                  }
+                />
+              </label>
 
-                  <label>
-                    Shape
-                    <select
-                      value={selectedLayer.shape || "rounded"}
-                      onChange={(event) => updateSelectedLayer("shape", event.target.value)}
-                    >
-                      <option value="original">Original rectangle</option>
-                      <option value="rounded">Rounded rectangle</option>
-                      <option value="circle">Circle crop</option>
-                    </select>
-                  </label>
+              <label>
+                Opacity <span>{design.imageSettings?.opacity ?? 100}%</span>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value={design.imageSettings?.opacity ?? 100}
+                  onChange={(event) =>
+                    updateImageSetting("opacity", Number(event.target.value))
+                  }
+                />
+              </label>
 
-                  <label>
-                    Size <span>{selectedLayer.size ?? 32}%</span>
-                    <input
-                      type="range"
-                      min="5"
-                      max="150"
-                      value={selectedLayer.size ?? 32}
-                      onChange={(event) =>
-                        updateSelectedLayer("size", Number(event.target.value))
-                      }
-                    />
-                  </label>
+              <div className="layer-action-grid">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={resetImagePosition}
+                >
+                  Reset image layer
+                </button>
 
-                  <label>
-                    Rotation <span>{selectedLayer.rotation ?? 0} deg</span>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      value={selectedLayer.rotation ?? 0}
-                      onChange={(event) =>
-                        updateSelectedLayer("rotation", Number(event.target.value))
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Opacity <span>{selectedLayer.opacity ?? 100}%</span>
-                    <input
-                      type="range"
-                      min="10"
-                      max="100"
-                      value={selectedLayer.opacity ?? 100}
-                      onChange={(event) =>
-                        updateSelectedLayer("opacity", Number(event.target.value))
-                      }
-                    />
-                  </label>
-
-                  <div className="layer-action-grid">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={resetSelectedLayer}
-                    >
-                      Reset selected layer
-                    </button>
-
-                    <button
-                      type="button"
-                      className="secondary-button danger-button"
-                      onClick={deleteSelectedLayer}
-                    >
-                      Delete selected layer
-                    </button>
-                  </div>
-                </>
-              ) : null}
-
-              <div className="layer-action-grid lower-grid">
                 <button
                   type="button"
                   className="secondary-button"
                   onClick={undoLastImageAction}
                   disabled={!undoSnapshot}
                 >
-                  Undo last image action
+                  Undo last image move
                 </button>
 
                 <button
                   type="button"
                   className="secondary-button danger-button"
-                  onClick={clearAllImages}
+                  onClick={deleteImageLayer}
                 >
-                  Clear all images
+                  Delete image layer
                 </button>
               </div>
             </div>
@@ -1537,64 +1439,55 @@ export default function App() {
             <div>
               <h2>{activeTemplate.name}</h2>
               <p>
-                {design.size.width} x {design.size.height}px
+                {design.size.width} Ã— {design.size.height}px
               </p>
             </div>
           </div>
 
           <div className="canvas-frame">
             <div className="canvas-stage">
-              <canvas ref={canvasRef} aria-label="Asset preview canvas" />
+              <canvas
+                ref={canvasRef}
+                className={userImage ? "drag-canvas" : ""}
+                aria-label="Asset preview canvas"
+                onPointerDown={startImageDrag}
+                onPointerMove={continueImageDrag}
+                onPointerUp={stopImageDrag}
+                onPointerCancel={stopImageDrag}
+                onPointerLeave={stopImageDrag}
+              />
 
-              {imageLayers.map((layer) => (
+              {userImage ? (
                 <div
-                  key={layer.id}
-                  className={`image-layer-outline ${
-                    layer.id === selectedLayerId ? "is-selected" : ""
-                  }`}
-                  style={getLayerStyle(design, layer)}
-                  onPointerDown={(event) => startLayerDrag(event, layer.id)}
-                  onPointerMove={continueLayerAction}
-                  onPointerUp={stopLayerAction}
-                  onPointerCancel={stopLayerAction}
+                  className="image-layer-outline"
+                  style={getImageLayerStyle(design, userImage)}
+                  onPointerDown={startImageDrag}
+                  onPointerMove={continueImageDrag}
+                  onPointerUp={stopImageDrag}
+                  onPointerCancel={stopImageDrag}
                 >
-                  {layer.id === selectedLayerId ? (
-                    <>
-                      <button
-                        type="button"
-                        className="image-delete-button"
-                        aria-label="Delete image layer"
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onClick={deleteSelectedLayer}
-                      >
-                        X
-                      </button>
+                  <button
+                    type="button"
+                    className="image-delete-button"
+                    aria-label="Delete image layer"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={deleteImageLayer}
+                  >
+                    ×
+                  </button>
 
-                      <div
-                        className="image-rotate-handle"
-                        aria-label="Rotate image layer"
-                        role="button"
-                        tabIndex={0}
-                        onPointerDown={(event) => startLayerRotate(event, layer.id)}
-                        onPointerMove={continueLayerAction}
-                        onPointerUp={stopLayerAction}
-                        onPointerCancel={stopLayerAction}
-                      />
-
-                      <div
-                        className="image-resize-handle"
-                        aria-label="Resize image layer"
-                        role="button"
-                        tabIndex={0}
-                        onPointerDown={(event) => startLayerResize(event, layer.id)}
-                        onPointerMove={continueLayerAction}
-                        onPointerUp={stopLayerAction}
-                        onPointerCancel={stopLayerAction}
-                      />
-                    </>
-                  ) : null}
+                  <div
+                    className="image-resize-handle"
+                    aria-label="Resize image layer"
+                    role="button"
+                    tabIndex={0}
+                    onPointerDown={startImageResize}
+                    onPointerMove={continueImageResize}
+                    onPointerUp={stopImageResize}
+                    onPointerCancel={stopImageResize}
+                  />
                 </div>
-              ))}
+              ) : null}
             </div>
           </div>
         </section>
