@@ -259,8 +259,3 @@ canvas {
 .single-export-button {
   margin-top: 10px;
 }
-
-
-.size-note {
-  margin-top: -8px;
-}
