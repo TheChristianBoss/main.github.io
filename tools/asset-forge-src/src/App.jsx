@@ -145,6 +145,125 @@ function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 99) {
   return currentY;
 }
 
+function roundedRect(ctx, x, y, width, height, radius) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+
+  ctx.beginPath();
+  ctx.moveTo(x + safeRadius, y);
+  ctx.lineTo(x + width - safeRadius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  ctx.lineTo(x + width, y + height - safeRadius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  ctx.lineTo(x + safeRadius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  ctx.lineTo(x, y + safeRadius);
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+  ctx.closePath();
+}
+
+function drawImageCover(ctx, image, x, y, width, height) {
+  const imageWidth = image.naturalWidth || image.width;
+  const imageHeight = image.naturalHeight || image.height;
+
+  if (!imageWidth || !imageHeight) return;
+
+  const imageRatio = imageWidth / imageHeight;
+  const boxRatio = width / height;
+
+  let sourceX = 0;
+  let sourceY = 0;
+  let sourceWidth = imageWidth;
+  let sourceHeight = imageHeight;
+
+  if (imageRatio > boxRatio) {
+    sourceHeight = imageHeight;
+    sourceWidth = sourceHeight * boxRatio;
+    sourceX = (imageWidth - sourceWidth) / 2;
+  } else {
+    sourceWidth = imageWidth;
+    sourceHeight = sourceWidth / boxRatio;
+    sourceY = (imageHeight - sourceHeight) / 2;
+  }
+
+  ctx.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    x,
+    y,
+    width,
+    height
+  );
+}
+
+function drawImageContain(ctx, image, x, y, width, height) {
+  const imageWidth = image.naturalWidth || image.width;
+  const imageHeight = image.naturalHeight || image.height;
+
+  if (!imageWidth || !imageHeight) return;
+
+  const scale = Math.min(width / imageWidth, height / imageHeight);
+  const drawWidth = imageWidth * scale;
+  const drawHeight = imageHeight * scale;
+  const drawX = x + (width - drawWidth) / 2;
+  const drawY = y + (height - drawHeight) / 2;
+
+  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+}
+
+function drawImageFrame(ctx, userImage, x, y, width, height, options = {}) {
+  if (!userImage?.element) return;
+
+  const radius = options.radius ?? 28;
+  const mode = options.mode ?? "cover";
+  const circle = options.circle ?? false;
+
+  ctx.save();
+
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = 28;
+  ctx.shadowOffsetY = 14;
+
+  if (circle) {
+    ctx.beginPath();
+    ctx.arc(x + width / 2, y + height / 2, Math.min(width, height) / 2, 0, Math.PI * 2);
+    ctx.closePath();
+  } else {
+    roundedRect(ctx, x, y, width, height, radius);
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.08)";
+  ctx.fill();
+  ctx.clip();
+
+  if (mode === "contain") {
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(x, y, width, height);
+    drawImageContain(ctx, userImage.element, x, y, width, height);
+  } else {
+    drawImageCover(ctx, userImage.element, x, y, width, height);
+  }
+
+  ctx.restore();
+
+  ctx.save();
+
+  if (circle) {
+    ctx.beginPath();
+    ctx.arc(x + width / 2, y + height / 2, Math.min(width, height) / 2, 0, Math.PI * 2);
+    ctx.closePath();
+  } else {
+    roundedRect(ctx, x, y, width, height, radius);
+  }
+
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = Math.max(4, width * 0.012);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawSoftTexture(ctx, width, height, accentColor) {
   ctx.save();
   ctx.globalAlpha = 0.08;
@@ -170,7 +289,7 @@ function drawBorder(ctx, width, height) {
   ctx.restore();
 }
 
-function drawSquarePost(ctx, design) {
+function drawSquarePost(ctx, design, userImage) {
   const { width, height } = design.size;
 
   drawSoftTexture(ctx, width, height, design.accentColor);
@@ -180,24 +299,31 @@ function drawSquarePost(ctx, design) {
   ctx.arc(width - 170, 170, 95, 0, Math.PI * 2);
   ctx.fill();
 
+  if (userImage) {
+    drawImageFrame(ctx, userImage, width - 405, height - 405, 285, 285, {
+      radius: 34,
+      mode: "cover"
+    });
+  }
+
   drawBorder(ctx, width, height);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillStyle = design.titleColor;
   ctx.font = "bold 96px Georgia, serif";
-  drawWrappedText(ctx, design.title, 90, 330, width - 180, 108, 4);
+  drawWrappedText(ctx, design.title, 90, 300, width - 180, 108, 4);
 
   ctx.fillStyle = design.subtitleColor;
   ctx.font = "42px Arial, sans-serif";
-  drawWrappedText(ctx, design.subtitle, 94, 585, width - 188, 56, 4);
+  drawWrappedText(ctx, design.subtitle, 94, 560, userImage ? width - 520 : width - 188, 56, 4);
 
   ctx.fillStyle = "rgba(255,255,255,0.82)";
   ctx.font = "28px Arial, sans-serif";
   ctx.fillText(design.footer, 94, height - 120);
 }
 
-function drawThumbnail(ctx, design) {
+function drawThumbnail(ctx, design, userImage) {
   const { width, height } = design.size;
 
   ctx.save();
@@ -213,29 +339,39 @@ function drawThumbnail(ctx, design) {
 
   drawSoftTexture(ctx, width, height, "#ffffff");
 
+  if (userImage) {
+    drawImageFrame(ctx, userImage, width - 430, 105, 320, 455, {
+      radius: 34,
+      mode: "cover"
+    });
+  } else {
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    roundedRect(ctx, width - 430, 105, 320, 455, 34);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.font = "bold 110px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("?", width - 270, 332);
+  }
+
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillStyle = design.titleColor;
-  ctx.font = "bold 88px Arial Black, Impact, sans-serif";
-  drawWrappedText(ctx, design.title, 72, 135, width * 0.64, 94, 4);
+  ctx.font = "bold 86px Arial Black, Impact, sans-serif";
+  drawWrappedText(ctx, design.title, 72, 125, userImage ? width * 0.55 : width * 0.64, 92, 4);
 
   ctx.fillStyle = design.subtitleColor;
   ctx.font = "40px Arial, sans-serif";
-  drawWrappedText(ctx, design.subtitle, 78, 470, width * 0.58, 52, 2);
+  drawWrappedText(ctx, design.subtitle, 78, 470, userImage ? width * 0.52 : width * 0.58, 52, 2);
 
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   ctx.font = "bold 28px Arial, sans-serif";
   ctx.fillText(design.footer, 78, height - 82);
-
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
-  ctx.fillRect(width - 300, 85, 190, 190);
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = "bold 78px Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("?", width - 205, 136);
 }
 
-function drawFlyer(ctx, design) {
+function drawFlyer(ctx, design, userImage) {
   const { width, height } = design.size;
 
   drawSoftTexture(ctx, width, height, design.accentColor);
@@ -243,20 +379,28 @@ function drawFlyer(ctx, design) {
   ctx.fillStyle = design.accentColor;
   ctx.fillRect(0, 0, width, 150);
 
-  ctx.fillStyle = "rgba(255,255,255,0.12)";
-  ctx.fillRect(48, 198, width - 96, height - 360);
-
   drawBorder(ctx, width, height);
+
+  if (userImage) {
+    drawImageFrame(ctx, userImage, 68, 212, width - 136, 310, {
+      radius: 26,
+      mode: "cover"
+    });
+  } else {
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    roundedRect(ctx, 68, 212, width - 136, 310, 26);
+    ctx.fill();
+  }
 
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillStyle = design.titleColor;
-  ctx.font = "bold 72px Georgia, serif";
-  drawWrappedText(ctx, design.title, 70, 230, width - 140, 82, 5);
+  ctx.font = "bold 64px Georgia, serif";
+  drawWrappedText(ctx, design.title, 70, userImage ? 560 : 250, width - 140, 74, 4);
 
   ctx.fillStyle = design.subtitleColor;
-  ctx.font = "36px Arial, sans-serif";
-  drawWrappedText(ctx, design.subtitle, 72, 560, width - 144, 50, 6);
+  ctx.font = "34px Arial, sans-serif";
+  drawWrappedText(ctx, design.subtitle, 72, userImage ? 760 : 560, width - 144, 46, 5);
 
   ctx.fillStyle = "rgba(0,0,0,0.24)";
   ctx.fillRect(0, height - 160, width, 160);
@@ -266,7 +410,7 @@ function drawFlyer(ctx, design) {
   drawWrappedText(ctx, design.footer, 70, height - 118, width - 140, 36, 3);
 }
 
-function drawQuoteCard(ctx, design) {
+function drawQuoteCard(ctx, design, userImage) {
   const { width, height } = design.size;
 
   drawSoftTexture(ctx, width, height, design.accentColor);
@@ -277,6 +421,16 @@ function drawQuoteCard(ctx, design) {
   ctx.arc(width * 0.5, height * 0.36, 330, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
+
+  if (userImage) {
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    drawImageFrame(ctx, userImage, width - 310, 80, 190, 190, {
+      circle: true,
+      mode: "cover"
+    });
+    ctx.restore();
+  }
 
   drawBorder(ctx, width, height);
 
@@ -314,7 +468,7 @@ function getInitials(text) {
     .toUpperCase();
 }
 
-function drawLogoBadge(ctx, design) {
+function drawLogoBadge(ctx, design, userImage) {
   const { width, height } = design.size;
   const centerX = width / 2;
   const centerY = height / 2;
@@ -333,23 +487,31 @@ function drawLogoBadge(ctx, design) {
   ctx.arc(centerX, centerY, width * 0.4, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = design.titleColor;
-  ctx.font = "bold 190px Georgia, serif";
-  ctx.fillText(getInitials(design.title), centerX, centerY - 28);
+  if (userImage) {
+    drawImageFrame(ctx, userImage, centerX - 180, centerY - 250, 360, 360, {
+      circle: true,
+      mode: "contain"
+    });
+  } else {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = design.titleColor;
+    ctx.font = "bold 190px Georgia, serif";
+    ctx.fillText(getInitials(design.title), centerX, centerY - 28);
+  }
 
+  ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.fillStyle = design.subtitleColor;
   ctx.font = "bold 42px Arial, sans-serif";
-  drawWrappedText(ctx, design.subtitle, centerX, centerY + 190, width - 220, 52, 2);
+  drawWrappedText(ctx, design.subtitle, centerX, userImage ? centerY + 150 : centerY + 190, width - 220, 52, 2);
 
   ctx.fillStyle = "rgba(255,255,255,0.7)";
   ctx.font = "24px Arial, sans-serif";
   ctx.fillText(design.footer, centerX, height - 105);
 }
 
-function renderDesign(canvas, design) {
+function renderDesign(canvas, design, userImage) {
   const ctx = canvas.getContext("2d");
   const { width, height } = design.size;
 
@@ -360,29 +522,32 @@ function renderDesign(canvas, design) {
   ctx.fillRect(0, 0, width, height);
 
   if (design.layout === "thumbnail") {
-    drawThumbnail(ctx, design);
+    drawThumbnail(ctx, design, userImage);
   } else if (design.layout === "flyer") {
-    drawFlyer(ctx, design);
+    drawFlyer(ctx, design, userImage);
   } else if (design.layout === "quoteCard") {
-    drawQuoteCard(ctx, design);
+    drawQuoteCard(ctx, design, userImage);
   } else if (design.layout === "logoBadge") {
-    drawLogoBadge(ctx, design);
+    drawLogoBadge(ctx, design, userImage);
   } else {
-    drawSquarePost(ctx, design);
+    drawSquarePost(ctx, design, userImage);
   }
 }
 
 export default function App() {
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [design, setDesign] = useState(() => createDesign("square-post"));
+  const [userImage, setUserImage] = useState(null);
+  const [imageError, setImageError] = useState("");
 
   const activeTemplate = getTemplateById(design.templateId);
 
   useEffect(() => {
     if (canvasRef.current) {
-      renderDesign(canvasRef.current, design);
+      renderDesign(canvasRef.current, design, userImage);
     }
-  }, [design]);
+  }, [design, userImage]);
 
   function updateField(field, value) {
     setDesign((current) => ({
@@ -393,6 +558,59 @@ export default function App() {
 
   function changeTemplate(templateId) {
     setDesign(createDesign(templateId));
+  }
+
+  function handleImageUpload(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setImageError("Choose a PNG, JPG, WebP, GIF, or SVG image file.");
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      setImageError("This image is over 8 MB. Try a smaller file for smoother browser rendering.");
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      const image = new Image();
+
+      image.onload = () => {
+        setUserImage({
+          name: file.name,
+          src: dataUrl,
+          element: image
+        });
+        setImageError("");
+      };
+
+      image.onerror = () => {
+        setImageError("The browser could not load that image. Try a different file.");
+      };
+
+      image.src = dataUrl;
+    };
+
+    reader.onerror = () => {
+      setImageError("The browser could not read that file.");
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  function clearUserImage() {
+    setUserImage(null);
+    setImageError("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   function downloadPng() {
@@ -417,7 +635,8 @@ export default function App() {
         <h1>Goblin Asset Forge</h1>
         <p>
           Create simple browser-only image assets without paid design services.
-          Choose a template, customize the text and colors, then export a PNG.
+          Choose a template, customize text and colors, add an optional image,
+          then export a PNG.
         </p>
       </section>
 
@@ -466,6 +685,33 @@ export default function App() {
               onChange={(event) => updateField("footer", event.target.value)}
             />
           </label>
+
+          <div className="upload-panel">
+            <label>
+              Optional image / logo
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+            </label>
+
+            {userImage ? (
+              <div className="image-status">
+                <span>Using: {userImage.name}</span>
+                <button type="button" className="secondary-button" onClick={clearUserImage}>
+                  Clear image
+                </button>
+              </div>
+            ) : (
+              <p className="upload-hint">
+                Add a logo, portrait, product photo, or background image. It stays in this browser session.
+              </p>
+            )}
+
+            {imageError ? <p className="error-note">{imageError}</p> : null}
+          </div>
 
           <div className="color-grid">
             <label>
@@ -518,8 +764,8 @@ export default function App() {
           </button>
 
           <p className="privacy-note">
-            Browser-only prototype: the design renders on your device. No upload
-            or paid image service is needed for this version.
+            Browser-only prototype: your design renders on your device. No upload,
+            account, or paid image service is needed for this version.
           </p>
         </aside>
 
