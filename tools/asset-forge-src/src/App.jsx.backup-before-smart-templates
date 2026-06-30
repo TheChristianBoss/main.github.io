@@ -1,7 +1,6 @@
 import JSZip from "jszip";
 import { PDFDocument } from "pdf-lib";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { analyzeLoadedAssets, recommendSetupTemplates } from "./data/templateRecipeEngine";
 import "./App.css";
 
 const ASSET_INDEX_URL = "./asset-libraries/kenney-library-index.json";
@@ -504,7 +503,7 @@ async function renderDesignToPdfBlob(design, imageLayers) {
 function makeManifest(design, activeTemplate, imageLayers) {
   return {
     generator: "Goblin Asset Forge",
-    version: "0.10-open-beta",
+    version: "0.9-open-beta",
     generatedAt: new Date().toISOString(),
     template: {
       id: activeTemplate.id,
@@ -520,12 +519,7 @@ function makeManifest(design, activeTemplate, imageLayers) {
       backgroundColor: design.backgroundColor,
       accentColor: design.accentColor,
       titleColor: design.titleColor,
-      subtitleColor: design.subtitleColor,
-      smartTemplateId: design.smartTemplateId || null,
-      smartTemplateName: design.smartTemplateName || null,
-      setupTemplateFamily: design.setupTemplateFamily || null,
-      detectedPackProfile: design.detectedPackProfile || null,
-      assetRoleProfile: design.assetRoleProfile || null
+      subtitleColor: design.subtitleColor
     },
     imageLayers: imageLayers.map((layer) => ({
       id: layer.id,
@@ -600,14 +594,6 @@ export default function App() {
 
   const activeTemplate = getTemplateById(design.templateId);
   const selectedLayer = imageLayers.find((layer) => layer.id === selectedLayerId) || null;
-  const loadedAssetAnalysis = useMemo(
-    () => analyzeLoadedAssets(loadedPack?.pack, loadedPack?.items || []),
-    [loadedPack]
-  );
-  const recommendedSetupTemplates = useMemo(
-    () => recommendSetupTemplates(loadedAssetAnalysis),
-    [loadedAssetAnalysis]
-  );
   const assetPacks = assetIndex?.packs || [];
 
   const assetCategories = useMemo(() => {
@@ -684,38 +670,6 @@ export default function App() {
       size: getSizeForDesign(current.templateId, sizePresetId)
     }));
     setZipStatus("");
-  }
-
-  function smartTemplateText(value) {
-    return String(value || "").replaceAll(
-      "{pack}",
-      loadedPack?.pack?.displayName || "Selected Pack"
-    );
-  }
-
-  function applySmartTemplate(recipe) {
-    if (!recipe) return;
-
-    const nextDesign = createDesign(
-      recipe.baseTemplateId || design.templateId,
-      recipe.sizePresetId || design.sizePresetId || "template-default"
-    );
-
-    setDesign({
-      ...nextDesign,
-      ...recipe.defaults,
-      title: smartTemplateText(recipe.defaults?.title || nextDesign.title),
-      subtitle: smartTemplateText(recipe.defaults?.subtitle || nextDesign.subtitle),
-      footer: smartTemplateText(recipe.defaults?.footer || nextDesign.footer),
-      smartTemplateId: recipe.id,
-      smartTemplateName: recipe.name,
-      setupTemplateFamily: recipe.family || "general",
-      detectedPackProfile: loadedAssetAnalysis?.profileLabel || "General",
-      assetRoleProfile: loadedAssetAnalysis?.roleSummary?.slice(0, 12) || []
-    });
-
-    setZipStatus(`Applied setup template: ${recipe.name}.`);
-    setAssetStatus(`Setup template ready: ${recipe.name}. Click assets from the loaded pack to place them.`);
   }
 
   function canvasPointToPercent(event) {
@@ -1051,7 +1005,7 @@ export default function App() {
       };
       const manifest = {
         generator: "Goblin Asset Forge",
-        version: "0.10-open-beta",
+        version: "0.9-open-beta",
         generatedAt: new Date().toISOString(),
         exports: [],
         imageLayerCount: imageLayers.length,
@@ -1090,9 +1044,8 @@ export default function App() {
         <p className="eyebrow">Open Beta</p>
         <h1>Goblin Asset Forge</h1>
         <p>
-          Create browser-only image assets. Load a Kenney pack, let Asset Forge
-          detect the asset types inside it, then choose setup templates matched
-          to the currently loaded content.
+          Create browser-only image assets. Search the lightweight Kenney catalog,
+          attach your local asset ZIP, load a pack, and click assets into the canvas.
         </p>
       </section>
 
@@ -1119,7 +1072,7 @@ export default function App() {
           <p className="template-note size-note">Output: {design.size.width} x {design.size.height}px. Template style and export size can be mixed.</p>
 
           <div className="asset-library-panel">
-            <h3>Asset Library</h3>
+            <h3>Kenney Asset Library</h3>
             {assetIndex ? (
               <p className="library-summary">{assetIndex.packCount} packs indexed. {assetIndex.imageAssetCount?.toLocaleString()} image assets searchable by pack.</p>
             ) : (
@@ -1132,7 +1085,7 @@ export default function App() {
               <input type="file" accept=".zip,application/zip" onChange={handleAssetBundleUpload} />
             </label>
             <p className="upload-hint">
-              The search index is built in. The large asset ZIP stays local on your computer and is only read when you choose it here.
+              The index is built in. The 254 MB asset ZIP stays local on your computer and is only read when you choose it here.
             </p>
             {assetBundleName ? <p className="status-note">Attached: {assetBundleName}</p> : null}
 
@@ -1173,48 +1126,6 @@ export default function App() {
                     <button type="button" className="asset-thumb" key={item.path} title={item.path} onClick={() => addAssetThumbnailToCanvas(item)}>
                       <img src={item.url} alt="" loading="lazy" />
                       <span>{item.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {loadedPack ? (
-              <div className="setup-template-panel">
-                <div className="panel-title-row">
-                  <div>
-                    <h4>Setup templates for current assets</h4>
-                    <p className="upload-hint">
-                      Detected: <strong>{loadedAssetAnalysis.profileLabel}</strong> from
-                      {" "}{loadedAssetAnalysis.totalAssets.toLocaleString()} loaded preview assets.
-                    </p>
-                  </div>
-                </div>
-
-                {loadedAssetAnalysis.roleSummary.length ? (
-                  <div className="role-chip-row" aria-label="Detected asset roles">
-                    {loadedAssetAnalysis.roleSummary.slice(0, 12).map((role) => (
-                      <span className="role-chip" key={role.role}>
-                        {role.label} <strong>{role.count}</strong>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="upload-hint">No strong roles detected yet. Generic pack templates are available.</p>
-                )}
-
-                <div className="smart-template-grid">
-                  {recommendedSetupTemplates.map((recipe) => (
-                    <button
-                      type="button"
-                      className="smart-template-card"
-                      key={recipe.id}
-                      onClick={() => applySmartTemplate(recipe)}
-                    >
-                      <span>{recipe.name}</span>
-                      <small>{recipe.description}</small>
-                      <em>Matches: {recipe.matchedRoles.length ? recipe.matchedRoles.slice(0, 5).join(", ") : "general pack setup"}</em>
-                      <b>{recipe.matchLabel}</b>
                     </button>
                   ))}
                 </div>

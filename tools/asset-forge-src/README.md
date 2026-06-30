@@ -1,16 +1,28 @@
-# React + Vite
+# Asset Forge Template Recipe Engine + Visual Polish Patch
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This patch upgrades Goblin Asset Forge with a richer setup-template system and a cleaner visual style.
 
-Currently, two official plugins are available:
+## Adds
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `src/data/templateRecipeEngine.js`
+- Asset role detection from the currently loaded asset list
+- Recommended setup templates based on actual asset filenames/paths
+- Role chips such as Tiles, Terrain, Characters, UI, Items, Weapons, Backgrounds, etc.
+- More setup templates: platformer scene, tileset sheet, top-down room, UI menu, HUD, inventory, shop, character showcase, enemy roster, effects sheet, space battle, farm scene, and more
+- Manifest metadata for setup template family and detected asset role profile
+- A cleaner dark/amber tool-suite visual style with less glow
 
-## React Compiler
+## Test
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Run `npm run build`.
+2. Run `npm run dev`.
+3. Attach `assetprimary.zip` inside the Asset Library panel.
+4. Load a pack.
+5. Confirm role chips appear.
+6. Confirm setup template cards appear based on the loaded assets.
+7. Click a template card.
+8. Confirm text/colors/layout/export size update.
+9. Click asset thumbnails to place them on the canvas.
+10. Export PNG/PDF/ZIP.
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Do not commit `assetprimary.zip`.
