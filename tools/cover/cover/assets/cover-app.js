@@ -433,7 +433,7 @@ function render() {
     <section class="cover-hero">
       <div>
         <p class="eyebrow">Christian Goblin Tools</p>
-        <h1>Cover Letter Builder</h1>
+        <h1>Cover Letter Builder <span class="open-beta-badge">Open Beta</span></h1>
         <p class="hero-copy">Build a clean, tailored cover letter in your browser. No signup, no watermark, and easy export options.</p>
       </div>
       <div class="hero-card">

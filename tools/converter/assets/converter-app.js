@@ -839,7 +839,7 @@ function mount() {
       <main>
         <section class="hero">
           <p class="eyebrow">Private Browser Tool</p>
-          <h1>File Converter</h1>
+          <h1>File Converter <span class="open-beta-badge">Open Beta</span></h1>
           <p class="hero-copy">A modular converter for images, documents, PDFs, spreadsheets, text/data, ZIP files, utilities, and media tools. It smart-detects file types, estimates device capacity, and recommends safer file sizes before heavy conversions.</p>
           <div class="hero-actions">
             <a class="hero-link" href="/tools/converter/privacy.html">Privacy & limits</a>

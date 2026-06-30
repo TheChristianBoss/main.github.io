@@ -387,7 +387,7 @@ export default function ResumeBuilder() {
       <div className="rb-app">
         <header className="rb-header">
           <div className="rb-header-inner">
-            <a href="/" className="rb-logo"><span className="rb-logo-cg">CG</span> Resume Builder</a>
+            <a href="/" className="rb-logo"><span className="rb-logo-cg">CG</span> Resume Builder <span className="open-beta-badge">Open Beta</span></a>
           </div>
         </header>
         <ModePicker onSelect={handleSwitchMode} draftSavedAt={lastSavedAt} hasDraft={hasResumeContent(data)} onStartOver={handleStartOver} />

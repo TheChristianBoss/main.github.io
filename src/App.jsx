@@ -187,7 +187,7 @@ export default function App() {
         <header className="ats-header">
           <div className="ats-header-inner">
             <a href="/tools/ats/" className="ats-logo" style={{ textDecoration: "none", color: "inherit" }}>
-              <span style={{ color: "var(--accent-ui)" }}>CG</span>&nbsp;ATS Checker
+              <span style={{ color: "var(--accent-ui)" }}>CG</span>&nbsp;ATS Checker <span className="open-beta-badge">Open Beta</span>
             </a>
             <nav className="ats-nav" aria-label="ATS tool links">
               <a className="ats-nav-link" href="/tools/">Tools</a>
@@ -199,7 +199,7 @@ export default function App() {
 
         <main className="ats-main">
           <section className="ats-card ats-intro-card">
-            <h1 className="ats-title">ATS Resume Checker</h1>
+            <h1 className="ats-title ats-title-line">ATS Resume Checker <span className="open-beta-badge">Open Beta</span></h1>
             <p className="ats-sub" style={{ marginLeft: 0, marginRight: 0 }}>
               Check a resume against a role or job description using a browser-local heuristic scan. This is a guidance tool, not a guarantee of applicant-tracking-system performance.
             </p>

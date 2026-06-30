@@ -82,7 +82,7 @@ export default function FullMode({
     <div className="rb-app">
       <header className="rb-header">
         <div className="rb-header-inner">
-          <a href="/" className="rb-logo"><span className="rb-logo-cg">CG</span> Resume Builder</a>
+          <a href="/" className="rb-logo"><span className="rb-logo-cg">CG</span> Resume Builder <span className="open-beta-badge">Open Beta</span></a>
           <div className="rb-header-center">
             <button className="rb-back-mode-btn" onClick={() => onSwitchMode(null)}>← Modes</button>
             <button className={`rb-view-btn${view === "form" ? " active" : ""}`} onClick={() => setView("form")}>✏ Edit</button>

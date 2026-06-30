@@ -58,6 +58,27 @@ body {
 }
 .rb-logo-cg { color: var(--accent); }
 
+.open-beta-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  margin-left: .5rem;
+  padding: .16rem .42rem;
+  border: 1px solid rgba(232,197,71,.42);
+  border-radius: 999px;
+  background: rgba(232,197,71,.10);
+  color: var(--accent);
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.rb-logo .open-beta-badge { margin-left: .45rem; }
+
+
 .rb-header-center {
   display: flex;
   gap: 6px;

@@ -93,6 +93,34 @@ body {
   color: var(--accent-ui);
 }
 
+.open-beta-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  margin-left: .5rem;
+  padding: .16rem .42rem;
+  border: 1px solid rgba(232,197,71,.42);
+  border-radius: 999px;
+  background: rgba(232,197,71,.10);
+  color: var(--accent-ui);
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ats-title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .55rem;
+}
+.ats-title-line .open-beta-badge,
+.ats-logo .open-beta-badge { margin-left: 0; }
+
+
 /* =========================================================
    NAV
    ========================================================= */
