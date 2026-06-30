@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 .vs/
+*.backup-before-*
+tools/asset-forge-src/patch-*.mjs
+assetprimary.zip
