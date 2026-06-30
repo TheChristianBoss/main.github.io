@@ -26,15 +26,15 @@ export function render({ root, setStatus }) {
     <div class="module-panel">
       <div class="grid-controls two">
         <div class="control full">
-          <h3 style="margin:0;color:var(--gold);font-family:Georgia,serif;">Advanced converters can stay lazy</h3>
-          <p style="color:var(--muted);line-height:1.7;margin:.6rem 0 0;">The converter now has image, text/data, PDF, DOCX, XLSX, ZIP, batch queue, utilities, and audio/video modules. These remaining converter groups are best added as optional heavy modules so every visitor does not download them immediately.</p>
+          <h3 style="margin:0;color:var(--gold);font-family:Georgia,serif;">Advanced converters are coming soon</h3>
+          <p style="color:var(--muted);line-height:1.7;margin:.6rem 0 0;">This section is a roadmap, not an active converter. The current live modules are image, text/data, PDF/DOCX/XLSX, ZIP, batch queue, utilities, and audio/video. OCR, ebook, font, redaction, and cloud workflows should stay separate because they are heavier and riskier in a browser-only app.</p>
         </div>
       </div>
       <div class="check-list">
         ${PLANNED.map((item) => `<p><strong style="color:var(--text);">${item.title}</strong><br>${item.body}</p>`).join('')}
       </div>
       <div class="button-row">
-        <button class="secondary-button" id="copyPlan" type="button">Copy advanced roadmap text</button>
+        <button class="secondary-button" id="copyPlan" type="button">Copy coming-soon roadmap text</button>
       </div>
     </div>
   `;
@@ -42,6 +42,6 @@ export function render({ root, setStatus }) {
   root.querySelector('#copyPlan').addEventListener('click', async () => {
     const text = PLANNED.map((item) => `${item.title}: ${item.body}`).join('\n\n');
     await navigator.clipboard.writeText(text);
-    setStatus('Copied advanced module roadmap.', 'success');
+    setStatus('Copied coming-soon module roadmap.', 'success');
   });
 }

@@ -233,6 +233,16 @@ h2 .open-beta-badge {
     padding: .14rem .36rem;
     opacity: .88;
 }
+.open-beta-note {
+    margin-top: var(--space-md);
+    max-width: 780px;
+    padding: .8rem 1rem;
+    border: 1px solid rgba(201,168,76,.28);
+    border-radius: var(--radius-md);
+    background: rgba(201,168,76,.08);
+    color: var(--muted);
+}
+.open-beta-note strong { color: var(--gold-light); }
 
 /* Hamburger — mobile */
 .cg-nav__toggle {

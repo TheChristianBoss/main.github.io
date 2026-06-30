@@ -32,7 +32,7 @@ const DEFAULT_STATE = {
   lastSaved: '',
 };
 
-const STOP_WORDS = new Set('about above after again against all also am an and any are as at be because been before being below between both but by can did do does doing down during each few for from further had has have having he her here hers herself him himself his how i if in into is it its itself just me more most my myself no nor not now of off on once only or other our ours ourselves out over own same she should so some such than that the their theirs them themselves then there these they this those through to too under until up very was we were what when where which while who whom why will with you your yours yourself yourselves role job company team work'.split(' '));
+const STOP_WORDS = new Set('about above after again against all also am an and any are as at be because been before being below between both but by can candidate candidates did do does doing down during each few for from further had has have having he her here hers herself him himself his how i if in into is it its itself just me more most my myself no nor not now of off on once only or other our ours ourselves out over own preferred qualifications required requirement requirements responsibility responsibilities same she should so some such than that the their theirs them themselves then there these they this those through to too under until up very was we were what when where which while who whom why will with you your yours yourself yourselves role job company team work workplace'.split(' '));
 
 let state = loadState();
 let saveTimer = null;
@@ -141,6 +141,33 @@ function toneOpening() {
   return 'I am writing to express my interest in';
 }
 
+function tonePreviewText() {
+  const { tone } = state.settings;
+  if (tone === 'warm') return 'Warm keeps the structure professional but uses a friendlier, more human opening.';
+  if (tone === 'confident') return 'Confident sounds assertive without making claims the details do not support.';
+  if (tone === 'concise') return 'Concise keeps paragraphs shorter and cuts extra setup language.';
+  return 'Professional uses direct, respectful business wording with a balanced tone.';
+}
+
+function skillSentence(skills) {
+  const joined = joinSentenceList(skills);
+  if (!joined) return 'My background has prepared me to learn quickly, communicate clearly, and contribute with steady attention to detail.';
+  if (state.settings.tone === 'warm') return `I have built strengths in ${joined}, and I try to bring those abilities with steadiness and care.`;
+  if (state.settings.tone === 'confident') return `My background in ${joined} can translate directly into dependable results for this role.`;
+  if (state.settings.tone === 'concise') return `My strengths include ${joined}.`;
+  return `My background includes ${joined}, and I am comfortable turning those strengths into dependable day-to-day results.`;
+}
+
+function achievementSentence(achievements) {
+  const clean = achievements.map((item) => item.replace(/^[•\-]\s*/, ''));
+  const joined = joinSentenceList(clean);
+  if (!joined) return 'I try to bring ownership, humility, and consistency to the responsibilities entrusted to me.';
+  if (state.settings.tone === 'warm') return `Some of the work I am proud of includes ${joined}.`;
+  if (state.settings.tone === 'confident') return `Relevant results include ${joined}.`;
+  if (state.settings.tone === 'concise') return `Selected results: ${joined}.`;
+  return `Examples of my work include ${joined}.`;
+}
+
 function generateLetter() {
   const { basics, job, fit, settings } = state;
   const name = firstNonEmpty(basics.name, 'Your Name');
@@ -166,13 +193,9 @@ function generateLetter() {
   if (years) introParts.push(`I bring ${years} of relevant experience and a practical, results-focused approach.`);
   else introParts.push('I bring a practical, results-focused approach and a strong desire to contribute well.');
 
-  const skillPhrase = skills.length
-    ? `My background includes ${joinSentenceList(skills)}, and I am comfortable turning those strengths into dependable day-to-day results.`
-    : 'My background has prepared me to learn quickly, communicate clearly, and contribute with steady attention to detail.';
+  const skillPhrase = skillSentence(skills);
 
-  const achievementPhrase = achievements.length
-    ? `Examples of my work include ${joinSentenceList(achievements.map((item) => item.replace(/^[•\-]\s*/, '')))}.`
-    : 'I try to bring ownership, humility, and consistency to the responsibilities entrusted to me.';
+  const achievementPhrase = achievementSentence(achievements);
 
   const companyPhrase = whyCompany
     ? `What draws me to ${company} is this: ${whyCompany}`
@@ -338,7 +361,7 @@ function downloadTxt() {
 function downloadDoc() {
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Cover Letter</title></head><body>${previewHtml(true)}</body></html>`;
   downloadBlob(`${safeFileBase()}.doc`, 'application/msword;charset=utf-8', html);
-  setStatus('Word-compatible document downloaded.', 'success');
+  setStatus('Word-compatible .doc file downloaded.', 'success');
 }
 
 function printLetter() {
@@ -484,6 +507,7 @@ function render() {
             ])}
             <label class="field" for="settings-accent"><span>Accent color</span><input id="settings-accent" data-path="settings.accent" type="color" value="${escapeHtml(state.settings.accent)}"></label>
           </div>
+          <p class="muted style-preview">${escapeHtml(tonePreviewText())}</p>
           <div class="action-row">
             <button class="primary" id="generateBtn" type="button">Update live view</button>
             <button id="clearLetterBtn" type="button">Clear letter only</button>
@@ -527,10 +551,10 @@ function render() {
           <div class="action-grid">
             <button id="copyBtn" type="button">Copy text</button>
             <button id="downloadTxtBtn" type="button">Download TXT</button>
-            <button id="downloadDocBtn" type="button">Download Word-compatible DOC</button>
+            <button id="downloadDocBtn" type="button">Download Word-compatible file</button>
             <button id="printBtn" type="button">Print / Save PDF</button>
           </div>
-          <p class="muted">For PDF, choose “Print / Save PDF,” then select “Save as PDF” in your browser print dialog.</p>
+          <p class="muted">Review before sending. Confirm every claim is true. For PDF, choose “Print / Save PDF,” then select “Save as PDF” in your browser print dialog.</p>
         </section>
         <section class="letter-preview-wrap">
           <div class="preview-toolbar"><h2>Live preview</h2><span>${wordCount()} words</span></div>

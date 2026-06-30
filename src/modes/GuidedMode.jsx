@@ -8,7 +8,7 @@ import { SCORE_COLOR } from "../engine/analyzeResume";
 const STEP_TIPS = {
   0: {
     title: "Why role targeting matters",
-    body: "Selecting your target role unlocks keyword scoring. ATS systems scan for role-specific keywords — the closer your resume matches them, the higher you score.",
+    body: "Selecting your target role unlocks keyword alignment guidance. The closer your resume truthfully matches role-specific language, the stronger the guidance score becomes.",
   },
   1: {
     title: "Contact info tips",
@@ -37,7 +37,7 @@ const STEP_TIPS = {
   },
   7: {
     title: "Understanding your ATS score",
-    body: "80+ = likely to pass automated screening. 60–79 = strong with tweaks. Under 60 = review missing keywords and sections. Tailor each application separately.",
+    body: "80+ = strong keyword and formatting alignment. 60–79 = solid with targeted tweaks. Under 60 = review missing keywords, sections, and clarity. Tailor each application honestly.",
   },
 };
 
@@ -257,7 +257,7 @@ export default function GuidedMode({ data, setData, analysis, role, category, on
               {tip.example && <div className="rb-guided-tip-example">{tip.example}</div>}
               {analysis && (
                 <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>ATS Score so far</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>Alignment score so far</div>
                   <ScoreRing value={analysis.overall} size={64} />
                   {analysis.missingCritical.length > 0 && (
                     <div style={{ marginTop: 10 }}>

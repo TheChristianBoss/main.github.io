@@ -50,6 +50,15 @@ h1 { font-family: Georgia, serif; font-size: clamp(2.7rem, 8vw, 5.8rem); line-he
 .module-head p:not(.eyebrow) { color: var(--muted); line-height: 1.6; margin: .6rem 0 0; }
 .drop-zone { border: 1px dashed rgba(212,168,63,.5); border-radius: 18px; background: var(--panel-glow); min-height: 180px; display: grid; place-items: center; text-align: center; transition: .2s ease; padding: 1.6rem; }
 .drop-zone:hover, .drop-zone.is-dragging { border-color: var(--gold); background: rgba(212,168,63,.22); transform: translateY(-1px); }
+.drop-zone[data-disabled="true"] {
+  cursor: not-allowed;
+  opacity: .78;
+}
+.drop-zone[data-disabled="true"]:hover {
+  border-color: rgba(255,255,255,.16);
+  background: rgba(255,255,255,.035);
+  transform: none;
+}
 .drop-icon { width: 52px; height: 52px; border-radius: 999px; display: grid; place-items: center; margin: 0 auto .85rem; border: 1px solid rgba(212,168,63,.7); color: var(--gold); font-size: 1.6rem; }
 .drop-zone h3 { margin: 0; font-family: Georgia, serif; font-size: clamp(1.4rem, 3vw, 2.15rem); }
 .drop-zone p { margin: .5rem auto 0; color: var(--muted); max-width: 620px; }

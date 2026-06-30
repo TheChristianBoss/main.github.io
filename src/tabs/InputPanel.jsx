@@ -311,19 +311,19 @@ export default function InputPanel({
 
       {jobDescription.trim() && resume.trim() && (
         <button className="ats-btn ats-btn--secondary" onClick={onAutoTailor} disabled={isTailoring}>
-          {isTailoring ? "Tailoring…" : "Auto-tailor draft to job description"}
+          {isTailoring ? "Tailoring…" : "Suggest truthful tailoring edits"}
         </button>
       )}
 
       {tailoredResume && (
         <div className="ats-tailored-preview">
-          <label>Auto-Tailored Resume Preview</label>
+          <label>Draft Tailoring Suggestions Preview</label>
           <textarea rows="8" className="ats-textarea" value={tailoredResume} readOnly />
           <button
             className="ats-btn ats-btn--small"
             onClick={() => exportToDOCX(tailoredResume, "tailored-resume")}
           >
-            Export Tailored Resume (.docx)
+            Export reviewed draft (.docx)
           </button>
         </div>
       )}

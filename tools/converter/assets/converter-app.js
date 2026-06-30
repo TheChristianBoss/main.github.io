@@ -78,13 +78,14 @@ const TOOL_DEFINITIONS = [
   },
   {
     id: 'heavy',
-    label: 'OCR / Advanced',
-    eyebrow: 'Planned lazy modules',
-    title: 'OCR, Ebooks, Fonts & Cloud Mode',
-    description: 'A planning area for other bigger converters that should load only when requested.',
+    label: 'Coming Soon',
+    eyebrow: 'Roadmap only',
+    title: 'Advanced Converter Roadmap',
+    description: 'Planned OCR, ebook, font, redaction, and huge-file workflows. This section is informational and does not run conversions yet.',
     accept: '*/*',
-    multiple: true,
+    multiple: false,
     signatures: ['future'],
+    comingSoon: true,
     loader: () => import('./modules/plannedHeavyTools.js'),
   },
 ];
@@ -177,7 +178,7 @@ function detectDeviceProfile() {
   else if (cores > 0) score -= 1;
 
   if (isMobile) score -= 1;
-  if (saveData) score -= 2;
+  if (saveData) score -= 1;
   if (/slow-2g|2g/.test(effectiveType)) score -= 1;
 
   const tier = score >= 3 ? 'high' : score >= 1 ? 'medium' : 'low';
@@ -240,7 +241,7 @@ function renderSizeAdvice() {
     } else if (total > limit) {
       level = 'warn';
       headline = `Above recommended size: ${formatBytes(total)}`;
-      copy = `This may still work, but it could be slow or fail on this device. Recommended: ${formatBytes(limit)} or less for this module.`;
+      copy = `This may still work, but it could be slow or fail on this device. PDF, spreadsheet, image batch, and media work can use several times the selected file size in memory. Recommended: ${formatBytes(limit)} or less for this module.`;
     } else {
       level = 'ok';
       headline = `Selected size looks reasonable: ${formatBytes(total)}`;
@@ -252,7 +253,7 @@ function renderSizeAdvice() {
   refs.sizeAdvice.innerHTML = `
     <strong>${escapeHtml(headline)}</strong>
     <p>${escapeHtml(copy)}</p>
-    <small>Hard caution point for this module: ${escapeHtml(formatBytes(hardMax))} ${escapeHtml(guide.subject)}.</small>
+    <small>Hard caution point for this module: ${escapeHtml(formatBytes(hardMax))} ${escapeHtml(guide.subject)}. Keep the original file backed up.</small>
   `;
 }
 
@@ -309,9 +310,12 @@ function friendlyErrorMessage(err, context = 'conversion') {
   const raw = String(err?.message || err || 'Unknown error');
   const lower = raw.toLowerCase();
   if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to fetch')) {
-    return `Could not load a helper needed for this ${context}. Check your connection and try again. Some heavy modules load extra browser code only when needed.`;
+    return `Could not load a helper needed for this ${context}. Check your connection and try again. Media and some document tools load extra browser code only when needed.`;
   }
-  if (lower.includes('memory') || lower.includes('allocation') || lower.includes('out of bounds')) {
+  if (lower.includes('ffmpeg') || lower.includes('wasm') || lower.includes('webassembly')) {
+    return `The media engine could not finish loading or running. Try a smaller media file, refresh the page, and check your connection because the FFmpeg core is loaded only when needed.`;
+  }
+  if (lower.includes('memory') || lower.includes('allocation') || lower.includes('out of bounds') || lower.includes('quota')) {
     return `This ${context} likely used more memory than the browser could safely provide. Try a smaller file, lower the output size, or close other tabs.`;
   }
   if (lower.includes('encrypted') || lower.includes('password')) {
@@ -566,6 +570,10 @@ function toolCompatibilityNotes(tool, files) {
     notes.push('Batch mode skips files that do not match the chosen batch preset. Use one batch preset at a time.');
   }
 
+  if (tool.comingSoon) {
+    notes.push('This roadmap section is informational only; it does not convert files yet.');
+  }
+
   return notes;
 }
 
@@ -610,8 +618,10 @@ function updateFileInputForTool() {
   const tool = TOOL_DEFINITIONS.find((item) => item.id === state.activeToolId) || TOOL_DEFINITIONS[0];
   refs.fileInput.accept = tool.accept || '*/*';
   refs.fileInput.multiple = Boolean(tool.multiple);
-  refs.dropTitle.textContent = tool.multiple ? 'Drop one or more files here' : 'Drop a file here';
-  refs.dropCopy.textContent = `${tool.description} Files stay on your device.`;
+  refs.fileInput.disabled = Boolean(tool.comingSoon);
+  refs.dropZone.dataset.disabled = tool.comingSoon ? 'true' : 'false';
+  refs.dropTitle.textContent = tool.comingSoon ? 'Coming soon' : (tool.multiple ? 'Drop one or more files here' : 'Drop a file here');
+  refs.dropCopy.textContent = tool.comingSoon ? `${tool.description} No file needed yet.` : `${tool.description} Files stay on your device.`;
 }
 
 async function getActiveModule() {
@@ -737,7 +747,7 @@ function renderToolTabs() {
   refs.toolTabs.innerHTML = TOOL_DEFINITIONS.map((tool) => `
     <button class="tool-tab${tool.id === state.activeToolId ? ' active' : ''}" data-tool-id="${tool.id}" type="button">
       <span>${escapeHtml(tool.label)}</span>
-      <small>${escapeHtml(tool.eyebrow)}</small>
+      <small>${escapeHtml(tool.eyebrow)}${tool.comingSoon ? ' · not active yet' : ''}</small>
     </button>
   `).join('');
 
@@ -763,12 +773,20 @@ function initDropZone() {
 
   refs.dropZone.addEventListener('click', () => {
     if (Date.now() < suppressPickerUntil) return;
+    if (getActiveToolDefinition().comingSoon) {
+      setStatus('That converter group is marked Coming Soon and does not accept files yet.', 'info');
+      return;
+    }
     openPicker({ append: false });
   });
 
   refs.dropZone.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
+      if (getActiveToolDefinition().comingSoon) {
+        setStatus('That converter group is marked Coming Soon and does not accept files yet.', 'info');
+        return;
+      }
       openPicker({ append: false });
     }
   });
@@ -778,8 +796,8 @@ function initDropZone() {
     state.pickerAppendMode = false;
   });
 
-  refs.addMoreFiles.addEventListener('click', () => openPicker({ append: getActiveToolDefinition().multiple }));
-  refs.replaceFiles.addEventListener('click', () => openPicker({ append: false }));
+  refs.addMoreFiles.addEventListener('click', () => { if (getActiveToolDefinition().comingSoon) setStatus('That converter group is marked Coming Soon and does not accept files yet.', 'info'); else openPicker({ append: getActiveToolDefinition().multiple }); });
+  refs.replaceFiles.addEventListener('click', () => { if (getActiveToolDefinition().comingSoon) setStatus('That converter group is marked Coming Soon and does not accept files yet.', 'info'); else openPicker({ append: false }); });
   refs.clearFiles.addEventListener('click', clearSelectedFiles);
   refs.fileList.addEventListener('click', (event) => {
     const button = event.target.closest('[data-file-index]');
@@ -801,6 +819,10 @@ function initDropZone() {
 
   refs.dropZone.addEventListener('drop', (event) => {
     suppressPickerUntil = Date.now() + 700;
+    if (getActiveToolDefinition().comingSoon) {
+      setStatus('That converter group is marked Coming Soon and does not accept files yet.', 'info');
+      return;
+    }
     setFiles(event.dataTransfer.files, { append: Boolean(state.files.length && getActiveToolDefinition().multiple) });
   });
 }
@@ -840,7 +862,7 @@ function mount() {
         <section class="hero">
           <p class="eyebrow">Private Browser Tool</p>
           <h1>File Converter <span class="open-beta-badge">Open Beta</span></h1>
-          <p class="hero-copy">A modular converter for images, documents, PDFs, spreadsheets, text/data, ZIP files, utilities, and media tools. It smart-detects file types, estimates device capacity, and recommends safer file sizes before heavy conversions.</p>
+          <p class="hero-copy">A modular converter for images, documents, PDFs, spreadsheets, text/data, ZIP files, utilities, and media tools. It smart-detects file types, estimates device capacity, and recommends safer file sizes before heavy browser conversions.</p>
           <div class="hero-actions">
             <a class="hero-link" href="/tools/converter/privacy.html">Privacy & limits</a>
             <a class="hero-link subtle" href="/tools/converter/test.html">Open test page</a>
@@ -853,7 +875,7 @@ function mount() {
             <div class="tool-tabs" id="toolTabs"></div>
             <div class="privacy-card">
               <strong>Local by default</strong>
-              <p>Current modules run in the browser. Heavy PDF/media helpers load only when visitors open those modules. Your files are not uploaded by the static site.</p>
+              <p>Current modules run in the browser. Heavy PDF/media helpers load only when opened; media conversion also fetches the FFmpeg core on demand. Your files are not uploaded by the static site.</p>
               <a class="small-card-link" href="/tools/converter/privacy.html">Read privacy and limitations</a>
             </div>
             <div class="device-card" id="deviceCard"></div>
@@ -901,7 +923,7 @@ function mount() {
           </article>
           <article>
             <h3>Heavy mode</h3>
-            <p>Audio/video and advanced document work use more memory and may need smaller files or a stronger device.</p>
+            <p>Audio/video and advanced document work use more memory, may load helper code on demand, and may need smaller files or a stronger device.</p>
           </article>
           <article>
             <h3>Stability tools</h3>

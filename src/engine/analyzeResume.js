@@ -1,4 +1,5 @@
 import roleKeywords, { normalizeKeyword } from "../data/roleKeywords";
+import { getConfidenceLabel as getSharedConfidenceLabel, getResumeGrade } from "../utils/resumeUtils";
 import rolePhrases from "../data/phrases";
 import { strongActionVerbs, weakActionVerbs } from "../data/actionVerbs";
 
@@ -51,19 +52,9 @@ const parseResumeInsights = (text) => ({
   github: text.match(/(github\.com\/[A-Za-z0-9-_]+)/gi)?.[0] || null,
 });
 
-export const getGrade = (score) =>
-  score >= 90 ? "Excellent" :
-  score >= 75 ? "Strong" :
-  score >= 60 ? "Competitive" :
-  score >= 40 ? "Average" : "Needs Work";
+export const getGrade = (score) => getResumeGrade(score);
 
-export const getConfidenceLabel = (score) => {
-  if (score >= 85) return "Very likely to pass ATS screening";
-  if (score >= 70) return "Likely to pass ATS screening";
-  if (score >= 55) return "May pass ATS screening with improvements";
-  if (score >= 40) return "Unlikely to pass ATS screening";
-  return "Very unlikely to pass ATS screening";
-};
+export const getConfidenceLabel = (score) => getSharedConfidenceLabel(score);
 
 export const SCORE_COLOR = (v) => v >= 80 ? "#22c55e" : v >= 50 ? "#e8c547" : "#ef4444";
 

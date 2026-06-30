@@ -20,11 +20,11 @@ export const getResumeGrade = (v) => {
 };
 
 export const getConfidenceLabel = (s) => {
-  if (s >= 85) return "Very likely to pass ATS screening";
-  if (s >= 70) return "Likely to pass ATS screening";
-  if (s >= 55) return "May pass ATS screening with improvements";
-  if (s >= 40) return "Unlikely to pass ATS screening";
-  return "Very unlikely to pass ATS screening";
+  if (s >= 85) return "Strong keyword and formatting alignment";
+  if (s >= 70) return "Good alignment, with some improvement areas";
+  if (s >= 55) return "Partial alignment; review keywords, sections, and formatting";
+  if (s >= 40) return "Weak alignment; several important gaps need review";
+  return "Very weak alignment; rebuild around the target role";
 };
 
 // ─── ANALYSIS HELPERS ─────────────────────────────────────────────────────────

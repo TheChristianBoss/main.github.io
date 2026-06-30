@@ -151,7 +151,7 @@ export default function App() {
 
   const autoTailor = () => {
     if (!resume.trim() || !jobDescription.trim()) return;
-    if (!window.confirm("Auto-tailor adds missing terms only when they are truthfully supported by your experience. Review the result before using it.")) return;
+    if (!window.confirm("Auto-tailor adds missing terms only as draft suggestions when they are truthfully supported by your experience. Review, edit, and remove anything that is not accurate before using it.")) return;
     setIsTailoring(true);
     setTimeout(() => {
       const jdTokens = normalizeKeyword(jobDescription).split(/\W+/).filter((w) => w.length > 3 && !ignoredWords.includes(w));
@@ -162,7 +162,7 @@ export default function App() {
 
       let tailored = resume;
       if (toInject.length > 0) {
-        tailored += `\n\nTailored Skills to Review\n${toInject.join(", ")}`;
+        tailored += `\n\nDraft Skill Suggestions to Review\n${toInject.join(", ")}`;
       }
       tailored = tailored.split("\n").map((line) => rewriteBullet(line.trim()) || line).join("\n");
 
@@ -207,7 +207,7 @@ export default function App() {
               <span className="badge">No signup</span>
               <span className="badge">Local file parsing</span>
               <span className="badge">PDF / DOCX / image OCR</span>
-              <span className="badge">Heuristic score</span>
+              <span className="badge">Alignment estimate</span>
             </div>
           </section>
 

@@ -3,9 +3,9 @@ import ScoreRing from "./ScoreRing";
 import MiniBar from "./MiniBar";
 import { SCORE_COLOR } from "../engine/analyzeResume";
 
-const ATS_EXPLANATION = `ATS (Applicant Tracking System) Score
+const ATS_EXPLANATION = `Resume Alignment Score
 
-Your ATS score estimates how well your resume will pass automated screening software used by most employers.
+This score is a browser-local heuristic. It checks keyword alignment, section coverage, formatting signals, and quantified achievement signals. It is not a guarantee that an employer ATS, job board, recruiter, or hiring manager will accept or rank the resume.
 
 📊 How it's calculated:
 • Keywords (45%) — Critical and optional keywords for your target role
@@ -15,10 +15,10 @@ Your ATS score estimates how well your resume will pass automated screening soft
 • Stuffing Penalty — Deducted for keyword overuse
 
 🎯 Score ranges:
-• 80–100: Excellent — Likely to pass ATS screening
-• 60–79: Strong — Good chance of passing with minor tweaks
-• 40–59: Average — May need improvements
-• Below 40: Needs Work — Significant gaps detected`;
+• 80–100: Strong alignment — review once before applying
+• 60–79: Good alignment — improve missing keywords or sections
+• 40–59: Partial alignment — needs targeted revision
+• Below 40: Weak alignment — rebuild around the role and job description`;
 
 export default function ATSPanel({ analysis, role, skipped, onSkip, onInjectKeyword }) {
   const [panelTab, setPanelTab] = useState("score");
@@ -70,7 +70,7 @@ export default function ATSPanel({ analysis, role, skipped, onSkip, onInjectKeyw
         {!analysis ? (
           <div className="rb-empty">
             <div className="rb-empty-icon">📄</div>
-            <p>Fill in your resume to see live ATS feedback.</p>
+            <p>Fill in your resume to see live alignment feedback.</p>
             {!role && <p className="rb-empty-hint">Select a target role for keyword scoring.</p>}
           </div>
         ) : (
@@ -83,7 +83,7 @@ export default function ATSPanel({ analysis, role, skipped, onSkip, onInjectKeyw
                   <div>
                     <div className="rb-grade" style={{ color: SCORE_COLOR(analysis.overall) }}>{analysis.grade}</div>
                     <div className="rb-grade-sub">{analysis.confidenceLabel}</div>
-                    <button className="rb-ats-explain-btn" onClick={() => setShowModal(true)}>What is ATS? ⓘ</button>
+                    <button className="rb-ats-explain-btn" onClick={() => setShowModal(true)}>What does this score mean? ⓘ</button>
                   </div>
                 </div>
 

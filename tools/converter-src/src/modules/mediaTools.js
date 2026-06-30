@@ -179,7 +179,7 @@ async function loadFFmpeg(setStatus, refs) {
   ffmpegLoading = (async () => {
     refs.convertBtn.disabled = true;
     refs.loadBtn.disabled = true;
-    setStatus('Loading FFmpeg media engine. This can take a moment the first time.', 'info');
+    setStatus('Loading FFmpeg media engine. This can take a moment the first time and needs a working connection for the on-demand core.', 'info');
 
     const [{ FFmpeg }, { toBlobURL }] = await Promise.all([
       import(FFMPEG_IMPORTS.ffmpeg),
@@ -312,7 +312,7 @@ function updateHint(refs, file, helpers) {
   refs.videoOptions.style.display = isVideoOutput || isGif ? '' : 'none';
   refs.gifOptions.style.display = isGif ? '' : 'none';
   refs.hint.textContent = file
-    ? `${file.name} will be exported as .${preset.extension}. For large media, conversion can be slow.`
+    ? `${file.name} will be exported as .${preset.extension}. For large media, conversion can be slow or fail in browser mode.`
     : `Choose a media file and export as .${preset.extension}.`;
   updateDeviceAdvice(refs, file, helpers);
 }
@@ -323,7 +323,7 @@ export function render({ root, files, setStatus, helpers }) {
     <div class="module-panel">
       <div class="notice-box">
         <strong>Heavy lazy module</strong>
-        <p>This loads FFmpeg WebAssembly only when you use audio/video conversion. Files still process in your browser. Very large videos may be slow or fail on low-memory devices.</p>
+        <p>This loads FFmpeg WebAssembly only when you use audio/video conversion, including the FFmpeg core fetched on demand. Files still process in your browser, but very large videos may be slow or fail on low-memory devices.</p>
       </div>
 
       <div class="grid-controls two">
