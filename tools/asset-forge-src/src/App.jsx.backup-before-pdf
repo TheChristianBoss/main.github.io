@@ -1,5 +1,4 @@
 import JSZip from "jszip";
-import { PDFDocument } from "pdf-lib";
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
@@ -595,50 +594,6 @@ function downloadBlob(blob, fileName) {
   link.click();
   URL.revokeObjectURL(url);
 }
-
-async function renderDesignToPdfBlob(design, userImage) {
-  const imageBlob = await renderDesignToBlob(design, userImage);
-  const imageBytes = await imageBlob.arrayBuffer();
-
-  const pdfDoc = await PDFDocument.create();
-  const embeddedImage = await pdfDoc.embedPng(imageBytes);
-
-  const pageWidth = 612;
-  const pageHeight = 792;
-  const margin = 36;
-
-  const page = pdfDoc.addPage([pageWidth, pageHeight]);
-
-  const maxImageWidth = pageWidth - margin * 2;
-  const maxImageHeight = pageHeight - margin * 2;
-
-  const imageWidth = embeddedImage.width;
-  const imageHeight = embeddedImage.height;
-
-  const scale = Math.min(
-    maxImageWidth / imageWidth,
-    maxImageHeight / imageHeight
-  );
-
-  const drawWidth = imageWidth * scale;
-  const drawHeight = imageHeight * scale;
-  const drawX = (pageWidth - drawWidth) / 2;
-  const drawY = (pageHeight - drawHeight) / 2;
-
-  page.drawImage(embeddedImage, {
-    x: drawX,
-    y: drawY,
-    width: drawWidth,
-    height: drawHeight
-  });
-
-  const pdfBytes = await pdfDoc.save();
-
-  return new Blob([pdfBytes], {
-    type: "application/pdf"
-  });
-}
-
 export default function App() {
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -733,20 +688,6 @@ export default function App() {
       setZipStatus("PNG ready.");
     } catch (error) {
       setZipStatus(error.message || "The browser could not export this PNG.");
-    }
-  }
-
-
-  async function downloadCurrentPdf() {
-    try {
-      setZipStatus("Building PDF...");
-
-      const pdfBlob = await renderDesignToPdfBlob(design, userImage);
-      downloadBlob(pdfBlob, `asset-forge-${activeTemplate.id}.pdf`);
-
-      setZipStatus("PDF ready.");
-    } catch (error) {
-      setZipStatus(error.message || "The browser could not build this PDF.");
     }
   }
 
@@ -1016,15 +957,6 @@ export default function App() {
             Download PNG
           </button>
 
-          <button
-            type="button"
-            className="secondary-button single-export-button"
-            onClick={downloadCurrentPdf}
-          >
-            Download PDF
-          </button>
-
-
           <div className="export-grid">
             <button
               type="button"
@@ -1069,4 +1001,3 @@ export default function App() {
     </main>
   );
 }
-
