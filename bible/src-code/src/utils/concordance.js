@@ -2,27 +2,41 @@ import { compareByCanonicalOrder } from './bookOrder.js'
 
 // Concordance search: "show me every verse using H1254" (bara/create).
 //
-// The index is sharded at build time (see scripts/build_concordance.py)
-// so looking up one number only fetches the ~1-5MB shard it lives in,
-// not the full ~65MB index. The manifest itself is small and cached
-// once per session.
+// The concordance index lives in public/concordance during development and
+// is deployed to /bible/concordance/ in production. Fetching the shard files
+// instead of bundling them keeps the main app bundle small and avoids Vite
+// dropping the import glob when the data is not inside src/data.
 
-const shardModules = import.meta.glob('../data/concordance/*.json')
+const BASE_URL = (import.meta.env?.BASE_URL || '/bible/').replace(/\/?$/, '/')
+const CONCORDANCE_BASE = `${BASE_URL}concordance/`
+
+async function fetchJson(path, fallback) {
+  try {
+    const response = await fetch(path)
+    if (!response.ok) return fallback
+    return await response.json()
+  } catch {
+    return fallback
+  }
+}
 
 let manifestPromise = null
 function loadManifest() {
   if (!manifestPromise) {
-    const importer = shardModules['../data/concordance/manifest.json']
-    manifestPromise = importer ? importer().then((m) => m.default) : Promise.resolve({})
+    manifestPromise = fetchJson(`${CONCORDANCE_BASE}manifest.json`, {})
   }
   return manifestPromise
 }
 
 const shardCache = new Map()
 function loadShard(shardName) {
+  if (!shardName) return Promise.resolve(null)
   if (shardCache.has(shardName)) return shardCache.get(shardName)
-  const importer = shardModules[`../data/concordance/${shardName}.json`]
-  const promise = importer ? importer().then((m) => m.default) : Promise.resolve(null)
+
+  // Manifest values are expected to look like "G0-G499" or "H1000-H1499".
+  // Keep the filename restricted so user input can never shape an arbitrary URL.
+  const safeShardName = String(shardName).replace(/[^HG0-9-]/g, '')
+  const promise = fetchJson(`${CONCORDANCE_BASE}${safeShardName}.json`, null)
   shardCache.set(shardName, promise)
   return promise
 }

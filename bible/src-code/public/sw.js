@@ -20,7 +20,7 @@
 //    people get the latest build when online, falling back to the
 //    cached shell, then to offline.html, when there's no connection.
 
-const VERSION = 'v1'
+const VERSION = 'v2-concordance'
 const SHELL_CACHE = `obl-shell-${VERSION}`
 const DATA_CACHE = `obl-data-${VERSION}`
 
@@ -56,7 +56,7 @@ self.addEventListener('activate', (event) => {
 })
 
 function isDataRequest(url) {
-  return /\/src\/data\/|\/assets\/.*\.json$/.test(url.pathname)
+  return /\/(src\/data|assets|concordance|crossrefs|data)\/.*\.json$/.test(url.pathname)
 }
 
 function isBuildAsset(url) {
