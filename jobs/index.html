@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Christian Goblin — Jobs</title>
+  <meta name="description" content="Private job-code application portal for Christian Goblin project roles." />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <main class="shell">
+    <section class="hero card">
+      <p class="kicker">Christian Goblin Projects</p>
+      <h1>Job Application Portal</h1>
+      <p>
+        Enter the job code you were given. If the code matches an open role, the application questions will appear.
+      </p>
+    </section>
+
+    <section class="card" id="codePanel">
+      <h2>Enter Job Code</h2>
+
+      <form id="codeForm" class="form-stack">
+        <label for="jobCode">Job code</label>
+        <div class="code-row">
+          <input
+            id="jobCode"
+            name="jobCode"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="12"
+            placeholder="Example: 9432"
+            required
+          />
+          <button type="submit">Check Code</button>
+        </div>
+      </form>
+
+      <p id="codeMessage" class="message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card hidden" id="applicationPanel">
+      <div class="top-row">
+        <div>
+          <p class="kicker">Application For</p>
+          <h2 id="roleTitle">Role Title</h2>
+          <p id="roleSummary" class="muted"></p>
+        </div>
+
+        <button type="button" class="secondary" id="changeCodeButton">Change Code</button>
+      </div>
+
+      <form id="applicationForm" class="form-stack">
+        <input type="hidden" id="activeCode" />
+
+        <h3>Applicant Info</h3>
+
+        <div class="grid two">
+          <div class="field">
+            <label for="fullName">Full name <span>*</span></label>
+            <input id="fullName" name="fullName" type="text" autocomplete="name" required />
+          </div>
+
+          <div class="field">
+            <label for="email">Email <span>*</span></label>
+            <input id="email" name="email" type="email" autocomplete="email" required />
+          </div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label for="bestContact">Best contact method</label>
+            <input id="bestContact" name="bestContact" type="text" placeholder="Discord, phone, email, etc." />
+          </div>
+
+          <div class="field">
+            <label for="portfolio">Portfolio / examples link</label>
+            <input id="portfolio" name="portfolio" type="url" placeholder="https://..." />
+          </div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label for="availability">Availability</label>
+            <input id="availability" name="availability" type="text" placeholder="Example: 5–10 hrs/week" />
+          </div>
+
+          <div class="field">
+            <label for="payPreference">Pay preference</label>
+            <input id="payPreference" name="payPreference" type="text" placeholder="Hourly, commission, project-based, etc." />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="experience">Relevant experience</label>
+          <textarea id="experience" name="experience" rows="5"></textarea>
+        </div>
+
+        <div id="questionArea" class="form-stack"></div>
+
+        <div class="field">
+          <label for="notes">Anything else?</label>
+          <textarea id="notes" name="notes" rows="4"></textarea>
+        </div>
+
+        <!-- Honeypot. Real users should not fill this out. -->
+        <div class="hp" aria-hidden="true">
+          <label for="website">Website</label>
+          <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <button type="submit" id="submitButton">Submit Application</button>
+      </form>
+
+      <p id="submitMessage" class="message" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

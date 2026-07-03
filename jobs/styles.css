@@ -1,0 +1,226 @@
+/* Christian Goblin Jobs — old Worker compatible static site */
+
+:root {
+  --bg: #0d1017;
+  --card: #171d27;
+  --card2: #1e2633;
+  --text: #f4efe2;
+  --muted: #bab2a4;
+  --line: #303a4c;
+  --accent: #e7bb63;
+  --accent2: #8dd56f;
+  --danger: #ff8b8b;
+  --radius: 18px;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.38);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(231, 187, 99, 0.16), transparent 34rem),
+    radial-gradient(circle at bottom right, rgba(141, 213, 111, 0.12), transparent 32rem),
+    var(--bg);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.shell {
+  width: min(980px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 44px 0;
+}
+
+.card {
+  background: linear-gradient(180deg, var(--card), var(--card2));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: clamp(20px, 4vw, 34px);
+  margin-bottom: 20px;
+}
+
+.hero h1 {
+  font-size: clamp(2.1rem, 6vw, 4.35rem);
+  margin-bottom: 12px;
+}
+
+.hero p {
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 1.08rem;
+}
+
+.kicker {
+  margin: 0 0 8px;
+  color: var(--accent);
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.13em;
+  font-weight: 900;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h2 {
+  font-size: clamp(1.45rem, 4vw, 2.2rem);
+}
+
+h3 {
+  margin-top: 10px;
+  color: var(--accent2);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.form-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+label {
+  font-weight: 800;
+}
+
+label span {
+  color: var(--accent);
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+textarea {
+  width: 100%;
+  color: var(--text);
+  background: #0f141d;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 13px 14px;
+  outline: none;
+}
+
+textarea {
+  resize: vertical;
+}
+
+input:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(231, 187, 99, 0.16);
+}
+
+button {
+  border: 0;
+  border-radius: 12px;
+  padding: 13px 18px;
+  color: #171105;
+  background: var(--accent);
+  font-weight: 950;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.05);
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+button.secondary {
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.code-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+}
+
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.question-box {
+  padding: 16px;
+  background: rgba(15, 20, 29, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.message {
+  min-height: 1.4rem;
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.message.good {
+  color: var(--accent2);
+}
+
+.message.bad {
+  color: var(--danger);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.hp {
+  position: absolute;
+  left: -9999px;
+  opacity: 0;
+}
+
+@media (max-width: 720px) {
+  .grid.two,
+  .code-row {
+    grid-template-columns: 1fr;
+  }
+
+  .top-row {
+    display: grid;
+  }
+
+  button {
+    width: 100%;
+  }
+}
