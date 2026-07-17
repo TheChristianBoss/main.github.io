@@ -9,7 +9,9 @@
     "build:ats": "vite build --config vite.ats.config.js",
     "build:resume": "vite build --config vite.resume.config.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:converter": "vite build --config vite.converter.config.js",
+    "test:converter-image-pdf": "node tools/converter-src/tests/image-pdf-smoke.mjs"
   },
   "dependencies": {
     "docx": "^9.7.1",

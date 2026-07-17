@@ -25,10 +25,43 @@ function partLength(part) {
   return part.byteLength || part.length || 0;
 }
 
-function buildPdfFromJpegs(pages) {
+function sanitizePdfMetadataText(value) {
+  let text = '';
+  for (const character of String(value ?? '')) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint === 9 || codePoint === 10 || codePoint === 13 || (codePoint >= 32 && codePoint !== 127)) {
+      text += character;
+    }
+  }
+  return text;
+}
+
+function pdfInfoString(value) {
+  const text = sanitizePdfMetadataText(value);
+  const isAscii = [...text].every((character) => character.codePointAt(0) <= 126);
+  if (isAscii) {
+    const escaped = text
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n')
+      .replace(/\t/g, '\\t');
+    return `(${escaped})`;
+  }
+
+  let hex = 'FEFF';
+  for (let index = 0; index < text.length; index += 1) {
+    hex += text.charCodeAt(index).toString(16).padStart(4, '0').toUpperCase();
+  }
+  return `<${hex}>`;
+}
+
+export function buildPdfFromJpegs(pages) {
   let nextId = 1;
   const catalogId = nextId++;
   const pagesId = nextId++;
+  const infoId = nextId++;
   const pageObjects = [];
   const imageObjects = [];
   const contentObjects = [];
@@ -45,6 +78,7 @@ function buildPdfFromJpegs(pages) {
   const objects = new Map();
   objects.set(catalogId, [`<< /Type /Catalog /Pages ${pagesId} 0 R >>`]);
   objects.set(pagesId, [`<< /Type /Pages /Kids [${pageObjects.map((page) => `${page.id} 0 R`).join(' ')}] /Count ${pageObjects.length} >>`]);
+  objects.set(infoId, [`<< /Producer ${pdfInfoString('Christian Goblin File Converter')} /Title ${pdfInfoString(pages[0]?.name || 'Converted Images')} >>`]);
 
   for (const page of pageObjects) {
     objects.set(page.id, [`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${page.width} ${page.height}] /Resources << /XObject << /Im${page.imageId} ${page.imageId} 0 R >> >> /Contents ${page.contentId} 0 R >>`]);
@@ -82,7 +116,7 @@ function buildPdfFromJpegs(pages) {
   const xrefStart = length;
   push(`xref\n0 ${nextId}\n0000000000 65535 f \n`);
   for (let id = 1; id < nextId; id += 1) push(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
-  push(`trailer\n<< /Size ${nextId} /Root ${catalogId} 0 R /Info << /Producer (Christian Goblin File Converter) /Title (${escapePdfText(pages[0]?.name || 'Converted Images')}) >> >>\nstartxref\n${xrefStart}\n%%EOF`);
+  push(`trailer\n<< /Size ${nextId} /Root ${catalogId} 0 R /Info ${infoId} 0 R >>\nstartxref\n${xrefStart}\n%%EOF`);
 
   return new Blob(parts, { type: 'application/pdf' });
 }
