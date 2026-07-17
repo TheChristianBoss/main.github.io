@@ -10,11 +10,13 @@
 
 <body>
   <main class="shell">
+    <a class="back-link" href="/">← Back to Christian Goblin</a>
+
     <section class="hero card">
       <p class="kicker">Christian Goblin Projects</p>
       <h1>Job Application Portal</h1>
       <p>
-        Enter the job code you were given. If the code matches an open role, the application questions will appear.
+        Enter the private job code you were given. If it matches an open role, the application questions will appear.
       </p>
     </section>
 
@@ -22,19 +24,21 @@
       <h2>Enter Job Code</h2>
 
       <form id="codeForm" class="form-stack">
-        <label for="jobCode">Job code</label>
+        <label for="jobCode">Private job code</label>
         <div class="code-row">
           <input
             id="jobCode"
             name="jobCode"
             type="text"
-            inputmode="numeric"
             autocomplete="off"
-            maxlength="12"
-            placeholder="Example: 9432"
+            autocapitalize="characters"
+            spellcheck="false"
+            minlength="12"
+            maxlength="64"
+            placeholder="Enter the full code"
             required
           />
-          <button type="submit">Check Code</button>
+          <button id="codeButton" type="submit">Check Code</button>
         </div>
       </form>
 
@@ -53,56 +57,67 @@
       </div>
 
       <form id="applicationForm" class="form-stack">
-        <input type="hidden" id="activeCode" />
-
-        <h3>Applicant Info</h3>
+        <h3>Applicant Information</h3>
 
         <div class="grid two">
           <div class="field">
             <label for="fullName">Full name <span>*</span></label>
-            <input id="fullName" name="fullName" type="text" autocomplete="name" required />
+            <input id="fullName" name="fullName" type="text" autocomplete="name" maxlength="200" required />
           </div>
 
           <div class="field">
             <label for="email">Email <span>*</span></label>
-            <input id="email" name="email" type="email" autocomplete="email" required />
+            <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required />
           </div>
         </div>
 
         <div class="grid two">
           <div class="field">
             <label for="bestContact">Best contact method</label>
-            <input id="bestContact" name="bestContact" type="text" placeholder="Discord, phone, email, etc." />
+            <input id="bestContact" name="bestContact" type="text" maxlength="400" placeholder="Discord, phone, email, etc." />
           </div>
 
           <div class="field">
             <label for="portfolio">Portfolio / examples link</label>
-            <input id="portfolio" name="portfolio" type="url" placeholder="https://..." />
+            <input id="portfolio" name="portfolio" type="url" maxlength="900" placeholder="https://..." />
           </div>
         </div>
 
         <div class="grid two">
           <div class="field">
             <label for="availability">Availability</label>
-            <input id="availability" name="availability" type="text" placeholder="Example: 5–10 hrs/week" />
+            <input id="availability" name="availability" type="text" maxlength="700" placeholder="Example: 5–10 hrs/week" />
           </div>
 
           <div class="field">
             <label for="payPreference">Pay preference</label>
-            <input id="payPreference" name="payPreference" type="text" placeholder="Hourly, commission, project-based, etc." />
+            <input id="payPreference" name="payPreference" type="text" maxlength="400" placeholder="Hourly, commission, project-based, etc." />
           </div>
         </div>
 
         <div class="field">
           <label for="experience">Relevant experience</label>
-          <textarea id="experience" name="experience" rows="5"></textarea>
+          <textarea id="experience" name="experience" rows="5" maxlength="1500"></textarea>
         </div>
 
         <div id="questionArea" class="form-stack"></div>
 
         <div class="field">
           <label for="notes">Anything else?</label>
-          <textarea id="notes" name="notes" rows="4"></textarea>
+          <textarea id="notes" name="notes" rows="4" maxlength="1000"></textarea>
+        </div>
+
+        <div class="notice">
+          <label class="checkbox-row" for="privacyAccepted">
+            <input id="privacyAccepted" name="privacyAccepted" type="checkbox" required />
+            <span>
+              I understand that my application information will be sent to the Christian Goblin hiring team through its private application service and Discord workflow. See the <a href="/privacy/" target="_blank" rel="noopener">privacy policy</a>.
+            </span>
+          </label>
+        </div>
+
+        <div class="captcha-wrap">
+          <div id="turnstileContainer" aria-label="Human verification"></div>
         </div>
 
         <!-- Honeypot. Real users should not fill this out. -->
@@ -118,6 +133,8 @@
     </section>
   </main>
 
-  <script src="./app.js"></script>
+  <script src="./config.js"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
+  <script src="./app.js" defer></script>
 </body>
 </html>
