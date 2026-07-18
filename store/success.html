@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Order Confirmed — Christian Goblin</title>
+  <title>Verifying Order — Christian Goblin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -76,12 +76,12 @@
 
   <main>
     <div class="card">
-      <div class="check">✓</div>
-      <h1>Order Confirmed</h1>
-      <p>Your payment was successful. Physical items will be prepared for shipment, and paid service requests will be sent to me for follow-up.</p>
-      <p>If your order included a service, I will contact you using your checkout contact information.</p>
+      <div class="check" id="statusIcon" aria-hidden="true">…</div>
+      <h1 id="pageHeading">Verifying Order</h1>
+      <p id="orderSummary">We are securely checking the checkout session before confirming your order.</p>
+      <p id="serviceSummary">Your cart will remain unchanged until payment is verified.</p>
       <hr class="divider" />
-      <p id="orderStatus">Verifying your checkout session…</p>
+      <p id="orderStatus" role="status" aria-live="polite">Verifying your checkout session…</p>
       <p class="ref" id="sessionRef"></p>
       <a class="btn" href="/store/">Back to Shop</a>
     </div>
@@ -100,27 +100,96 @@
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: (currency || 'usd').toUpperCase() }).format(n / 100);
     }
 
+    function setPageState({ heading, summary, detail, icon = '!', title = heading }) {
+      document.getElementById('pageHeading').textContent = heading;
+      document.getElementById('orderSummary').textContent = summary;
+      document.getElementById('serviceSummary').textContent = detail;
+      document.getElementById('statusIcon').textContent = icon;
+      document.title = `${title} — Christian Goblin`;
+    }
+
+    function clearVerifiedCart() {
+      try {
+        localStorage.removeItem('cg_cart');
+      } catch {
+        // Storage can be unavailable in strict privacy modes. Payment is still valid.
+      }
+    }
+
     async function loadSession() {
       const params = new URLSearchParams(window.location.search);
       const sid = params.get('session_id');
       const ref = document.getElementById('sessionRef');
       const status = document.getElementById('orderStatus');
+
       if (!sid) {
-        status.textContent = 'No checkout reference was found. Your cart has not been changed.';
+        setPageState({
+          heading: 'Checkout Not Verified',
+          summary: 'No checkout reference was found.',
+          detail: 'Your cart has not been changed. Return to the shop or contact support if you completed a payment.',
+          icon: '!',
+        });
+        status.textContent = 'Missing checkout reference.';
         return;
       }
-      localStorage.removeItem('cg_cart');
+
       ref.textContent = `Order ref: ${sid.slice(-12)}`;
+
       try {
-        const res = await fetch(`${WORKER}/session?id=${encodeURIComponent(sid)}`);
-        const data = await res.json();
+        const res = await fetch(`${WORKER}/session?id=${encodeURIComponent(sid)}`, {
+          headers: { Accept: 'application/json' },
+        });
+        const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.session) throw new Error(data.error || 'Could not load session');
-        const s = data.session;
-        const total = s.amount_total ? ` Total paid: ${money(s.amount_total, s.currency)}.` : '';
-        const serviceNote = Number(s.service_count || 0) > 0 ? ' Service request received; I will contact you soon.' : '';
-        status.textContent = `Payment status: ${s.payment_status || 'received'}.${total}${serviceNote}`;
-      } catch {
-        status.textContent = 'Payment was received. If your order included a service, I will contact you using the checkout contact information. If you need help, email hello@christiangoblin.com.';
+
+        const session = data.session;
+        const paymentStatus = String(session.payment_status || '').toLowerCase();
+        const checkoutStatus = String(session.status || '').toLowerCase();
+        const amount = Number(session.amount_total);
+        const total = Number.isFinite(amount) ? ` Total paid: ${money(amount, session.currency)}.` : '';
+        const hasService = Number(session.service_count || 0) > 0;
+
+        if (paymentStatus === 'paid' && checkoutStatus === 'complete') {
+          clearVerifiedCart();
+          setPageState({
+            heading: 'Order Confirmed',
+            summary: 'Your payment was verified successfully. Physical items will be prepared for shipment.',
+            detail: hasService
+              ? 'Your paid service request was received, and I will contact you using your checkout information.'
+              : 'You will receive any available order updates through your checkout contact information.',
+            icon: '✓',
+          });
+          status.textContent = `Payment verified.${total}`;
+          return;
+        }
+
+        if (checkoutStatus === 'open' || paymentStatus === 'unpaid') {
+          setPageState({
+            heading: 'Payment Processing',
+            summary: 'Stripe has not confirmed payment yet.',
+            detail: 'Your cart has not been changed. Refresh this page after payment completes, or return to checkout.',
+            icon: '…',
+          });
+          status.textContent = `Current payment status: ${paymentStatus || 'pending'}.`;
+          return;
+        }
+
+        setPageState({
+          heading: 'Payment Not Confirmed',
+          summary: 'This checkout session is not marked as paid.',
+          detail: 'Your cart has not been changed. Contact hello@christiangoblin.com if you believe payment completed.',
+          icon: '!',
+        });
+        status.textContent = `Checkout status: ${checkoutStatus || 'unknown'}; payment status: ${paymentStatus || 'unknown'}.`;
+      } catch (error) {
+        console.error('Checkout verification failed:', error);
+        setPageState({
+          heading: 'Unable to Verify Payment',
+          summary: 'The store could not securely verify this checkout session.',
+          detail: 'Your cart has not been changed. Check your Stripe receipt or contact hello@christiangoblin.com before trying another payment.',
+          icon: '!',
+        });
+        status.textContent = 'Payment verification is temporarily unavailable.';
       }
     }
 

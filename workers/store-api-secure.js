@@ -700,11 +700,25 @@ export default {
         let event;
         try { event = JSON.parse(rawBody); } catch { return error(request, 'Invalid JSON'); }
 
-        if (event.type !== 'checkout.session.completed') {
+        const fulfillmentEvents = new Set([
+          'checkout.session.completed',
+          'checkout.session.async_payment_succeeded',
+        ]);
+        if (!fulfillmentEvents.has(event.type)) {
           return json({ received: true }, 200, request);
         }
 
-        const session = event.data.object;
+        const session = event.data?.object || {};
+        if (session.payment_status !== 'paid') {
+          // Delayed payment methods can complete Checkout before funds are confirmed.
+          // Do not fulfill until Stripe later sends async_payment_succeeded.
+          return json({
+            received: true,
+            pending_payment: true,
+            payment_status: session.payment_status || 'unknown',
+          }, 200, request);
+        }
+
         const idempotencyKey = `stripe-session:${session.id}`;
         if (await alreadyProcessed(env, idempotencyKey)) {
           return json({ received: true, duplicate: true }, 200, request);
