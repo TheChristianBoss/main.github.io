@@ -1,16 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Builds the Resume Builder bundle into tools/resume/ for /tools/resume/.
-// Vite emits resume-index.html because the source HTML is resume-index.html;
-// after building, copy tools/resume/resume-index.html to tools/resume/index.html
-// and remove the temporary resume-index.html before deploying.
+// The unified build coordinator overrides outDir with a staging directory,
+// verifies the result, then promotes resume-index.html to tools/resume/index.html.
 export default defineConfig({
   plugins: [react()],
   base: '/tools/resume/',
   build: {
-    outDir: 'tools/resume',
-    emptyOutDir: false,
+    outDir: process.env.CG_BUILD_OUT_DIR || 'tools/resume',
+    emptyOutDir: Boolean(process.env.CG_BUILD_OUT_DIR),
     rollupOptions: {
       input: 'resume-index.html',
     },

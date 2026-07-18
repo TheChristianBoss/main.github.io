@@ -27,3 +27,7 @@ dist-ssr
 *.backup-before-*
 tools/asset-forge-src/patch-*.mjs
 assetprimary.zip
+
+# Atomic application build staging
+.build-staging/
+.build-backup/

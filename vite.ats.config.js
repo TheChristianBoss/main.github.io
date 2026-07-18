@@ -1,15 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Builds the ATS Checker into tools/ats/, matching the site's live URL
-// structure. `base` is set so generated asset URLs resolve correctly when
-// served from /tools/ats/ instead of the site root.
+// The unified build coordinator overrides outDir with a staging directory,
+// verifies the result, then promotes ats-index.html to tools/ats/index.html.
 export default defineConfig({
   plugins: [react()],
   base: '/tools/ats/',
   build: {
-    outDir: 'tools/ats',
-    emptyOutDir: false, // preserve favicon.svg / icons.svg already in tools/ats/
+    outDir: process.env.CG_BUILD_OUT_DIR || 'tools/ats',
+    emptyOutDir: Boolean(process.env.CG_BUILD_OUT_DIR),
     rollupOptions: {
       input: 'ats-index.html',
     },
