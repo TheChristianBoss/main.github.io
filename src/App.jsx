@@ -66,7 +66,7 @@ export default function App() {
 
   useEffect(() => {
     const payload = { category, role, resume, jobDescription, comparisonMode, resumeB };
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(payload)); } catch {}
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(payload)); } catch { /* Autosave is optional when storage is unavailable. */ }
   }, [category, role, resume, jobDescription, comparisonMode, resumeB]);
 
   const saveVersion = useCallback((text, label) => {
@@ -76,7 +76,7 @@ export default function App() {
         ...prev.slice(-19),
         { id: Date.now(), label: label || `Version ${prev.length + 1}`, text, timestamp: new Date().toLocaleString() },
       ];
-      try { localStorage.setItem(VERSIONS_KEY, JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(VERSIONS_KEY, JSON.stringify(next)); } catch { /* Version history remains available for this session. */ }
       return next;
     });
   }, []);
@@ -94,7 +94,7 @@ export default function App() {
     try {
       localStorage.removeItem(VERSIONS_KEY);
       localStorage.removeItem(HISTORY_KEY);
-    } catch {}
+    } catch { /* Clearing browser storage is best-effort. */ }
   };
 
   const resetAll = () => {
@@ -110,7 +110,7 @@ export default function App() {
     setAnalysisBData(null);
     dispatchAnalysis({ type: "CLEAR" });
     setActiveTab("input");
-    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* Reset the in-memory draft even if storage is unavailable. */ }
   };
 
   const analyzeResume = useCallback(() => {
@@ -132,7 +132,7 @@ export default function App() {
           label: `Run ${prev.length + 1}`,
         },
       ];
-      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch { /* Score history remains available for this session. */ }
       return next;
     });
 

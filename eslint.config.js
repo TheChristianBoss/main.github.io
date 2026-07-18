@@ -5,7 +5,19 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', '.build-staging', '.build-backup']),
+  globalIgnores([
+    'dist/**',
+    '.build-staging/**',
+    '.build-backup/**',
+    'bible/**',
+    'editor/**',
+    'tools/ats/**',
+    'tools/resume/**',
+    'tools/cover/**',
+    'tools/converter/**',
+    'tools/asset-forge/**',
+    '**/node_modules/**',
+  ]),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -16,6 +28,12 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+  },
+  {
+    files: ['tools/converter-src/src/vendor/ffmpeg/ffmpeg/worker.js'],
+    languageOptions: {
+      globals: globals.worker,
     },
   },
   {

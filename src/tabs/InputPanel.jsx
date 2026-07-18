@@ -35,6 +35,43 @@ function detectUploadType(file) {
   return "unknown";
 }
 
+function UploadBox({ id, inputType, onFile, loading, error, progress, fileMeta, onClear }) {
+  return (
+    <div
+      className="ats-upload-box"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files?.[0];
+        if (file) onFile(file);
+      }}
+    >
+      <input
+        id={id}
+        type="file"
+        accept={getAcceptForInputType(inputType)}
+        disabled={loading}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onFile(file);
+          e.target.value = "";
+        }}
+        className="ats-file-input"
+      />
+      <p className="ats-muted ats-small">Drop a file here, or choose one. Existing text is replaced only after a readable file is loaded.</p>
+      {fileMeta && (
+        <div className="ats-file-pill">
+          <span>{fileMeta.name}</span>
+          <span>{formatBytes(fileMeta.size)}</span>
+          <button type="button" onClick={onClear}>Remove</button>
+        </div>
+      )}
+      {loading && <p className="ats-muted ats-small">{progress || "Reading file…"}</p>}
+      {error && <p className="ats-error-text">{error}</p>}
+    </div>
+    );
+}
+
 export default function InputPanel({
   category, setCategory,
   role, setRole,
@@ -111,41 +148,6 @@ export default function InputPanel({
       setProgress?.("");
     }
   };
-
-  const UploadBox = ({ id, inputType, onFile, loading, error, progress, fileMeta, onClear }) => (
-    <div
-      className="ats-upload-box"
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        const file = e.dataTransfer.files?.[0];
-        if (file) onFile(file);
-      }}
-    >
-      <input
-        id={id}
-        type="file"
-        accept={getAcceptForInputType(inputType)}
-        disabled={loading}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onFile(file);
-          e.target.value = "";
-        }}
-        className="ats-file-input"
-      />
-      <p className="ats-muted ats-small">Drop a file here, or choose one. Existing text is replaced only after a readable file is loaded.</p>
-      {fileMeta && (
-        <div className="ats-file-pill">
-          <span>{fileMeta.name}</span>
-          <span>{formatBytes(fileMeta.size)}</span>
-          <button type="button" onClick={onClear}>Remove</button>
-        </div>
-      )}
-      {loading && <p className="ats-muted ats-small">{progress || "Reading file…"}</p>}
-      {error && <p className="ats-error-text">{error}</p>}
-    </div>
-  );
 
   const clearResumeA = () => {
     setResume("");

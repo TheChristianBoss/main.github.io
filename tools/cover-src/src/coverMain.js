@@ -159,7 +159,7 @@ function skillSentence(skills) {
 }
 
 function achievementSentence(achievements) {
-  const clean = achievements.map((item) => item.replace(/^[•\-]\s*/, ''));
+  const clean = achievements.map((item) => item.replace(/^[•-]\s*/, ''));
   const joined = joinSentenceList(clean);
   if (!joined) return 'I try to bring ownership, humility, and consistency to the responsibilities entrusted to me.';
   if (state.settings.tone === 'warm') return `Some of the work I am proud of includes ${joined}.`;
@@ -169,11 +169,9 @@ function achievementSentence(achievements) {
 }
 
 function generateLetter() {
-  const { basics, job, fit, settings } = state;
-  const name = firstNonEmpty(basics.name, 'Your Name');
+  const { job, fit, settings } = state;
   const title = firstNonEmpty(job.title, 'the open role');
   const company = firstNonEmpty(job.company, 'your organization');
-  const manager = text(job.hiringManager);
   const skills = splitLines(fit.skills).slice(0, 5);
   const achievements = splitLines(fit.achievements).slice(0, 4);
   const years = text(fit.experience);

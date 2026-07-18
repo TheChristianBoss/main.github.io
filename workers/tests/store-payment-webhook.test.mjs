@@ -8,6 +8,11 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString('b
 const { default: worker } = await import(moduleUrl);
 
 const secret = 'whsec_test_payment_verification';
+const orderRecords = new Map();
+const orderKv = {
+  get: async (key) => orderRecords.get(key) ?? null,
+  put: async (key, value) => { orderRecords.set(key, value); },
+};
 
 function signedRequest(event) {
   const body = JSON.stringify(event);
@@ -29,7 +34,7 @@ function signedRequest(event) {
 async function send(event) {
   const response = await worker.fetch(
     signedRequest(event),
-    { STRIPE_WEBHOOK_SECRET: secret },
+    { STRIPE_WEBHOOK_SECRET: secret, STORE_ORDER_KV: orderKv },
     {},
   );
   return { response, body: await response.json() };

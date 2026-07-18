@@ -2,7 +2,7 @@
 // Single source of truth for helpers used across App.jsx tabs and analyzeResume.js
 // Import from here rather than defining inline in each file.
 
-import roleKeywords, { normalizeKeyword } from "../data/roleKeywords";
+import roleKeywords, { normalizeKeyword } from "../data/roleKeywords.js";
 
 export { normalizeKeyword };
 
@@ -113,8 +113,8 @@ export const detectSkills = (text) => {
 // Scores a raw resume string against a role. Used for both Resume A and B
 // so comparison mode doesn't need a separate inline implementation.
 
-import rolePhrases from "../data/phrases";
-import { strongActionVerbs, weakActionVerbs } from "../data/actionVerbs";
+import rolePhrases from "../data/phrases.js";
+import { strongActionVerbs, weakActionVerbs } from "../data/actionVerbs.js";
 
 const resumeSections = [
   "skills", "experience", "education", "projects",

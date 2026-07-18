@@ -307,7 +307,7 @@ async function xlsxToTable(file) {
       const ref = cell.getAttribute('r') || '';
       const col = colNameToIndex(ref.match(/[A-Z]+/i)?.[0] || 'A');
       const type = cell.getAttribute('t');
-      let value = '';
+      let value;
       if (type === 'inlineStr') value = [...cell.getElementsByTagName('t')].map((t) => t.textContent || '').join('');
       else {
         value = xmlText(cell.getElementsByTagName('v')[0]);

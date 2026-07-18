@@ -59,7 +59,7 @@ export const extractImageText = async (file, onProgress) => {
 
     return result?.data?.text?.replace(/\n{3,}/g, "\n\n").trim() || "";
   } catch (err) {
-    throw new Error(friendlyFileError(err, "Could not run OCR. Try a clearer image, a smaller screenshot, or paste the text."));
+    throw new Error(friendlyFileError(err, "Could not run OCR. Try a clearer image, a smaller screenshot, or paste the text."), { cause: err });
   }
 };
 
@@ -94,7 +94,7 @@ export const extractPDFText = async (file, onProgress) => {
 
     return allLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
   } catch (err) {
-    throw new Error(friendlyFileError(err, "Could not extract PDF text. Try a text-based PDF or paste the resume text."));
+    throw new Error(friendlyFileError(err, "Could not extract PDF text. Try a text-based PDF or paste the resume text."), { cause: err });
   }
 };
 
@@ -106,6 +106,6 @@ export const extractDOCXText = async (file) => {
     const text = result?.value?.replace(/\n{3,}/g, "\n\n").trim() || "";
     return text;
   } catch (err) {
-    throw new Error(friendlyFileError(err, "Could not extract DOCX text. Save the file again as .docx/PDF or paste the text."));
+    throw new Error(friendlyFileError(err, "Could not extract DOCX text. Save the file again as .docx/PDF or paste the text."), { cause: err });
   }
 };

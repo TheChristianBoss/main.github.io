@@ -40,7 +40,7 @@ const parseResumeStructure = (text) => {
     if (nameFound && !contactFound) {
       const isContact =
         /@/.test(trimmed) ||
-        /\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}/.test(trimmed) ||
+        /\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/.test(trimmed) ||
         /,\s*[A-Z]{2}/.test(trimmed) ||
         /linkedin|github/i.test(trimmed) ||
         (trimmed.includes("|") &&

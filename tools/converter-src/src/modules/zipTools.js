@@ -37,7 +37,6 @@ function parseZipEntries(bytes) {
 }
 
 async function extractEntry(bytes, entry) {
-  const decoder = new TextDecoder();
   const offset = entry.localOffset;
   if (readU32(bytes, offset) !== 0x04034b50) throw new Error(`Invalid local file header for ${entry.name}.`);
   const nameLength = readU16(bytes, offset + 26);

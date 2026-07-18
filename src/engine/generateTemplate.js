@@ -5,7 +5,7 @@
 const TEMPLATES = {
   // ── TECHNOLOGY & IT ──────────────────────────────────────────────────────
   "Software Engineer": {
-    summary: (name) =>
+    summary: () =>
       `Results-driven Software Engineer with [years] years of experience designing and building scalable applications. Proficient in [languages/frameworks] with a strong foundation in data structures, algorithms, and software design patterns. Track record of delivering high-quality code in agile environments and collaborating cross-functionally to ship production features on schedule.`,
     experience: () =>
       `Software Engineer | [Company Name] | [City, ST] | [Month Year] – Present\n• Architected and deployed [feature/system] reducing [metric] by [X]%\n• Built [component] using [React/Node/etc.], improving performance by [X]ms\n• Collaborated with product and design to deliver [X] features per sprint\n• Reduced bug backlog by [X]% through improved testing and code review practices\n\nJunior Software Engineer | [Previous Company] | [City, ST] | [Month Year] – [Month Year]\n• Developed [feature] that served [X] users, achieving [result]\n• Contributed to migration from [old tech] to [new tech], improving [metric]`,

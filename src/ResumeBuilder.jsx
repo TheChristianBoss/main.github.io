@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { analyzeResume } from "./engine/analyzeResume";
-import { stripBrackets } from "./components/FillableSection";
+import { stripBrackets } from "./utils/resumeText";
 import ModePicker from "./modes/ModePicker";
 import QuickMode from "./modes/QuickMode";
 import GuidedMode from "./modes/GuidedMode";
@@ -207,7 +207,7 @@ export default function ResumeBuilder() {
   const handleStartOver = useCallback(() => {
     const ok = window.confirm("Start over and clear the current resume draft from this browser?");
     if (!ok) return;
-    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* Continue resetting the in-memory draft. */ }
     setMode(null);
     setCategory("");
     setRole("");
@@ -248,14 +248,18 @@ export default function ResumeBuilder() {
     setTimeout(() => window.print(), 80);
   }, [data]);
 
-  // Auto-fill position from role/category
-  useEffect(() => {
-    if (role) {
-      setData((prev) => ({ ...prev, position: prev.position || role }));
-    } else if (category) {
-      setData((prev) => ({ ...prev, position: prev.position || (CATEGORY_POSITIONS[category] || "") }));
-    }
-  }, [role, category]);
+  const handleRoleChange = useCallback((nextRole) => {
+    setRole(nextRole);
+    if (!nextRole) return;
+    setData((prev) => (prev.position ? prev : { ...prev, position: nextRole }));
+  }, []);
+
+  const handleCategoryChange = useCallback((nextCategory) => {
+    setCategory(nextCategory);
+    const suggestedPosition = CATEGORY_POSITIONS[nextCategory] || "";
+    if (!suggestedPosition) return;
+    setData((prev) => (prev.position ? prev : { ...prev, position: suggestedPosition }));
+  }, []);
 
   // Live analysis
   useEffect(() => {
@@ -294,7 +298,7 @@ export default function ResumeBuilder() {
 
   const sharedProps = {
     data, setData, analysis, role, category,
-    onRoleChange: setRole, onCategoryChange: setCategory,
+    onRoleChange: handleRoleChange, onCategoryChange: handleCategoryChange,
     onSwitchMode: handleSwitchMode,
     portrait, setPortrait,
     view, setView,

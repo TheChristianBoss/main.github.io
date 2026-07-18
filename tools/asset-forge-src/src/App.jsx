@@ -208,8 +208,8 @@ function drawImageCover(ctx, image, x, y, width, height) {
   const boxRatio = width / height;
   let sourceX = 0;
   let sourceY = 0;
-  let sourceWidth = imageWidth;
-  let sourceHeight = imageHeight;
+  let sourceWidth;
+  let sourceHeight;
   if (imageRatio > boxRatio) {
     sourceHeight = imageHeight;
     sourceWidth = sourceHeight * boxRatio;
@@ -608,7 +608,7 @@ export default function App() {
     () => recommendSetupTemplates(loadedAssetAnalysis),
     [loadedAssetAnalysis]
   );
-  const assetPacks = assetIndex?.packs || [];
+  const assetPacks = useMemo(() => assetIndex?.packs || [], [assetIndex]);
 
   const assetCategories = useMemo(() => {
     return Array.from(new Set(assetPacks.map((pack) => pack.category || "Uncategorized"))).sort();

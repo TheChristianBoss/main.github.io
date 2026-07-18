@@ -242,8 +242,8 @@ async function convertMedia({ file, refs, helpers, setStatus }) {
   setStatus(`Converting ${file.name}… Keep this tab open.`, 'info');
 
   try {
-    try { await ffmpeg.deleteFile(input); } catch {}
-    try { await ffmpeg.deleteFile(output); } catch {}
+    try { await ffmpeg.deleteFile(input); } catch { /* The temporary file may not exist yet. */ }
+    try { await ffmpeg.deleteFile(output); } catch { /* The temporary file may not exist yet. */ }
 
     await ffmpeg.writeFile(input, await fileToUint8(file));
 
@@ -269,8 +269,8 @@ async function convertMedia({ file, refs, helpers, setStatus }) {
     helpers.downloadBlob(blob, output);
     setStatus(`Done. Downloaded ${output}.`, 'success');
   } finally {
-    try { await ffmpeg.deleteFile(input); } catch {}
-    try { await ffmpeg.deleteFile(output); } catch {}
+    try { await ffmpeg.deleteFile(input); } catch { /* The temporary file may not exist yet. */ }
+    try { await ffmpeg.deleteFile(output); } catch { /* The temporary file may not exist yet. */ }
     refs.convertBtn.disabled = false;
     refs.loadBtn.disabled = false;
   }

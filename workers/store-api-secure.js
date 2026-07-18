@@ -140,7 +140,7 @@ function safeHttpsUrl(value) {
 
 function cleanText(value, max = 500) {
   return String(value ?? '')
-    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\p{Cc}/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, max);
@@ -314,9 +314,6 @@ async function buildVariantIndex(env, ctx) {
   return variants;
 }
 
-function normalizeCartItems(rawItems) {
-  return normalizePhysicalCartItems(rawItems);
-}
 
 async function buildTrustedCheckoutItems(rawItems, env, ctx) {
   const physicalRaw = normalizePhysicalCartItems(rawItems);
@@ -659,7 +656,7 @@ export default {
 
         let body;
         try { body = await request.json(); } catch { return error(request, 'Invalid JSON'); }
-        const { physicalItems, serviceItems, allItems } = await buildTrustedCheckoutItems(body.items, env, ctx);
+        const { physicalItems, serviceItems } = await buildTrustedCheckoutItems(body.items, env, ctx);
 
         const physicalLineItems = physicalItems.map((item) => ({
           price_data: {

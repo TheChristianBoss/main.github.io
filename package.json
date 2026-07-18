@@ -20,11 +20,14 @@
     "build:asset-forge": "node scripts/build-apps.mjs asset-forge",
     "build:verify": "node scripts/build-apps.mjs verify",
     "clean:builds": "node scripts/build-apps.mjs clean",
-    "lint": "eslint .",
+    "lint": "eslint src tools/converter-src/src tools/cover-src/src tools/asset-forge-src/src workers jobs scripts tests eslint.config.js vite.ats.config.js vite.resume.config.js vite.cover.config.js vite.converter.config.js tools/asset-forge-src/vite.config.js",
     "preview": "vite preview",
     "test:build-system": "node tests/build-system.test.mjs && node tests/build-coordinator-smoke.test.mjs",
     "test:converter-image-pdf": "node tools/converter-src/tests/image-pdf-smoke.mjs",
-    "test:resume-pdf": "node tests/resume-pdf-layout.test.mjs && node tests/resume-pdf-smoke.mjs"
+    "test:resume-pdf": "node tests/resume-pdf-layout.test.mjs && node tests/resume-pdf-smoke.mjs",
+    "test:smoke": "node tests/application-smoke.test.mjs",
+    "test:quality": "npm run lint && npm run test:smoke",
+    "test:all": "npm run test:quality && npm run test:converter-image-pdf && npm run test:resume-pdf && node tools/converter-src/tests/service-worker.test.mjs && node store/tests/success-payment-verification.test.mjs && node workers/tests/store-payment-webhook.test.mjs && node workers/tests/store-order-kv-required.test.mjs && node tests/build-system.test.mjs && node tests/build-coordinator-smoke.test.mjs && node tests/cleanup-known-duplicates.test.mjs"
   },
   "dependencies": {
     "docx": "^9.7.1",

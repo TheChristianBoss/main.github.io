@@ -134,21 +134,6 @@ function reconstructText(segments, fills) {
   }).join("");
 }
 
-// Strip remaining [brackets] for clean export — called from parent before PDF/DOCX
-export function stripBrackets(text) {
-  if (!text) return "";
-  return text
-    .split("\n")
-    .filter(line => {
-      // Drop the ENTIRE line if it contains any unfilled [bracket]
-      if (/\[[^\]]+\]/.test(line)) return false;
-      // Also drop lines that are only bullet/pipe/whitespace
-      const clean = line.replace(/^[|\-•·▪▸\s]+$/, "").trim();
-      return clean.length > 0;
-    })
-    .join("\n");
-}
-
 // ─── FILL CHIP ────────────────────────────────────────────────────────────────
 
 function FillChip({ seg, value, onChange, role, category }) {

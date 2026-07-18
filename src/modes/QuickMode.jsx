@@ -1,7 +1,6 @@
 import { useState } from "react";
 import jobCategories from "../data/jobCategories";
 import { generateTemplate } from "../engine/generateTemplate";
-import SectionField from "../components/SectionField";
 import FillableSection from "../components/FillableSection";
 import ATSPanel from "../components/ATSPanel";
 import ResumePreview from "../components/ResumePreview";
@@ -9,15 +8,6 @@ import ScoreRing from "../components/ScoreRing";
 import ResumeUtilityBar from "../components/ResumeUtilityBar";
 import { SCORE_COLOR } from "../engine/analyzeResume";
 
-const SECTION_PLACEHOLDERS = {
-  summary: "Results-driven professional with X years of experience...",
-  experience: "Job Title | Company Name | City, ST | Jan 2022 – Present\n• Achieved [result] by [action]...",
-  education: "Degree Name | University Name | City, ST | May 2022",
-  skills: "Technical: Skill 1, Skill 2\nSoft Skills: Communication, Leadership",
-  certifications: "Certification Name | Issuer | Year",
-  projects: "Project Name | link | Year\n• Built [what] using [tech]",
-  volunteer: "Organization | Role | 2022–2023\n• [What you did]",
-};
 
 export default function QuickMode({ data, setData, analysis, role, category, onRoleChange, onCategoryChange, onSwitchMode, portrait, onExportPDF, onExportDOCX, exportLoading, lastSavedAt, exportWarnings, onStartOver, onCopyText, onDownloadTXT, onPrint }) {
   const [generated, setGenerated] = useState(false);
