@@ -6,8 +6,8 @@
 //   STRIPE_WEBHOOK_SECRET — Stripe webhook signing secret
 //   DISCORD_WEBHOOK_URL  — Discord webhook for paid service-order notifications
 //
-// Optional binding:
-//   STORE_ORDER_KV        — KV namespace used to avoid duplicate Printful/service fulfillment
+// Required binding:
+//   STORE_ORDER_KV        — KV namespace used to prevent duplicate Printful/service fulfillment
 //
 // Routes:
 //   GET  /products        → list all sync products
@@ -34,6 +34,7 @@ const PRODUCT_CACHE_SECONDS = 5 * 60;
 const MAX_SERVICE_ITEMS = 5;
 const MAX_SERVICE_QTY = 1;
 const MAX_SERVICE_NOTES = 700;
+const ORDER_RECORD_TTL_SECONDS = 60 * 60 * 24 * 120;
 
 // Manual service catalog. Safe to commit: prices are server-trusted here, not in the browser.
 // Edit this object when you want to add/remove services. Amounts are in cents.
@@ -476,14 +477,25 @@ async function verifyStripeSignature(payload, sigHeader, secret) {
   return parts.v1.some((sig) => timingSafeEqualHex(expected, sig));
 }
 
+function requireOrderStore(env) {
+  const store = env?.STORE_ORDER_KV;
+  if (!store || typeof store.get !== 'function' || typeof store.put !== 'function') {
+    const err = new Error('Missing required STORE_ORDER_KV binding. Fulfillment is disabled until the KV namespace is bound.');
+    err.code = 'STORE_ORDER_KV_MISSING';
+    err.status = 503;
+    throw err;
+  }
+  return store;
+}
+
 async function alreadyProcessed(env, key) {
-  if (!env.STORE_ORDER_KV) return false;
-  return Boolean(await env.STORE_ORDER_KV.get(key));
+  const store = requireOrderStore(env);
+  return Boolean(await store.get(key));
 }
 
 async function markProcessed(env, key, value = '1') {
-  if (!env.STORE_ORDER_KV) return;
-  await env.STORE_ORDER_KV.put(key, value, { expirationTtl: 60 * 60 * 24 * 120 });
+  const store = requireOrderStore(env);
+  await store.put(key, value, { expirationTtl: ORDER_RECORD_TTL_SECONDS });
 }
 
 
@@ -559,6 +571,20 @@ export default {
     const path = url.pathname.replace(/\/$/, '') || '/';
 
     try {
+      // ── GET /health ───────────────────────────────────────────────────────────
+      if (request.method === 'GET' && path === '/health') {
+        const kvReady = Boolean(
+          env?.STORE_ORDER_KV
+          && typeof env.STORE_ORDER_KV.get === 'function'
+          && typeof env.STORE_ORDER_KV.put === 'function'
+        );
+        return json({
+          ok: kvReady,
+          service: 'christian-goblin-store-api',
+          required_bindings: { STORE_ORDER_KV: kvReady },
+        }, kvReady ? 200 : 503, request);
+      }
+
       // ── GET /session?id= ─────────────────────────────────────────────────────
       if (request.method === 'GET' && path === '/session') {
         const sessionId = String(url.searchParams.get('id') || '').replace(/[^A-Za-z0-9_]/g, '');
@@ -719,6 +745,10 @@ export default {
           }, 200, request);
         }
 
+        // Refuse paid fulfillment when the required idempotency store is absent.
+        // This check happens before Printful or Discord is contacted.
+        requireOrderStore(env);
+
         const idempotencyKey = `stripe-session:${session.id}`;
         if (await alreadyProcessed(env, idempotencyKey)) {
           return json({ received: true, duplicate: true }, 200, request);
@@ -763,19 +793,19 @@ export default {
               external_id: session.id,
             };
 
-            const orderData = await printful('/orders', env, {
+            const orderData = await printful('/orders?update_existing=true', env, {
               method: 'POST',
               body: JSON.stringify(orderPayload),
             });
 
             if (!orderData.result) {
               console.error('Printful order error:', JSON.stringify(orderData));
-              result.printful_error = orderData.error?.message || 'Unknown Printful error';
-            } else {
-              await markProcessed(env, printfulKey, String(orderData.result.id));
-              result.order_id = orderData.result.id;
-              console.log('Printful order created:', orderData.result.id);
+              throw new Error(orderData.error?.message || 'Printful returned no order result');
             }
+
+            await markProcessed(env, printfulKey, String(orderData.result.id));
+            result.order_id = orderData.result.id;
+            console.log('Printful order created or updated:', orderData.result.id);
           }
         }
 
@@ -791,12 +821,19 @@ export default {
           }
         }
 
+        // Record the whole session only after every requested fulfillment step succeeds.
+        // Sub-keys above allow a partially completed mixed order to resume safely on retry.
+        await markProcessed(env, idempotencyKey, 'fulfilled');
+
         return json(result, 200, request);
       }
 
       return error(request, 'Not found', 404);
     } catch (err) {
       console.error('Store worker error:', err);
+      if (err?.code === 'STORE_ORDER_KV_MISSING') {
+        return error(request, 'Store API configuration error', 503, err.message);
+      }
       return error(request, 'Store API error', 500, err?.message || String(err));
     }
   },

@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "christian-goblin-store-api",
+  "main": "workers/store-api-secure.js",
+  "compatibility_date": "2026-07-17",
+  "kv_namespaces": [
+    {
+      "binding": "STORE_ORDER_KV",
+      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+    }
+  ]
+}
