@@ -3,7 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Store — Christian Goblin</title>
+  <title>Store | Christian Goblin</title>
+    <meta name="description" content="Browse Christian Goblin merchandise and creative or practical services with secure Stripe checkout.">
+    <link rel="canonical" href="https://christiangoblin.com/store/">
+    <meta property="og:site_name" content="Christian Goblin">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Store | Christian Goblin">
+    <meta property="og:description" content="Browse Christian Goblin merchandise and creative or practical services with secure Stripe checkout.">
+    <meta property="og:url" content="https://christiangoblin.com/store/">
+    <meta property="og:image" content="https://christiangoblin.com/assets/images/goblogo.png">
+    <meta property="og:image:alt" content="Christian Goblin logo">
+    <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -30,6 +40,41 @@
       font-size: 15px;
       line-height: 1.6;
       min-height: 100vh;
+    }
+
+    .skip-link {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1000;
+      padding: 10px 14px;
+      background: var(--gold);
+      color: #000;
+      font-weight: 700;
+      text-decoration: none;
+      border-radius: 4px;
+      transform: translateY(-160%);
+    }
+
+    .skip-link:focus { transform: translateY(0); }
+
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible {
+      outline: 3px solid var(--gold);
+      outline-offset: 3px;
     }
 
     /* ── Header ── */
@@ -448,6 +493,7 @@
   </style>
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to store content</a>
 
 <header>
   <a class="logo" href="/"><span>Christian</span>Goblin</a>
@@ -466,7 +512,7 @@
   <p>Wearable faith, practical services, and creative help for the weird, the wandering, and the redeemed.</p>
 </section>
 
-<main class="shop-section">
+<main class="shop-section" id="main-content">
   <div class="shop-top">
     <div>
       <p class="section-label">Browse</p>
@@ -475,10 +521,11 @@
   </div>
 
   <div class="shop-toolbar" aria-label="Store filters">
-    <input class="search-input" id="searchInput" type="search" placeholder="Search merch or services…" autocomplete="off" />
+    <label class="visually-hidden" for="searchInput">Search store</label>
+    <input class="search-input" id="searchInput" type="search" placeholder="Search merch or services…" autocomplete="off" aria-controls="grid" />
     <div class="filter-pills" id="filterPills" role="list" aria-label="Product categories"></div>
   </div>
-  <p class="result-count" id="resultCount"></p>
+  <p class="result-count" id="resultCount" role="status" aria-live="polite" aria-atomic="true"></p>
   <div id="grid"></div>
 
   <div class="store-help">

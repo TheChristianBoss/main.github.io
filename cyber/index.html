@@ -3,20 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cybersecurity | Christian Goblin</title>
+    <title>Cybersecurity &amp; Digital Privacy | Christian Goblin</title>
     <meta name="description" content="Cybersecurity, digital privacy, exposure monitoring, and identity protection services for creators, professionals, and individuals.">
+    <link rel="canonical" href="https://christiangoblin.com/cyber/">
+    <meta property="og:site_name" content="Christian Goblin">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Cybersecurity &amp; Digital Privacy | Christian Goblin">
+    <meta property="og:description" content="Cybersecurity, digital privacy, exposure monitoring, and identity protection services for creators, professionals, and individuals.">
+    <meta property="og:url" content="https://christiangoblin.com/cyber/">
+    <meta property="og:image" content="https://christiangoblin.com/assets/images/goblogo.png">
+    <meta property="og:image:alt" content="Christian Goblin logo">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="/assets/images/favicon.png" type="image/png">
     <link rel="stylesheet" href="/assets/css/main.css">
 
     <style>
         /* Page-specific: contact form fields (no shared form styles exist site-wide yet) */
         .contact-wrap { max-width: 700px; margin: 0 auto; }
+        .form-field { margin-bottom: 14px; }
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
 
         .form-input,
         .form-textarea {
             width: 100%;
             padding: 14px 16px;
-            margin-bottom: 14px;
+            margin-bottom: 0;
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: var(--radius-sm, 8px);
@@ -60,11 +75,20 @@
             margin-top: 0.85rem;
         }
         .form-privacy a { color: var(--accent); }
+        .form-privacy a:focus-visible,
+        .submit-btn:focus-visible,
+        .form-input:focus-visible,
+        .form-textarea:focus-visible {
+            outline: 3px solid var(--gold);
+            outline-offset: 3px;
+        }
     </style>
 </head>
 <body>
 
+<a class="cg-skip-link" href="#main-content">Skip to content</a>
 <div id="navbar"></div>
+<main id="main-content">
 
 <!-- PAGE HEADER -->
 <div class="page-header">
@@ -126,22 +150,36 @@
             <p>Submit a request and receive a response regarding cybersecurity or privacy assistance.</p>
         </div>
 
-        <div class="contact-wrap">
-            <input id="name" class="form-input" placeholder="Name" required>
-            <input id="email" type="email" class="form-input" placeholder="Email" required>
-            <textarea id="message" rows="6" class="form-textarea" placeholder="Describe your request..." required></textarea>
+        <form class="contact-wrap" id="consultationForm">
+            <div class="form-field">
+                <label class="form-label" for="name">Name</label>
+                <input id="name" name="name" class="form-input" autocomplete="name" maxlength="200" required>
+            </div>
 
-            <button id="submitBtn" class="submit-btn btn btn-primary">Submit Request</button>
-            <p class="form-privacy">By submitting, your name, email, and message are sent so I can respond to your request. Do not send passwords or private credentials. Read the <a href="/privacy.html">Privacy Policy</a> and <a href="/terms.html">Terms</a>.</p>
+            <div class="form-field">
+                <label class="form-label" for="email">Email</label>
+                <input id="email" name="email" type="email" class="form-input" autocomplete="email" maxlength="254" required>
+            </div>
 
-            <div id="formStatus" class="form-status" role="alert"></div>
-        </div>
+            <div class="form-field">
+                <label class="form-label" for="message">Describe your request</label>
+                <textarea id="message" name="message" rows="6" class="form-textarea" maxlength="5000" aria-describedby="consultationPrivacy" required></textarea>
+            </div>
+
+            <button id="submitBtn" type="submit" class="submit-btn btn btn-primary">Submit Request</button>
+            <p class="form-privacy" id="consultationPrivacy">By submitting, your name, email, and message are sent so I can respond to your request. Do not send passwords or private credentials. Read the <a href="/privacy.html">Privacy Policy</a> and <a href="/terms.html">Terms</a>.</p>
+
+            <div id="formStatus" class="form-status" role="status" aria-live="polite" aria-atomic="true"></div>
+        </form>
     </div>
 </section>
+
+</main>
 
 <div id="footer"></div>
 <script src="/assets/js/components.js"></script>
 <script>
+    const form   = document.getElementById('consultationForm');
     const btn    = document.getElementById('submitBtn');
     const status = document.getElementById('formStatus');
 
@@ -150,13 +188,14 @@
         status.className = 'form-status ' + type;
     }
 
-    btn.addEventListener('click', async () => {
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
         const name    = document.getElementById('name').value.trim();
         const email   = document.getElementById('email').value.trim();
         const message = document.getElementById('message').value.trim();
 
-        if (!name || !email || !message) {
-            showStatus('Please fill in all fields before submitting.', 'error');
+        if (!form.checkValidity()) {
+            form.reportValidity();
             return;
         }
 
@@ -173,9 +212,7 @@
 
             if (res.ok) {
                 showStatus("Request sent successfully. We'll be in touch soon.", 'success');
-                document.getElementById('name').value    = '';
-                document.getElementById('email').value   = '';
-                document.getElementById('message').value = '';
+                form.reset();
             } else {
                 showStatus('Failed to send — please try again or reach out directly.', 'error');
             }

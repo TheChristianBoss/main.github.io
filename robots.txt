@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /jobs/
+Disallow: /tools/converter/test.html
+
+Sitemap: https://christiangoblin.com/sitemap.xml

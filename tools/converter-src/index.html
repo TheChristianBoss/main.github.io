@@ -3,8 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>File Converter | Christian Goblin</title>
-    <meta name="description" content="Convert images, PDFs, documents, spreadsheets, data, ZIP files, audio, and video locally in your browser." />
+    <title>File Converter | Christian Goblin Tools</title>
+    <meta name="description" content="Convert images, PDFs, documents, spreadsheets, data, ZIP files, audio, and video locally in your browser.">
+    <link rel="canonical" href="https://christiangoblin.com/tools/converter/">
+    <meta property="og:site_name" content="Christian Goblin">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="File Converter | Christian Goblin Tools">
+    <meta property="og:description" content="Convert images, PDFs, documents, spreadsheets, data, ZIP files, audio, and video locally in your browser.">
+    <meta property="og:url" content="https://christiangoblin.com/tools/converter/">
+    <meta property="og:image" content="https://christiangoblin.com/assets/images/goblogo.png">
+    <meta property="og:image:alt" content="Christian Goblin logo">
+    <meta name="twitter:card" content="summary_large_image">
     <meta name="theme-color" content="#070707" />
     <link rel="manifest" href="/tools/converter/manifest.webmanifest" />
     <link rel="icon" href="/tools/converter/assets/converter-icon.svg" type="image/svg+xml" />
@@ -12,8 +21,8 @@
     <script type="module" src="./src/converterMain.js"></script>
   </head>
   <body>
-    <noscript>This file converter needs JavaScript enabled.</noscript>
-      <script>
+    <noscript><main><h1>File Converter</h1><p>This browser-based converter requires JavaScript.</p></main></noscript>
+    <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/tools/converter/sw.js').catch(() => {});

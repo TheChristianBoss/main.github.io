@@ -2,14 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/tools/asset-forge/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Search local asset libraries and assemble reusable graphics in your browser." />
     <title>Asset Forge | Christian Goblin Tools</title>
+    <meta name="description" content="Search local asset libraries and assemble reusable graphics directly in your browser.">
+    <link rel="canonical" href="https://christiangoblin.com/tools/asset-forge/">
+    <meta property="og:site_name" content="Christian Goblin">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Asset Forge | Christian Goblin Tools">
+    <meta property="og:description" content="Search local asset libraries and assemble reusable graphics directly in your browser.">
+    <meta property="og:url" content="https://christiangoblin.com/tools/asset-forge/">
+    <meta property="og:image" content="https://christiangoblin.com/assets/images/goblogo.png">
+    <meta property="og:image:alt" content="Christian Goblin logo">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" type="image/png" href="/assets/images/favicon.png" />
+    <style>
+      .cg-skip-link {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 10000;
+        padding: 10px 14px;
+        background: #ffffff;
+        color: #111111;
+        font: 700 14px/1.2 system-ui, sans-serif;
+        text-decoration: none;
+        transform: translateY(-160%);
+      }
+      .cg-skip-link:focus { transform: translateY(0); }
+    </style>
     <script type="module" crossorigin src="/tools/asset-forge/assets/index-DQUiXzfG.js"></script>
     <link rel="stylesheet" crossorigin href="/tools/asset-forge/assets/index-BAVslE6N.css">
   </head>
   <body>
-    <div id="root"></div>
+    <a class="cg-skip-link" href="#root">Skip to Asset Forge</a>
+    <div id="root" tabindex="-1"></div>
+    <noscript><main><h1>Asset Forge</h1><p>This tool requires JavaScript to browse and assemble local assets.</p></main></noscript>
   </body>
 </html>
