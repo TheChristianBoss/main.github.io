@@ -104,7 +104,7 @@ const EMPTY_DATA = {
   certifications: "", projects: "", volunteer: "",
 };
 
-// ─── PDF / DOCX (kept here so all modes share them) ──────────────────────────
+// â”€â”€â”€ PDF / DOCX (kept here so all modes share them) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const generatePDF = async (data, portraitDataUrl = null) => {
   try {
@@ -133,8 +133,8 @@ const generateDOCX = async (data) => {
       content.split("\n").forEach(line => {
         const trimmed = line.trim();
         if (!trimmed) { children.push(new Paragraph({ spacing: { before: 40, after: 0 } })); return; }
-        if (/^[-•*·▪▸]/.test(trimmed)) {
-          children.push(new Paragraph({ spacing: { before: 20, after: 20 }, indent: { left: convertInchesToTwip(0.25), hanging: convertInchesToTwip(0.18) }, children: [new TextRun({ text: "• ", font: FONT, size: 20, color: "888888" }), new TextRun({ text: trimmed.replace(/^[-•*·▪▸]\s*/, ""), font: FONT, size: 20, color: "1a1a1a" })] }));
+        if (/^[-â€¢*Â·â–ªâ–¸]/.test(trimmed)) {
+          children.push(new Paragraph({ spacing: { before: 20, after: 20 }, indent: { left: convertInchesToTwip(0.25), hanging: convertInchesToTwip(0.18) }, children: [new TextRun({ text: "â€¢ ", font: FONT, size: 20, color: "888888" }), new TextRun({ text: trimmed.replace(/^[-â€¢*Â·â–ªâ–¸]\s*/, ""), font: FONT, size: 20, color: "1a1a1a" })] }));
         } else if (trimmed.includes("|")) {
           const parts = trimmed.split("|").map(p => p.trim());
           children.push(new Paragraph({ spacing: { before: 100, after: 20 }, tabStops: [{ type: TabStopType.RIGHT, position: PW - MARGIN * 2 }], children: [new TextRun({ text: parts[0] || "", font: FONT, size: 21, bold: true, color: "222222" }), new TextRun({ text: "\t" + parts.slice(1).join(" | "), font: FONT, size: 19, color: "555555" })] }));
@@ -165,7 +165,7 @@ const generateDOCX = async (data) => {
   } catch (err) { alert("DOCX export failed: " + err.message); }
 };
 
-// ─── ORCHESTRATOR ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ ORCHESTRATOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ResumeBuilder() {
   const [draftSeed] = useState(() => readSavedDraft());
@@ -319,7 +319,7 @@ export default function ResumeBuilder() {
       <div className="rb-app">
         <header className="rb-header">
           <div className="rb-header-inner">
-            <a href="/" className="rb-logo"><span className="rb-logo-cg">CG</span> Resume Builder <span className="open-beta-badge">Open Beta</span></a>
+            <div className="rb-logo"><span className="rb-logo-cg">CG</span> Resume Builder</div>
           </div>
         </header>
         <ModePicker onSelect={handleSwitchMode} draftSavedAt={lastSavedAt} hasDraft={hasResumeContent(data)} onStartOver={handleStartOver} />
