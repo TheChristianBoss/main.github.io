@@ -6,6 +6,7 @@ import QuickMode from "./modes/QuickMode";
 import GuidedMode from "./modes/GuidedMode";
 import FullMode from "./modes/FullMode";
 import "./ResumeBuilder.css";
+import { downloadResumePdf } from "./pdf/generateResumePdf";
 
 
 const DRAFT_KEY = "cg_resume_builder_draft_v2";
@@ -107,83 +108,10 @@ const EMPTY_DATA = {
 
 const generatePDF = async (data, portraitDataUrl = null) => {
   try {
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ unit: "pt", format: "letter" });
-    const W = doc.internal.pageSize.getWidth();
-    const H = doc.internal.pageSize.getHeight();
-    const ML = 54, MR = 54, MT = 48;
-    const usableW = W - ML - MR;
-    let y = MT;
-
-    const addPage = () => { doc.addPage(); y = MT; };
-    const checkPage = (needed = 20) => { if (y + needed > H - 40) addPage(); };
-
-    const hasPortrait = !!portraitDataUrl;
-    const portraitSize = 72;
-    const nameX = hasPortrait ? ML + portraitSize + 16 : ML;
-    const nameW = hasPortrait ? usableW - portraitSize - 16 : usableW;
-
-    if (hasPortrait) {
-      try { doc.addImage(portraitDataUrl, "JPEG", ML, MT, portraitSize, portraitSize, undefined, "MEDIUM"); }
-      catch (e) {}
-    }
-
-    doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(20, 20, 20);
-    doc.text(data.name || "Your Name", nameX, y + 18);
-    if (data.position) {
-      doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(90, 90, 90);
-      doc.text(data.position, nameX, y + 34);
-    }
-    const contactParts = [data.email, data.phone, data.location, data.linkedin, data.website].filter(Boolean);
-    if (contactParts.length > 0) {
-      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(80, 80, 80);
-      doc.text(contactParts.join("  |  "), nameX, y + (hasPortrait ? 52 : 48));
-    }
-    y += hasPortrait ? portraitSize + 20 : 60;
-    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.5); doc.line(ML, y, W - MR, y); y += 14;
-
-    const renderSection = (title, content) => {
-      if (!content || !content.trim()) return;
-      checkPage(40);
-      doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(30, 30, 30);
-      doc.text(title.toUpperCase(), ML, y); y += 3;
-      doc.setDrawColor(160, 160, 160); doc.setLineWidth(0.4); doc.line(ML, y, W - MR, y); y += 10;
-      content.split("\n").forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed) { y += 4; return; }
-        checkPage(16);
-        if (/^[-•*·▪▸]/.test(trimmed)) {
-          const bulletText = trimmed.replace(/^[-•*·▪▸]\s*/, "");
-          doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(40, 40, 40);
-          doc.text("•", ML + 4, y);
-          const wrapped = doc.splitTextToSize(bulletText, usableW - 18);
-          wrapped.forEach((wl, wi) => { checkPage(14); doc.text(wl, ML + 14, y); if (wi < wrapped.length - 1) y += 13; }); y += 14;
-        } else if (trimmed.includes("|")) {
-          const parts = trimmed.split("|").map(p => p.trim());
-          doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(20, 20, 20); doc.text(parts[0] || "", ML, y);
-          if (parts.length > 1) {
-            const rest = parts.slice(1).join(" | ");
-            doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(80, 80, 80);
-            doc.text(rest, W - MR - doc.getTextWidth(rest), y);
-          }
-          y += 14;
-        } else {
-          doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(40, 40, 40);
-          doc.splitTextToSize(trimmed, usableW).forEach(wl => { checkPage(14); doc.text(wl, ML, y); y += 13; });
-        }
-      });
-      y += 8;
-    };
-
-    if (data.summary) renderSection("Professional Summary", data.summary);
-    if (data.experience) renderSection("Work Experience", data.experience);
-    if (data.education) renderSection("Education", data.education);
-    if (data.skills) renderSection("Skills", data.skills);
-    if (data.certifications) renderSection("Certifications", data.certifications);
-    if (data.projects) renderSection("Projects", data.projects);
-    if (data.volunteer) renderSection("Volunteer", data.volunteer);
-    doc.save("resume.pdf");
-  } catch (err) { alert("PDF export failed: " + err.message); }
+    await downloadResumePdf(data, portraitDataUrl);
+  } catch (err) {
+    alert("PDF export failed: " + err.message);
+  }
 };
 
 const generateDOCX = async (data) => {

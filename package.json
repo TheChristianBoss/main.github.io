@@ -8,14 +8,15 @@
     "build": "npm run build:ats && npm run build:resume",
     "build:ats": "vite build --config vite.ats.config.js",
     "build:resume": "vite build --config vite.resume.config.js",
+    "build:converter": "vite build --config vite.converter.config.js",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:converter": "vite build --config vite.converter.config.js",
-    "test:converter-image-pdf": "node tools/converter-src/tests/image-pdf-smoke.mjs"
+    "test:converter-image-pdf": "node tools/converter-src/tests/image-pdf-smoke.mjs",
+    "test:resume-pdf": "node tests/resume-pdf-layout.test.mjs && node tests/resume-pdf-smoke.mjs"
   },
   "dependencies": {
     "docx": "^9.7.1",
-    "jspdf": "^2.5.1",
+    "jspdf": "4.2.1",
     "mammoth": "^1.12.0",
     "pdfjs-dist": "^5.7.284",
     "react": "^19.2.6",
