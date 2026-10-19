@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 
 // ─── SUGGESTIONS MAP ──────────────────────────────────────────────────────────
 // Keys match bracket label patterns (lowercase). Values = suggested options.
@@ -116,47 +116,42 @@ function getSuggestions(label) {
 function parseSegments(text) {
   const segments = [];
   const regex = /\[([^\]]+)\]/g;
-  let last = 0, match, id = 0;
+  let last = 0, match;
   while ((match = regex.exec(text)) !== null) {
     if (match.index > last) segments.push({ type: "text", value: text.slice(last, match.index) });
-    segments.push({ type: "fill", label: match[1], id: id++ });
+    segments.push({ type: "fill", label: match[1], start: match.index, end: regex.lastIndex });
     last = match.index + match[0].length;
   }
   if (last < text.length) segments.push({ type: "text", value: text.slice(last) });
   return segments;
 }
 
-function reconstructText(segments, fills) {
-  return segments.map((seg) => {
-    if (seg.type === "text") return seg.value;
-    const val = fills[seg.id];
-    return (val != null && val.trim() !== "") ? val : `[${seg.label}]`;
-  }).join("");
+
+// Strip remaining [brackets] for clean export — called from parent before PDF/DOCX
+// eslint-disable-next-line react-refresh/only-export-components
+export function stripBrackets(text) {
+  if (!text) return "";
+  return text
+    .split("\n")
+    .filter(line => {
+      // Drop the ENTIRE line if it contains any unfilled [bracket]
+      if (/\[[^\]]+\]/.test(line)) return false;
+      // Also drop lines that are only bullet/pipe/whitespace
+      const clean = line.replace(/^[|\-•·▪▸\s]+$/, "").trim();
+      return clean.length > 0;
+    })
+    .join("\n");
 }
 
 // ─── FILL CHIP ────────────────────────────────────────────────────────────────
 
-function FillChip({ seg, value, onChange, role, category }) {
+function FillChip({ seg, onChange }) {
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const ref = useRef(null);
-  const filled = value != null && value.trim() !== "";
 
   const suggestions = getSuggestions(seg.label);
   const isPersonal = suggestions === null;
-  // Auto-fill role/industry/field/position from context
-  const autoLabel = seg.label.toLowerCase();
-  const autoValue = (autoLabel.includes("field") || autoLabel.includes("industry") || autoLabel.includes("sector"))
-    ? (category || role || null)
-    : autoLabel === "position" || autoLabel === "role" || autoLabel === "job role"
-    ? (role || category || null)
-    : null;
-
-  // Auto-apply on mount if autoValue available and not yet filled
-  useEffect(() => {
-    if (autoValue && !filled) onChange(seg.id, autoValue);
-  }, []); // eslint-disable-line
-
   useEffect(() => {
     if (!open) return;
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -165,7 +160,7 @@ function FillChip({ seg, value, onChange, role, category }) {
   }, [open]);
 
   const commit = (val) => {
-    onChange(seg.id, val);
+    onChange(seg, val);
     setOpen(false);
     setCustom("");
   };
@@ -178,12 +173,12 @@ function FillChip({ seg, value, onChange, role, category }) {
   return (
     <span className="rb-chip-wrap" ref={ref}>
       <button
-        className={`rb-fill-chip${filled ? " rb-fill-chip--filled" : ""}`}
+        className="rb-fill-chip"
         onClick={() => setOpen((o) => !o)}
         type="button"
-        title={filled ? `Click to change: ${value}` : `Click to fill: ${seg.label}`}
+        title={`Click to fill: ${seg.label}`}
       >
-        {filled ? value : <><span className="rb-fill-chip-icon">✎</span>{seg.label}</>}
+        <><span className="rb-fill-chip-icon">✎</span>{seg.label}</>
       </button>
 
       {open && (
@@ -195,7 +190,7 @@ function FillChip({ seg, value, onChange, role, category }) {
             <div className="rb-chip-suggestions">
               <div className="rb-chip-section-title">Suggested</div>
               {suggestions.map((s) => (
-                <button key={s} className={`rb-chip-option${value === s ? " active" : ""}`} onClick={() => commit(s)} type="button">{s}</button>
+                <button key={s} className="rb-chip-option" onClick={() => commit(s)} type="button">{s}</button>
               ))}
             </div>
           )}
@@ -217,10 +212,6 @@ function FillChip({ seg, value, onChange, role, category }) {
               <button className="rb-chip-commit" onClick={() => commit(custom.trim())} type="button">✓ Use this</button>
             )}
           </div>
-
-          {filled && (
-            <button className="rb-chip-clear" onClick={() => { onChange(seg.id, ""); setOpen(false); }} type="button">✕ Clear</button>
-          )}
         </div>
       )}
     </span>
@@ -230,15 +221,16 @@ function FillChip({ seg, value, onChange, role, category }) {
 // ─── BLOCK RENDERER ───────────────────────────────────────────────────────────
 // Renders one "block" of template text (e.g. one job entry) as fillable lines.
 
-function TemplateBlock({ text, blockIndex, role, category, onTextChange }) {
-  const [fills, setFills] = useState({});
+function TemplateBlock({ text, blockIndex, onTextChange }) {
   const segments = parseSegments(text);
 
-  const handleChipChange = useCallback((chipId, chipValue) => {
-    const newFills = { ...fills, [chipId]: chipValue };
-    setFills(newFills);
-    onTextChange(blockIndex, reconstructText(segments, newFills));
-  }, [fills, segments, blockIndex, onTextChange]);
+  // Replace only the clicked bracket range in the current block. Never index
+  // values by the number of placeholders still visible: that number changes.
+  const handleChipChange = (seg, chipValue) => {
+    const placeholder = `[${seg.label}]`;
+    if (text.slice(seg.start, seg.end) !== placeholder) return;
+    onTextChange(blockIndex, text.slice(0, seg.start) + chipValue + text.slice(seg.end));
+  };
 
   // Build lines
   const lines = [];
@@ -251,7 +243,7 @@ function TemplateBlock({ text, blockIndex, role, category, onTextChange }) {
         if (part) currentLine.push({ type: "text", value: part, key: `t-${i}-${pi}` });
       });
     } else {
-      currentLine.push({ ...seg, key: `f-${seg.id}` });
+      currentLine.push({ ...seg, key: `f-${seg.start}` });
     }
   });
   if (currentLine.length) lines.push(currentLine);
@@ -263,7 +255,7 @@ function TemplateBlock({ text, blockIndex, role, category, onTextChange }) {
           {line.map((seg) =>
             seg.type === "text"
               ? <span key={seg.key} className="rb-fillable-text">{seg.value}</span>
-              : <FillChip key={seg.key} seg={seg} value={fills[seg.id]} onChange={handleChipChange} role={role} category={category} />
+              : <FillChip key={seg.key} seg={seg} onChange={handleChipChange} />
           )}
         </div>
       ))}
@@ -303,48 +295,33 @@ const BLOCK_TEMPLATES = {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export default function FillableSection({ id, label, value, onChange, onSkip, skipped, hint, role, category }) {
+export default function FillableSection({ id, label, value, onChange, onSkip, skipped, hint }) {
   const [showRaw, setShowRaw] = useState(false);
-  const [blocks, setBlocks] = useState(() => splitIntoBlocks(value));
+  // The parent value is the only authoritative copy. Resets, templates, and
+  // saved-draft restores are reflected immediately instead of leaving stale blocks.
+  const blocks = splitIntoBlocks(value);
 
-  // Sync blocks → parent value
-  const syncToParent = useCallback((newBlocks) => {
-    onChange(id, joinBlocks(newBlocks));
-  }, [id, onChange]);
+  const updateBlocks = (newBlocks) => onChange(id, joinBlocks(newBlocks));
 
-  const handleBlockChange = useCallback((blockIndex, newText) => {
-    setBlocks((prev) => {
-      const next = [...prev];
-      next[blockIndex] = newText;
-      syncToParent(next);
-      return next;
-    });
-  }, [syncToParent]);
+  const handleBlockChange = (blockIndex, newText) => {
+    const next = [...blocks];
+    next[blockIndex] = newText;
+    updateBlocks(next);
+  };
 
   const addBlock = () => {
-    const template = BLOCK_TEMPLATES[id] || "";
-    setBlocks((prev) => {
-      const next = [...prev, template];
-      syncToParent(next);
-      return next;
-    });
+    updateBlocks([...blocks, BLOCK_TEMPLATES[id] || ""]);
   };
 
   const removeBlock = (i) => {
-    setBlocks((prev) => {
-      const next = prev.filter((_, idx) => idx !== i);
-      syncToParent(next);
-      return next;
-    });
+    updateBlocks(blocks.filter((_, idx) => idx !== i));
   };
 
   const hasBrackets = /\[[^\]]+\]/.test(value || "");
   const canAddMore = ADD_LABELS[id] !== undefined;
 
   const handleRawChange = (e) => {
-    const v = e.target.value;
-    onChange(id, v);
-    setBlocks(splitIntoBlocks(v));
+    onChange(id, e.target.value);
   };
 
   if (skipped) {
@@ -378,17 +355,13 @@ export default function FillableSection({ id, label, value, onChange, onSkip, sk
   }
 
   const totalBrackets = (value.match(/\[[^\]]+\]/g) || []).length;
-  const filledCount = totalBrackets - (joinBlocks(blocks).match(/\[[^\]]+\]/g) || []).length;
 
   return (
     <div className="rb-field">
       <div className="rb-field-header">
         <label className="rb-field-label">{label}</label>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {totalBrackets > 0 && filledCount >= totalBrackets
-            ? <span className="rb-fill-all-done">✓ All filled</span>
-            : totalBrackets > 0 && <span className="rb-fill-progress">{filledCount}/{totalBrackets} filled</span>
-          }
+          {totalBrackets > 0 && <span className="rb-fill-progress">{totalBrackets} remaining</span>}
           <button className="rb-fill-mode-btn rb-fill-mode-btn--raw" onClick={() => setShowRaw(true)} title="Switch to raw text editor">⌨ Raw Edit</button>
           {onSkip && <button className="rb-skip-btn" onClick={() => onSkip(id, true)}>Skip</button>}
         </div>
@@ -404,8 +377,6 @@ export default function FillableSection({ id, label, value, onChange, onSkip, sk
             <TemplateBlock
               text={blockText}
               blockIndex={bi}
-              role={role}
-              category={category}
               onTextChange={handleBlockChange}
             />
             {bi < blocks.length - 1 && <div className="rb-block-divider" />}
