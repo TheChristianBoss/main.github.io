@@ -1,6 +1,135 @@
+import { useState, useRef, useEffect } from "react";
+
+// ─── SUGGESTIONS MAP ──────────────────────────────────────────────────────────
+// Keys match bracket label patterns (lowercase). Values = suggested options.
+// Personal fields (name, school, dates) get free-type only — no suggestions.
+
+// ─── SUGGESTIONS MAP ──────────────────────────────────────────────────────────
+// Keys are EXACT lowercase bracket labels. null = personal (free type only).
+// No partial matching — each label must be listed explicitly.
+
+const SUGGESTIONS = {
+  // ── years of experience (summary line) ──────────────────────────────────
+  "x": ["1", "2", "3", "4", "5", "6", "7", "8", "10+"],
+  "x years": ["1", "2", "3", "4", "5", "6–8", "10+"],
+  // ── percentages / metrics ────────────────────────────────────────────────
+  "x%": ["10%", "15%", "20%", "25%", "30%", "40%", "50%"],
+  "metric": ["response time", "error rate", "processing time", "customer satisfaction", "revenue", "costs", "efficiency"],
+  "result": ["increased revenue", "reduced costs", "improved performance", "streamlined workflow", "enhanced user experience"],
+  "outcome": ["increased revenue by 20%", "reduced costs by 15%", "improved efficiency by 30%", "boosted team productivity"],
+  // ── counts ───────────────────────────────────────────────────────────────
+  "x hours": ["2", "5", "10", "20", "40"],
+  "x hours/week": ["2 hours/week", "5 hours/week", "10 hours/week"],
+  "x hours/month": ["5 hours/month", "10 hours/month", "20 hours/month"],
+  "x releases/day": ["2", "5", "10", "20+"],
+  "x microservices": ["5", "10", "20", "50+"],
+  "x environments": ["2", "3", "4 (dev/staging/prod/dr)"],
+  "x features per sprint": ["2–3", "3–5", "5+"],
+  "x users": ["100", "1,000", "10,000", "100,000+"],
+  "x active users": ["1,000", "10,000", "100,000+"],
+  "x patients per shift": ["4–6", "6–8", "8–10", "10+"],
+  "x patients per day": ["10–15", "15–20", "20–30"],
+  "x bed unit": ["10", "20", "30", "40+"],
+  "x-bed unit": ["10", "20", "30", "40+"],
+  "x providers": ["2–3", "3–5", "5–10"],
+  "x business units": ["2", "3", "5", "8+"],
+  "x senior leaders": ["3–5", "5–10", "10+"],
+  "x participants": ["5", "10", "15", "20+"],
+  "x projects": ["3–5", "5–10", "10+"],
+  "x-hour clinical externship": ["160-hour", "240-hour", "320-hour", "480-hour"],
+  "x stakeholders": ["3–5", "5–10", "10+"],
+  "x features": ["3", "5", "8", "10+"],
+  "x component library": ["design system", "UI component", "icon", "pattern"],
+  "x new graduate nurses": ["1–2", "3–5", "5+"],
+  "x new graduate nurses, reducing onboarding time by [x]%": null,
+  "x+ patients per shift": ["4+", "6+", "8+", "10+"],
+  "x satisfaction score": ["90%", "95%", "4.5/5", "4.8/5"],
+  // ── GPA ──────────────────────────────────────────────────────────────────
+  "x.x": ["3.5", "3.6", "3.7", "3.8", "3.9", "4.0"],
+  "x.x/4.0": ["3.5/4.0", "3.6/4.0", "3.7/4.0", "3.8/4.0", "3.9/4.0", "4.0/4.0"],
+  // ── personal / free type ─────────────────────────────────────────────────
+  "company name": null,
+  "previous company": null,
+  "hospital/facility name": null,
+  "previous facility": null,
+  "clinic/practice name": null,
+  "facility": null,
+  "organization": null,
+  "job title": null,
+  "previous job title": null,
+  "city, st": null,
+  "month year": null,
+  "year": null,
+  "university name": null,
+  "school name": null,
+  "link": null,
+  "project name": null,
+  "certification name": null,
+  "issuer": null,
+  "certification #": null,
+  "license #[xxxxx]": null,
+  "xxxxx": null,
+  "key achievement 1": null,
+  "key achievement 2": null,
+  "add more": null,
+  "primary skills": null,
+  "secondary skills": null,
+  // ── degree ───────────────────────────────────────────────────────────────
+  "degree": ["B.S.", "B.A.", "M.S.", "M.B.A.", "Ph.D.", "A.A.", "B.F.A.", "M.F.A."],
+  "degree/certification": ["B.S.", "B.A.", "M.S.", "Certificate", "Associate Degree", "Diploma"],
+  // ── tech stacks ──────────────────────────────────────────────────────────
+  "languages/frameworks": ["JavaScript/React", "Python/Django", "Java/Spring", "TypeScript/Node", "Go/Gin", "Ruby/Rails"],
+  "react/node/etc.": ["React", "Vue", "Angular", "Node.js", "Django", "Spring Boot", "Laravel"],
+  "jenkins/gitlab ci/github actions": ["GitHub Actions", "GitLab CI", "Jenkins", "CircleCI", "Azure DevOps"],
+  "aws/gcp/azure": ["AWS", "GCP", "Azure", "multi-cloud"],
+  "prometheus/grafana/datadog": ["Datadog", "Prometheus + Grafana", "New Relic", "Splunk"],
+  "tableau/power bi": ["Tableau", "Power BI", "Looker", "Metabase"],
+  "excel/tableau": ["Excel", "Tableau", "Power BI", "Google Data Studio"],
+  "epic/athenahealth/etc.": ["Epic", "AthenaHealth", "Cerner", "Meditech", "eClinicalWorks"],
+  "tools you use": ["VS Code, Git, Jira", "GitHub, Slack, Notion", "Figma, Zeplin, Jira", "Excel, Tableau, SQL"],
+  "database": ["PostgreSQL", "MySQL", "Snowflake", "Redshift", "BigQuery"],
+  "old tech": ["legacy monolith", "on-premise servers", "manual processes", "spreadsheet-based system"],
+  "new tech": ["microservices", "cloud infrastructure", "automated pipeline", "modern SaaS platform"],
+  // ── features / systems ────────────────────────────────────────────────────
+  "feature/system": ["authentication system", "payment integration", "reporting dashboard", "API gateway", "data pipeline", "notification service"],
+  "feature": ["user dashboard", "search feature", "notification system", "analytics module", "payment flow"],
+  "component": ["frontend component", "REST API", "database layer", "caching system", "CI/CD pipeline"],
+  "solution/system": ["automation system", "reporting tool", "integration platform", "monitoring solution", "self-service portal"],
+  "project/initiative": ["digital transformation", "system migration", "cost optimization", "process improvement", "new product launch"],
+  "product/feature": ["mobile app", "web platform", "dashboard", "API service", "customer portal"],
+  // ── healthcare ────────────────────────────────────────────────────────────
+  "ehr system": ["Epic", "Cerner", "AthenaHealth", "Meditech"],
+  "unit type": ["medical-surgical", "ICU", "emergency", "pediatric", "oncology"],
+  "setting": ["acute care hospital", "outpatient clinic", "long-term care", "rehabilitation center"],
+  "shift/day": ["shift", "day", "week"],
+  "procedures/tasks": ["patient intake", "vitals monitoring", "specimen collection", "medication administration"],
+  "specialty, e.g., medical-surgical, icu": ["medical-surgical", "ICU/critical care", "emergency", "pediatrics", "oncology", "orthopedics"],
+};
+
+function getSuggestions(label) {
+  // Exact match only — no partial matching to avoid false positives
+  return SUGGESTIONS[label.toLowerCase().trim()];
+}
+
+// ─── PARSER ───────────────────────────────────────────────────────────────────
+
+function parseSegments(text) {
+  const segments = [];
+  const regex = /\[([^\]]+)\]/g;
+  let last = 0;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) {
+      segments.push({ type: "text", value: text.slice(last, match.index) });
+    }
+    segments.push({ type: "fill", label: match[1], start: match.index, end: regex.lastIndex });
+    last = regex.lastIndex;
+  }
+  if (last < text.length) segments.push({ type: "text", value: text.slice(last) });
   return segments;
 }
 
+// Placeholder isolation fix v3.0: each edit replaces only the clicked bracket span.
 // One edit replaces exactly one bracket span in the current block text.
 // No separate fill dictionary or shifting numeric IDs are needed.
 function replacePlaceholder(text, start, end, replacement) {
@@ -190,3 +319,69 @@ export default function FillableSection({ id, label, value, onChange, onSkip, sk
 
   if (skipped) {
     return (
+      <div className="rb-field rb-field--skipped" data-resume-fill-fix="v3-isolated">
+        <div className="rb-field-header">
+          <label className="rb-field-label rb-field-label--muted">
+            {label} <span className="rb-skipped-tag">skipped</span>
+          </label>
+          <button className="rb-skip-btn rb-skip-btn--undo" onClick={() => onSkip(id, false)}>Undo Skip</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasBrackets || showRaw) {
+    return (
+      <div className="rb-field" data-resume-fill-fix="v3-isolated">
+        <div className="rb-field-header">
+          <label className="rb-field-label" htmlFor={id}>{label}</label>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {hasBrackets && <button className="rb-fill-mode-btn" onClick={() => setShowRaw(false)}>✎ Fill Mode</button>}
+            {onSkip && <button className="rb-skip-btn" onClick={() => onSkip(id, true)}>Skip</button>}
+          </div>
+        </div>
+        {hint && <p className="rb-field-hint">{hint}</p>}
+        <textarea id={id} className="rb-field-textarea" rows={id === "experience" ? 8 : 4}
+          value={value} onChange={handleRawChange} spellCheck={false} />
+      </div>
+    );
+  }
+
+  const remainingBrackets = (value.match(/\[[^\]]+\]/g) || []).length;
+
+  return (
+    <div className="rb-field" data-resume-fill-fix="v3-isolated">
+      <div className="rb-field-header">
+        <label className="rb-field-label">{label}</label>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span className="rb-fill-progress">{remainingBrackets} remaining</span>
+          <button className="rb-fill-mode-btn rb-fill-mode-btn--raw" onClick={() => setShowRaw(true)} title="Switch to raw text editor">⌨ Raw Edit</button>
+          {onSkip && <button className="rb-skip-btn" onClick={() => onSkip(id, true)}>Skip</button>}
+        </div>
+      </div>
+      {hint && <p className="rb-field-hint">{hint}</p>}
+
+      <div className="rb-fillable-body">
+        {blocks.map((blockText, bi) => (
+          <div key={bi} className="rb-block-wrap">
+            {blocks.length > 1 && (
+              <button className="rb-block-remove" onClick={() => removeBlock(bi)} type="button" title="Remove this entry">✕</button>
+            )}
+            <TemplateBlock
+              text={blockText}
+              blockIndex={bi}
+              onTextChange={handleBlockChange}
+            />
+            {bi < blocks.length - 1 && <div className="rb-block-divider" />}
+          </div>
+        ))}
+      </div>
+
+      {canAddMore && (
+        <button className="rb-add-block-btn" onClick={addBlock} type="button">
+          {ADD_LABELS[id]}
+        </button>
+      )}
+    </div>
+  );
+}
