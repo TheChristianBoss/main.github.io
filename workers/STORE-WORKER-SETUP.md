@@ -92,6 +92,12 @@ guarantee exactly-once execution under simultaneous requests**. Do not claim
 perfect deduplication until there is a transactional lock (for example a
 Durable Object) or proven provider-side atomic idempotency.
 
+**Exceptional Printful states:** Printful documents that some orders may be held while
+production costs are calculated and later return to `draft` for another
+confirmation. This Worker does not yet subscribe to Printful's hold-release
+webhook, so those orders require monitoring and a separate recovery flow.
+Auto-confirmation is not a guarantee that every order will immediately print.
+
 Keep `PRINTFUL_AUTO_CONFIRM=false` in **production** until shipping fees,
 Printful billing, webhook subscriptions, and a test-mode Stripe checkout are
 verified. After that, intentionally change it to `true` to activate
