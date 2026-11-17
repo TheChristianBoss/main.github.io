@@ -109,9 +109,45 @@ the Stripe webhook for both `checkout.session.completed` and
 `checkout.session.async_payment_succeeded` when deploying this new Worker;
 the live webhook currently subscribes to only the first event.
 
-Shipping options/rates are not yet configured in Checkout, and
-`automatic_tax` is not enabled. Confirm your shipping pricing and tax
-obligations before live fulfillment.
+## Separate customer-paid shipping (prepared, not priced)
+
+The owner chose **shipping separately** from the merchandise price.
+The current hosted Stripe Checkout cannot dynamically calculate shipping
+from an address entered on Stripe's full-page hosted checkout. This
+preparation therefore supports an **explicit flat rate per destination
+country** (one rate per physical order). If true item/address-specific
+Printful rates are required instead, use Stripe's embedded form or Elements,
+or another reviewed address-quoting flow; do not claim these country rates
+are real-time Printful quotes.
+
+The cart asks customers to select a delivery country first (US, CA, GB, AU).
+The Worker reads only the country selection, rejects invalid selections,
+and sets Stripe `shipping_options` with a **server-controlled fee**. Stripe
+is restricted to collecting a shipping address in the selected country.
+
+Set the following **plain-text numeric Worker variables in CENTS**, once
+the business has chosen and verified the real amounts:
+
+- `STORE_SHIPPING_US_CENTS`
+- `STORE_SHIPPING_CA_CENTS`
+- `STORE_SHIPPING_GB_CENTS`
+- `STORE_SHIPPING_AU_CENTS`
+
+**Do not guess shipping prices.** Zero/missing/invalid values block physical
+checkout instead of silently giving away shipping. Service-only checkout
+does not require shipping. A customer-submitted shipping amount is ignored.
+The Worker also checks the Stripe-signed checkout event's shipping fee
+and destination country before triggering Printful fulfillment.
+
+These flat rates apply to the whole order, not each individual product.
+Confirm that the rate covers the expected Printful costs for your product
+mix, quantities, address regions and shipping taxes. Review real rates
+using Printful's `POST /shipping/rates` and `POST /orders/estimate-costs`
+API endpoints, then set suitable merchant rates. If a flat charge cannot
+cover your actual costs predictably, choose dynamic shipping instead.
+
+The checkout's `automatic_tax` setting is still off. Review your tax
+registrations and applicable rules separately before enabling it.
 
 Workers KV is eventually consistent, so this design protects ordinary sequential webhook retries but is not a strict global transaction lock. For strict exactly-once processing during simultaneous requests from different Cloudflare locations, migrate the lock to a Durable Object or another strongly consistent transactional store.
 
@@ -124,6 +160,7 @@ node workers/tests/store-payment-webhook.test.mjs
 node workers/tests/store-order-kv-required.test.mjs
 node workers/tests/store-checkout-price-integrity.test.mjs
 node workers/tests/store-automatic-fulfillment.test.mjs
+node workers/tests/store-shipping-checkout.test.mjs
 npm run validate
 ```
 
@@ -140,10 +177,12 @@ Then prepare Cloudflare's existing `site` Worker:
    sends altered prices. The new
    `workers/tests/store-automatic-fulfillment.test.mjs` mocks Printful and
    tests confirmation, retries, and the draft-only fallback.
-7. Verify Printful billing is ready, decide how customer shipping is charged,
-   and review tax obligations. The current Stripe Checkout does **not** add
-   shipping rates or enable automatic tax.
-8. After review and a controlled code deployment, **separately activate**
+7. Configure and review the four `STORE_SHIPPING_XX_CENTS` variables.
+   Compare those flat charges with Printful's shipping cost for your products.
+   Do not activate live physical checkout without verified values.
+8. Review Printful billing, tax obligations, and the cost of the chosen
+   shipping model. Automatic Stripe Tax is still disabled.
+9. After review and a controlled code deployment, **separately activate**
    `PRINTFUL_AUTO_CONFIRM=true` to allow automatic production confirmation.
    Monitor real delivery and errors; do not simulate tests with live charges.
 
