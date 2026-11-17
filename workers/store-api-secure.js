@@ -966,7 +966,7 @@ export default {
         const { physicalItems } = await buildTrustedCheckoutItems(cart, env, ctx);
         if (!physicalItems.length) return error(request, 'No physical items in checkout');
 
-        const quoted = await getPrintfulStandardShipping(physicalItems, address, env, details?.name);
+        const quoted = await getPrintfulStandardShipping(physicalItems, address, env, body.shipping_details?.name);
         const updated = await stripePost(`/checkout/sessions/${encodeURIComponent(sessionId)}`, env, {
           shipping_options: [{
             shipping_rate_data: {
