@@ -93,7 +93,24 @@ function exactDollarAmountToCents(value) {
   return cents;
 }
 
-async function getPrintfulStandardShipping(physicalItems, address, env) {
+// Printful Shipping Rates can exclude store settings and additional fulfillment
+// surcharges. Its Order Estimate includes the store's actual shipping costs.
+// Fail closed if either endpoint is unavailable or the estimate is invalid.
+function estimatedDollarAmountToCents(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    throw new Error('Printful order estimate is missing a shipping cost');
+  }
+  const amount = Number(value);
+  const cents = Math.round(amount * 100);
+  // The Printful estimate sometimes serializes doubles as 11.290000000000001.
+  if (!Number.isFinite(amount) || !Number.isSafeInteger(cents) || cents <= 0 ||
+      cents > 1000000 || Math.abs(amount * 100 - cents) > 0.001) {
+    throw new Error('Invalid Printful estimated shipping cost');
+  }
+  return cents;
+}
+
+async function getPrintfulStandardShipping(physicalItems, address, env, recipientName = 'Shipping Estimate') {
   const items = physicalItems.map(item => {
     const catalogVariantId = Number(item.catalog_variant_id);
     if (!Number.isSafeInteger(catalogVariantId) || catalogVariantId <= 0) {
@@ -101,18 +118,37 @@ async function getPrintfulStandardShipping(physicalItems, address, env) {
     }
     return { variant_id: String(catalogVariantId), quantity: item.quantity };
   });
-  const response = await printful('/shipping/rates', env, {
+  const recipient = printfulRecipientFromAddress(address);
+  const rateResponse = await printful('/shipping/rates', env, {
     method: 'POST',
-    body: JSON.stringify({
-      recipient: printfulRecipientFromAddress(address),
-      items,
-      currency: 'USD',
-    }),
+    body: JSON.stringify({ recipient, items, currency: 'USD' }),
   });
-  const rates = Array.isArray(response.result) ? response.result : [];
+  const rates = Array.isArray(rateResponse.result) ? rateResponse.result : [];
   const selected = rates.find(rate => rate.id === 'STANDARD' && rate.currency === 'USD');
   if (!selected) throw new Error('Printful Standard shipping is unavailable for this address and cart');
-  return { method: 'STANDARD', amountCents: exactDollarAmountToCents(selected.rate) };
+  // The rate lookup is for method availability, not the final amount:
+  // Printful's real order estimate may include additional shipping surcharges.
+  exactDollarAmountToCents(selected.rate);
+
+  const estimate = await printful('/orders/estimate-costs', env, {
+    method: 'POST',
+    body: JSON.stringify({
+      shipping: 'STANDARD',
+      recipient: { name: cleanAddressField(recipientName, 110) || 'Shipping Estimate', ...recipient },
+      items: physicalItems.map(item => ({
+        sync_variant_id: Number(item.id),
+        quantity: item.quantity,
+        retail_price: String(item.price),
+      })),
+    }),
+  });
+  if (String(estimate.result?.costs?.currency || '').toUpperCase() !== 'USD') {
+    throw new Error('Printful order estimate currency is not USD');
+  }
+  return {
+    method: 'STANDARD',
+    amountCents: estimatedDollarAmountToCents(estimate.result?.costs?.shipping),
+  };
 }
 
 const MAX_CART_ITEMS = 20;
@@ -798,7 +834,7 @@ export default {
           recipientName = cleanAddressField(body.shipping_details?.name, 110);
           if (recipientName.length < 2) throw new Error('Delivery recipient name is required');
           verifiedAddress = normalizeShippingAddress(body.shipping_details);
-          quotedShipping = await getPrintfulStandardShipping(physicalItems, verifiedAddress, env);
+          quotedShipping = await getPrintfulStandardShipping(physicalItems, verifiedAddress, env, recipientName);
         }
 
         const physicalLineItems = physicalItems.map((item) => ({
@@ -930,7 +966,7 @@ export default {
         const { physicalItems } = await buildTrustedCheckoutItems(cart, env, ctx);
         if (!physicalItems.length) return error(request, 'No physical items in checkout');
 
-        const quoted = await getPrintfulStandardShipping(physicalItems, address, env);
+        const quoted = await getPrintfulStandardShipping(physicalItems, address, env, details?.name);
         const updated = await stripePost(`/checkout/sessions/${encodeURIComponent(sessionId)}`, env, {
           shipping_options: [{
             shipping_rate_data: {
