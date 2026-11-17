@@ -27,6 +27,26 @@ const ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:8787',
 ]);
 
+// Only these countries are supported by the current Printful store checkout.
+// Shipping fees are server-side configuration, never browser-supplied.
+const SHIPPING_COUNTRIES = new Set(['US', 'CA', 'GB', 'AU']);
+const MAX_SHIPPING_CENTS = 100000;
+
+function trustedShippingFee(country, env) {
+  if (!SHIPPING_COUNTRIES.has(country)) throw new Error('Unsupported shipping country');
+  const key = `STORE_SHIPPING_${country}_CENTS`;
+  const raw = env[key];
+  if (typeof raw !== 'string' && typeof raw !== 'number') {
+    throw new Error(`Shipping is not configured for ${country}`);
+  }
+  if (!/^\\d+$/.test(String(raw))) throw new Error(`Invalid shipping configuration for ${country}`);
+  const amount = Number(raw);
+  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > MAX_SHIPPING_CENTS) {
+    throw new Error(`Invalid shipping amount configured for ${country}`);
+  }
+  return amount;
+}
+
 const MAX_CART_ITEMS = 20;
 const MAX_QTY_PER_ITEM = 10;
 const STRIPE_SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
@@ -692,6 +712,10 @@ export default {
         let body;
         try { body = await request.json(); } catch { return error(request, 'Invalid JSON'); }
         const { physicalItems, serviceItems } = await buildTrustedCheckoutItems(body.items, env, ctx);
+        // The browser chooses only a delivery COUNTRY; its proposed price
+        // is ignored. The Worker fetches the actual merchant-set fee.
+        const shippingCountry = physicalItems.length ? String(body.shipping_country || '').toUpperCase() : '';
+        const shippingCents = physicalItems.length ? trustedShippingFee(shippingCountry, env) : 0;
 
         const physicalLineItems = physicalItems.map((item) => ({
           price_data: {
@@ -734,10 +758,15 @@ export default {
           'metadata[fulfillment_types]': physicalItems.length && serviceItems.length ? 'mixed' : (serviceItems.length ? 'service' : 'physical'),
           'phone_number_collection[enabled]': 'true',
           ...(physicalItems.length ? {
-            'shipping_address_collection[allowed_countries][0]': 'US',
-            'shipping_address_collection[allowed_countries][1]': 'CA',
-            'shipping_address_collection[allowed_countries][2]': 'GB',
-            'shipping_address_collection[allowed_countries][3]': 'AU',
+            // Stripe restricts the ship-to address to the country the fee
+            // was calculated for. This prevents cheap-country substitution.
+            'shipping_address_collection[allowed_countries][0]': shippingCountry,
+            'shipping_options[0][shipping_rate_data][type]': 'fixed_amount',
+            'shipping_options[0][shipping_rate_data][display_name]': 'Standard shipping',
+            'shipping_options[0][shipping_rate_data][fixed_amount][amount]': String(shippingCents),
+            'shipping_options[0][shipping_rate_data][fixed_amount][currency]': 'usd',
+            'metadata[shipping_country]': shippingCountry,
+            'metadata[shipping_amount_cents]': String(shippingCents),
           } : {}),
           ...(body.customer_email ? { customer_email: String(body.customer_email).slice(0, 254) } : {}),
         };
@@ -790,6 +819,21 @@ export default {
         const serviceItems = decodeServiceMetadata(session.metadata || {});
         if (!cartItems.length && !serviceItems.length) {
           return json({ received: true, note: 'Empty fulfillment payload' }, 200, request);
+        }
+
+        // The amount and country must come from the same Stripe-signed
+        // Checkout Session the Worker created. For legacy sessions without a
+        // shipping fee, stop rather than silently shipping an underpaid order.
+        if (cartItems.length) {
+          const expectedCountry = String(session.metadata?.shipping_country || '');
+          const expectedCents = Number(session.metadata?.shipping_amount_cents);
+          const chargedCents = session.shipping_cost?.amount_total;
+          const actualCountry = session.shipping_details?.address?.country;
+          if (!SHIPPING_COUNTRIES.has(expectedCountry)
+              || !Number.isSafeInteger(expectedCents) || expectedCents <= 0
+              || chargedCents !== expectedCents || actualCountry !== expectedCountry) {
+            throw new Error('Paid physical checkout has missing or mismatched shipping charge or address');
+          }
         }
 
         const result = { received: true };
