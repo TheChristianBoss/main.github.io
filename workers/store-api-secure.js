@@ -14,7 +14,8 @@
 //   GET  /product?id=     → single product with variants
 //   GET  /services        → list manual service products
 //   GET  /service?id=     → single service product
-//   POST /checkout        → create Stripe Checkout session using server-trusted prices
+//   POST /checkout        → hosted service checkout or embedded physical checkout
+//   POST /shipping/options → quote exact Printful shipping into embedded Checkout
 //   GET  /session?id=     → sanitized Stripe Checkout session summary for success page
 //   POST /webhook         → Stripe webhook → create/reconcile/optionally confirm Printful order
 
@@ -777,10 +778,14 @@ export default {
         let body;
         try { body = await request.json(); } catch { return error(request, 'Invalid JSON'); }
         const { physicalItems, serviceItems } = await buildTrustedCheckoutItems(body.items, env, ctx);
-        // The browser chooses only a delivery COUNTRY; its proposed price
-        // is ignored. The Worker fetches the actual merchant-set fee.
-        const shippingCountry = physicalItems.length ? String(body.shipping_country || '').toUpperCase() : '';
-        const shippingCents = physicalItems.length ? trustedShippingFee(shippingCountry, env) : 0;
+        const physicalCheckout = physicalItems.length > 0;
+        if (physicalCheckout) {
+          requireOrderStore(env);
+          if (!/^pk_(test|live)_[A-Za-z0-9]+$/.test(String(env.STRIPE_PUBLISHABLE_KEY || ''))) {
+            throw new Error('Embedded Checkout publishable key is missing or invalid');
+          }
+          if (!env.STRIPE_WEBHOOK_SECRET) throw new Error('Shipping quote signing secret is missing');
+        }
 
         const physicalLineItems = physicalItems.map((item) => ({
           price_data: {
@@ -817,21 +822,29 @@ export default {
         const params = {
           mode: 'payment',
           line_items,
-          success_url: `${SITE}/store/success.html?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${SITE}/store/cart.html`,
+          ...(physicalCheckout ? {
+            ui_mode: 'form',
+            return_url: `${SITE}/store/success.html?session_id={CHECKOUT_SESSION_ID}`,
+            'metadata[shipping_flow]': SHIPPING_QUOTE_FLOW,
+          } : {
+            success_url: `${SITE}/store/success.html?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${SITE}/store/cart.html`,
+          }),
           'metadata[cart]': encodeCartMetadata(physicalItems),
           'metadata[fulfillment_types]': physicalItems.length && serviceItems.length ? 'mixed' : (serviceItems.length ? 'service' : 'physical'),
           'phone_number_collection[enabled]': 'true',
-          ...(physicalItems.length ? {
-            // Stripe restricts the ship-to address to the country the fee
-            // was calculated for. This prevents cheap-country substitution.
-            'shipping_address_collection[allowed_countries][0]': shippingCountry,
+          ...(physicalCheckout ? {
+            'shipping_address_collection[allowed_countries][0]': 'US',
+            'shipping_address_collection[allowed_countries][1]': 'CA',
+            'shipping_address_collection[allowed_countries][2]': 'GB',
+            'shipping_address_collection[allowed_countries][3]': 'AU',
+            // Stripe's documented embedded-form pattern starts with a
+            // temporary rate, then updates it from Printful on address entry.
+            // The paid webhook MUST reject the temporary rate.
             'shipping_options[0][shipping_rate_data][type]': 'fixed_amount',
-            'shipping_options[0][shipping_rate_data][display_name]': 'Standard shipping',
-            'shipping_options[0][shipping_rate_data][fixed_amount][amount]': String(shippingCents),
+            'shipping_options[0][shipping_rate_data][display_name]': 'Awaiting Printful shipping quote',
+            'shipping_options[0][shipping_rate_data][fixed_amount][amount]': '0',
             'shipping_options[0][shipping_rate_data][fixed_amount][currency]': 'usd',
-            'metadata[shipping_country]': shippingCountry,
-            'metadata[shipping_amount_cents]': String(shippingCents),
           } : {}),
           ...(body.customer_email ? { customer_email: String(body.customer_email).slice(0, 254) } : {}),
         };
@@ -839,7 +852,74 @@ export default {
         applyServiceMetadata(params, serviceItems);
 
         const session = await stripePost('/checkout/sessions', env, params);
-        return json({ url: session.url }, 200, request);
+        if (!physicalCheckout) return json({ url: session.url }, 200, request);
+        if (!/^cs_(test|live)_[A-Za-z0-9_]+$/.test(String(session.id || '')) ||
+            !session.client_secret) {
+          throw new Error('Stripe did not return an embedded Checkout Session');
+        }
+        return json({
+          clientSecret: session.client_secret,
+          publishableKey: env.STRIPE_PUBLISHABLE_KEY,
+          checkoutSessionId: session.id,
+          shippingUpdateToken: await checkoutShippingToken(session.id, env),
+        }, 200, request);
+      }
+
+      // ── POST /shipping/options ────────────────────────────────────────────
+      // Called from Stripe's embedded form after a complete shipping address.
+      // A signed, session-bound token prevents arbitrary Checkout updates.
+      if (request.method === 'POST' && path === '/shipping/options') {
+        requireOrderStore(env);
+        const payload = await request.text();
+        if (payload.length > 10000) return error(request, 'Shipping request too large', 413);
+        let body;
+        try { body = JSON.parse(payload); } catch { return error(request, 'Invalid shipping request'); }
+        const sessionId = String(body.checkout_session_id || '');
+        if (!/^cs_(test|live)_[A-Za-z0-9_]+$/.test(sessionId)) {
+          return error(request, 'Invalid checkout session');
+        }
+        const expectedToken = await checkoutShippingToken(sessionId, env);
+        if (!timingSafeEqualHex(expectedToken, String(body.shipping_update_token || ''))) {
+          return error(request, 'Unauthorized shipping update', 403);
+        }
+
+        const session = await stripeGet(`/checkout/sessions/${encodeURIComponent(sessionId)}`, env);
+        if (session.status !== 'open' || session.ui_mode !== 'form' ||
+            session.metadata?.shipping_flow !== SHIPPING_QUOTE_FLOW ||
+            !session.metadata?.cart) {
+          return error(request, 'Checkout session is not eligible for shipping quotes', 409);
+        }
+        const address = normalizeShippingAddress(body.shipping_details);
+        // Server-trusted cart IDs and current Printful catalog pricing; never
+        // trust a caller's items, variants, quantities, shipping price or currency.
+        const cart = decodeCartMetadata(session.metadata.cart);
+        const { physicalItems } = await buildTrustedCheckoutItems(cart, env, ctx);
+        if (!physicalItems.length) return error(request, 'No physical items in checkout');
+
+        const quoted = await getPrintfulStandardShipping(physicalItems, address, env);
+        const updated = await stripePost(`/checkout/sessions/${encodeURIComponent(sessionId)}`, env, {
+          shipping_options: [{
+            shipping_rate_data: {
+              type: 'fixed_amount',
+              display_name: 'Printful Standard shipping',
+              fixed_amount: { amount: quoted.amountCents, currency: 'usd' },
+            },
+          }],
+        });
+        const shippingRateId = updated.shipping_options?.[0]?.shipping_rate;
+        if (typeof shippingRateId !== 'string' || !shippingRateId.startsWith('shr_')) {
+          throw new Error('Stripe did not return the updated shipping rate');
+        }
+        const addressHash = await digestHex(JSON.stringify(address));
+        await requireOrderStore(env).put(QUOTE_KEY_PREFIX + sessionId, JSON.stringify({
+          addressHash,
+          amountCents: quoted.amountCents,
+          currency: 'usd',
+          method: quoted.method,
+          shippingRateId,
+        }), { expirationTtl: ORDER_RECORD_TTL_SECONDS });
+
+        return json({ type: 'object', value: { succeeded: true } }, 200, request);
       }
 
       // ── POST /webhook ──────────────────────────────────────────────────────
@@ -886,18 +966,24 @@ export default {
           return json({ received: true, note: 'Empty fulfillment payload' }, 200, request);
         }
 
-        // The amount and country must come from the same Stripe-signed
-        // Checkout Session the Worker created. For legacy sessions without a
-        // shipping fee, stop rather than silently shipping an underpaid order.
+        // A Stripe-signed successful payment alone does not authorize
+        // fulfillment: an address-matched Printful quote must be on record.
+        let verifiedQuote = null;
         if (cartItems.length) {
-          const expectedCountry = String(session.metadata?.shipping_country || '');
-          const expectedCents = Number(session.metadata?.shipping_amount_cents);
-          const chargedCents = session.shipping_cost?.amount_total;
-          const actualCountry = session.shipping_details?.address?.country;
-          if (!SHIPPING_COUNTRIES.has(expectedCountry)
-              || !Number.isSafeInteger(expectedCents) || expectedCents <= 0
-              || chargedCents !== expectedCents || actualCountry !== expectedCountry) {
-            throw new Error('Paid physical checkout has missing or mismatched shipping charge or address');
+          if (session.metadata?.shipping_flow !== SHIPPING_QUOTE_FLOW) {
+            throw new Error('Paid physical checkout lacks verified dynamic shipping');
+          }
+          const stored = await requireOrderStore(env).get(QUOTE_KEY_PREFIX + session.id);
+          if (!stored) throw new Error('No verified Printful shipping quote for paid checkout');
+          try { verifiedQuote = JSON.parse(stored); } catch { throw new Error('Invalid saved shipping quote'); }
+          const details = session.shipping_details || session.collected_information?.shipping_details;
+          const address = normalizeShippingAddress(details);
+          if (await digestHex(JSON.stringify(address)) !== verifiedQuote.addressHash ||
+              session.shipping_cost?.amount_total !== verifiedQuote.amountCents ||
+              session.shipping_cost?.shipping_rate !== verifiedQuote.shippingRateId ||
+              String(session.currency || '').toLowerCase() !== 'usd' ||
+              verifiedQuote.method !== 'STANDARD') {
+            throw new Error('Shipping address, price or method differs from confirmed Printful quote');
           }
         }
 
@@ -942,6 +1028,7 @@ export default {
                   retail_price: String(item.price),
                 })),
                 retail_costs: { currency: 'USD' },
+                shipping: verifiedQuote.method,
                 external_id: externalId,
               };
 
