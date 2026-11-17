@@ -41,6 +41,7 @@ function paidPhysicalEvent(id = 'cs_test_kv_1') {
       object: {
         id,
         payment_status: 'paid',
+        currency: 'usd',
         metadata: {
           cart: '123:1', fulfillment_types: 'physical',
           shipping_flow: 'printful_dynamic_v1',
