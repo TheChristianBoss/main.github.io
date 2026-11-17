@@ -39,7 +39,7 @@ function trustedShippingFee(country, env) {
   if (typeof raw !== 'string' && typeof raw !== 'number') {
     throw new Error(`Shipping is not configured for ${country}`);
   }
-  if (!/^\\d+$/.test(String(raw))) throw new Error(`Invalid shipping configuration for ${country}`);
+  if (!/^\d+$/.test(String(raw))) throw new Error(`Invalid shipping configuration for ${country}`);
   const amount = Number(raw);
   if (!Number.isSafeInteger(amount) || amount <= 0 || amount > MAX_SHIPPING_CENTS) {
     throw new Error(`Invalid shipping amount configured for ${country}`);
