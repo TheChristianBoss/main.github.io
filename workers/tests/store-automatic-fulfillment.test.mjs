@@ -50,9 +50,11 @@ function signedRequest(sessionId, paid = true, eventType = 'checkout.session.com
     currency: 'usd',
     customer_details: { name: 'Buyer', email: 'buyer@example.com' },
     ...(withAddress ? {
-      shipping_details: {
-        name: 'Buyer',
-        address: { line1: '1 Main St', city: 'Tampa', state: 'FL', country: 'US', postal_code: '33601' },
+      collected_information: {
+        shipping_details: {
+          name: 'Buyer',
+          address: { line1: '1 Main St', city: 'Tampa', state: 'FL', country: 'US', postal_code: '33601' },
+        },
       },
     } : {}),
   };
@@ -129,6 +131,9 @@ globalThis.fetch = async (url, options = {}) => {
     assert.equal(payload.items[0].retail_price, '25.00');
     assert.equal(payload.shipping, 'STANDARD');
     assert.equal(payload.recipient.country_code, 'US');
+    assert.equal(payload.recipient.name, 'Buyer');
+    assert.equal(payload.recipient.address1, '1 Main St');
+    assert.equal(payload.recipient.zip, '33601');
     if (!orders.has(payload.external_id)) {
       createCalls += 1;
       orders.set(payload.external_id, {

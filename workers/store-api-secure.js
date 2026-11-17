@@ -1001,7 +1001,8 @@ export default {
             let order = await findPrintfulOrderByExternalId(externalId, env);
             if (!order) {
               const { physicalItems } = await buildTrustedCheckoutItems(cartItems, env, ctx);
-              const shipping = session.shipping_details;
+              // Newer Checkout API versions provide shipping details in collected_information.
+              const shipping = session.collected_information?.shipping_details || session.shipping_details;
               const recipient = {
                 name: shipping?.name || session.customer_details?.name || 'Customer',
                 address1: shipping?.address?.line1 || '',
