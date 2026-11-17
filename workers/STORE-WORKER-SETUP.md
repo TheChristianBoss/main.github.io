@@ -67,11 +67,35 @@ SHA-256-derived 32-character ID, then calls Printful with
 `update_existing=true`. Both repeated deliveries and retries use the same
 external ID. The full session ID remains in the KV record.
 
-**Order creation is draft-only.** The Worker calls `POST /orders?update_existing=true`
-without `confirm=1`; this does not submit the order to production or charge
-the Printful billing method. An explicit approval and tested confirmation flow
-are required before automatic fulfillment is enabled. Creating a paid Stripe
-Checkout Session does not by itself mean the goods will ship.
+**Fulfillment preference: automatic, after paid Stripe checkout.** The Worker
+supports automatic Printful production submission only when the Cloudflare
+variable `PRINTFUL_AUTO_CONFIRM` is the exact string `true`. It defaults
+to off when missing or set to `false`. This guard is deliberate: confirming
+an order can charge your Printful billing method.
+
+For verified paid physical checkouts the Worker:
+1. Derives a deterministic 32-character Printful external ID from the Stripe
+   Checkout Session ID.
+2. Looks up that external ID at Printful before creating anything. Repeated
+   requests can recover orders that were accepted before an earlier timeout.
+3. Creates a **draft** only if no matching Printful order exists.
+4. **If auto confirmation is enabled:** submits that draft through
+   `POST /orders/@{external_id}/confirm` and records success only after the
+   response reports a submitted status (`pending`, `inreview`, `inprocess`,
+   `partial` or `fulfilled`). Otherwise, keeps the draft.
+5. Records each successful step under the Stripe Session ID in KV, so
+   ordinary sequential webhook retries do not repeat completed work.
+
+Important: Cloudflare KV is eventually consistent. The deterministic Printful
+external ID and initial lookup reduce duplicate-submission risk but **do not
+guarantee exactly-once execution under simultaneous requests**. Do not claim
+perfect deduplication until there is a transactional lock (for example a
+Durable Object) or proven provider-side atomic idempotency.
+
+Keep `PRINTFUL_AUTO_CONFIRM=false` in **production** until shipping fees,
+Printful billing, webhook subscriptions, and a test-mode Stripe checkout are
+verified. After that, intentionally change it to `true` to activate
+automatic, chargeable fulfillment. Do not put a live Printful token in tests.
 
 The Worker validates the Stripe signature and checks
 `session.payment_status === 'paid'` before a paid fulfillment attempt. Configure
@@ -93,6 +117,7 @@ Run locally on the proposed branch:
 node workers/tests/store-payment-webhook.test.mjs
 node workers/tests/store-order-kv-required.test.mjs
 node workers/tests/store-checkout-price-integrity.test.mjs
+node workers/tests/store-automatic-fulfillment.test.mjs
 npm run validate
 ```
 
@@ -106,6 +131,14 @@ Then prepare Cloudflare's existing `site` Worker:
    the existing webhook; do not create a duplicate destination.
 6. Test unpaid, delayed-payment, malformed, repeated, and paid webhook deliveries
    in a sandbox. Verify product and service totals do not change when a client
-   sends altered prices. Do not test with a real charge or Printful order.
+   sends altered prices. The new
+   `workers/tests/store-automatic-fulfillment.test.mjs` mocks Printful and
+   tests confirmation, retries, and the draft-only fallback.
+7. Verify Printful billing is ready, decide how customer shipping is charged,
+   and review tax obligations. The current Stripe Checkout does **not** add
+   shipping rates or enable automatic tax.
+8. After review and a controlled code deployment, **separately activate**
+   `PRINTFUL_AUTO_CONFIRM=true` to allow automatic production confirmation.
+   Monitor real delivery and errors; do not simulate tests with live charges.
 
 No deployment or secret migration is performed by this document.
