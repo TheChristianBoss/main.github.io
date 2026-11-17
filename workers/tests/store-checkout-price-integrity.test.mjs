@@ -30,6 +30,7 @@ globalThis.fetch = async (url, options = {}) => {
         sync_product: { id: 10, name: 'Trusted Shirt' },
         sync_variants: [{
           id: 123,
+          variant_id: 777,
           name: 'Medium',
           retail_price: '25.00',
           currency: 'USD',
@@ -39,13 +40,24 @@ globalThis.fetch = async (url, options = {}) => {
       },
     }), { status: 200 });
   }
+  if (href === 'https://api.printful.com/shipping/rates') {
+    const data = JSON.parse(options.body);
+    assert.deepEqual(data.items, [{ variant_id: '777', quantity: 1 }]);
+    return new Response(JSON.stringify({
+      result: [{ id: 'STANDARD', currency: 'USD', rate: '8.73' }],
+    }), { status: 200 });
+  }
   if (href === 'https://api.stripe.com/v1/checkout/sessions') {
     checkoutRequests += 1;
     assert.equal(options.method, 'POST');
     mostRecentStripeForm = new URLSearchParams(options.body);
+    assert.equal(options.headers['Stripe-Version'], '2026-03-25.dahlia');
     return new Response(JSON.stringify({
       id: 'cs_test_price_integrity',
       client_secret: 'cs_test_secret_price',
+      shipping_options: [{ shipping_rate: 'shr_price_test' }],
+      shipping_cost: { amount_total: 873 },
+      currency: 'usd',
     }), { status: 200 });
   }
   throw new Error(`Unexpected external request: ${href}`);
@@ -58,6 +70,13 @@ async function checkout(items) {
     body: JSON.stringify({
       items,
       customer_email: 'buyer@example.com',
+      shipping_details: {
+        name: 'Buyer',
+        address: {
+          line1: '1 Main St', city: 'Tampa', state: 'FL',
+          country: 'US', postal_code: '33601',
+        },
+      },
       // These browser-controlled values must never influence the Stripe charge.
       amount_total: 1,
       shipping: 0,
@@ -104,11 +123,13 @@ try {
   assert.equal(mostRecentStripeForm.get('line_items[1][price_data][product_data][name]'), 'Cyber Security Evaluation');
   assert.equal(mostRecentStripeForm.get('line_items[1][quantity]'), '1');
   assert.equal(mostRecentStripeForm.get('metadata[cart]'), '123:1');
-  // Browser-supplied prices still cannot override merchant prices. The
-  // initial shipping option is a placeholder, NOT a verified rate.
-  assert.equal(mostRecentStripeForm.get('shipping_options[0][shipping_rate_data][fixed_amount][amount]'), '0');
+  // Server-owned prices and Printful shipping must be set BEFORE Checkout exists.
+  // The caller's shipping:0, price:0.01 and currency:XXX must be ignored.
+  assert.equal(mostRecentStripeForm.get('shipping_options[0][shipping_rate_data][fixed_amount][amount]'), '873');
   assert.equal(mostRecentStripeForm.get('ui_mode'), 'form');
-  assert.equal(mostRecentStripeForm.get('metadata[shipping_flow]'), 'printful_dynamic_v1');
+  assert.equal(mostRecentStripeForm.get('metadata[shipping_flow]'), 'printful_prequoted_v2');
+  assert.equal(mostRecentStripeForm.get('payment_intent_data[shipping][address][country]'), 'US');
+  assert.equal(mostRecentStripeForm.get('shipping_address_collection[allowed_countries][0]'), null);
   assert.equal(mostRecentStripeForm.get('metadata[shipping_country]'), null);
 
   const invalidVariant = await checkout([{
