@@ -38,7 +38,7 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
   headers: { 'Content-Type': 'application/json' },
 });
 
-function signedRequest(sessionId, paid = true, eventType = 'checkout.session.completed', withAddress = true) {
+function signedRequest(sessionId, paid = true, eventType = 'checkout.session.completed', withAddress = true, shippingAmount = 700) {
   const session = {
     id: sessionId,
     payment_status: paid ? 'paid' : 'unpaid',
@@ -46,7 +46,7 @@ function signedRequest(sessionId, paid = true, eventType = 'checkout.session.com
       cart: '123:1', fulfillment_types: 'physical',
       shipping_country: 'US', shipping_amount_cents: '700',
     },
-    shipping_cost: { amount_total: 700 },
+    shipping_cost: { amount_total: shippingAmount },
     customer_details: { name: 'Buyer', email: 'buyer@example.com' },
     ...(withAddress ? {
       shipping_details: {
@@ -69,8 +69,8 @@ function signedRequest(sessionId, paid = true, eventType = 'checkout.session.com
   });
 }
 
-async function send(sessionId, paid = true, eventType = 'checkout.session.completed', withAddress = true) {
-  const response = await worker.fetch(signedRequest(sessionId, paid, eventType, withAddress), env, {});
+async function send(sessionId, paid = true, eventType = 'checkout.session.completed', withAddress = true, shippingAmount = 700) {
+  const response = await worker.fetch(signedRequest(sessionId, paid, eventType, withAddress, shippingAmount), env, {});
   return { status: response.status, body: await response.json() };
 }
 
@@ -175,6 +175,12 @@ try {
   const invalidShipping = await send('cs_test_no_shipping', true, 'checkout.session.completed', false);
   assert.equal(invalidShipping.status, 500);
   assert.equal(createCalls, 2, 'Missing shipping details must block order creation');
+  assert.equal(confirmationCalls, 3);
+
+  // A forged or unpaid shipping charge must never start Printful fulfillment.
+  const underpaidShipping = await send('cs_test_underpaid_shipping', true, 'checkout.session.completed', true, 1);
+  assert.equal(underpaidShipping.status, 500);
+  assert.equal(createCalls, 2);
   assert.equal(confirmationCalls, 3);
 
   // Turning auto-confirm off reverts to non-chargeable draft creation.
