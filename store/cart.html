@@ -424,6 +424,7 @@
   <p>&copy; 2026 ChristianGoblin &nbsp;·&nbsp; <a href="/store/policies.html">Store Policies</a> &nbsp;·&nbsp; <a href="/privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="/terms.html">Terms</a> &nbsp;·&nbsp; <a href="mailto:hello@christiangoblin.com">Contact</a></p>
 </footer>
 
+<script src="https://js.stripe.com/endive/stripe.js"></script>
 <script>
   const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
   const SERVICE_CATALOG = {
@@ -433,7 +434,6 @@
     'three-month-life-coaching': { name: '3 Month Life Coaching', price_cents: 11200, max_qty: 1 },
   };
   let cartNotice = '';
-  let selectedShippingCountry = '';
 
   function esc(value) { return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch])); }
   function safeUrl(value) { try { const url = new URL(String(value || ''), window.location.origin); return url.protocol === 'https:' || url.origin === window.location.origin ? url.href : ''; } catch { return ''; } }
@@ -522,9 +522,6 @@
           }),
     };
     if (email) payload.customer_email = email;
-    if (getCart().some(item => item.type !== 'service')) {
-      payload.shipping_country = document.getElementById('shippingCountry')?.value || '';
-    }
     return payload;
   }
 
@@ -593,7 +590,7 @@
             <span class="val">$${money(itemPrice(item) * item.quantity)}</span>
           </div>`).join('')}
         <div class="summary-row total"><span>Estimated total</span><span class="val">$${money(total)}</span></div>
-        <p class="summary-muted">Final product prices are verified securely. ${hasPhysical ? 'Shipping is charged separately at checkout based on your selected destination. Applicable taxes may be added.' : ''}</p>
+        <p class="summary-muted">Final product prices are verified securely. ${hasPhysical ? 'Printful shipping will be quoted for your full address and charged separately. Applicable taxes are shown when configured.' : ''}</p>
         <ul class="summary-list">
           <li>Secure payment through Stripe.</li>
           <li>See <a href="/privacy.html">Privacy</a>, <a href="/terms.html">Terms</a>, and <a href="/store/policies.html">Store Policies</a>.</li>
@@ -602,23 +599,15 @@
           ${hasPhysical ? '<li>Quantity is limited to 10 per physical item.</li>' : ''}
         </ul>
         ${hasPhysical ? `
-        <div class="checkout-field">
-          <label class="checkout-label" for="shippingCountry">Ship to country (required)</label>
-          <select class="checkout-input" id="shippingCountry" required>
-            <option value="">Select your shipping destination</option>
-            <option value="US" ${selectedShippingCountry === 'US' ? 'selected' : ''}>United States</option>
-            <option value="CA" ${selectedShippingCountry === 'CA' ? 'selected' : ''}>Canada</option>
-            <option value="GB" ${selectedShippingCountry === 'GB' ? 'selected' : ''}>United Kingdom</option>
-            <option value="AU" ${selectedShippingCountry === 'AU' ? 'selected' : ''}>Australia</option>
-          </select>
-          <p class="summary-muted">You will see the separate shipping charge in Stripe before paying. Only the server sets that amount.</p>
-        </div>` : ''}
+        <p class="summary-muted">Enter your delivery address in Stripe's secure checkout. Printful's shipping quote will be calculated from your address and cart, then added separately before payment.</p>` : ''}
         <div class="checkout-field">
           <label class="checkout-label" for="customerEmail">Email for checkout autofill</label>
           <input class="checkout-input" id="customerEmail" type="email" placeholder="you@example.com" autocomplete="email" />
         </div>
         <div class="checkout-error" id="checkoutError" role="alert"></div>
         <button class="checkout-btn" id="checkoutBtn">Proceed to Checkout</button>
+        <div id="shippingQuoteStatus" class="summary-muted" role="status" aria-live="polite"></div>
+        <div id="checkout-form" aria-label="Secure Stripe payment form"></div>
         <a class="continue-link" href="/store/">Continue Shopping</a>
         <a class="continue-link" href="/store/policies.html">Store Policies</a>
         <a class="continue-link" href="/privacy.html">Privacy</a>
@@ -633,9 +622,6 @@
       btn.addEventListener('click', () => removeItem(btn.dataset.remove));
     });
     document.getElementById('clearCartBtn')?.addEventListener('click', clearCart);
-    document.getElementById('shippingCountry')?.addEventListener('change', (event) => {
-      selectedShippingCountry = event.target.value;
-    });
     document.getElementById('checkoutBtn').addEventListener('click', async () => {
       const btn = document.getElementById('checkoutBtn');
       btn.disabled = true;
@@ -648,17 +634,73 @@
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           throw new Error('Please enter a valid email address or leave the email field blank.');
         }
-        if (hasPhysical && !['US', 'CA', 'GB', 'AU'].includes(document.getElementById('shippingCountry')?.value)) {
-          throw new Error('Please select your shipping destination.');
-        }
         const res = await fetch(`${WORKER}/checkout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(checkoutPayload()),
         });
         const data = await res.json();
-        if (data.url) window.location.href = data.url;
-        else throw new Error(data.error || data.details || 'No checkout URL returned');
+        if (!res.ok) throw new Error(data.error || 'Unable to initialize secure checkout');
+        if (data.url) {
+          window.location.href = data.url; // Service-only Checkout stays hosted.
+          return;
+        }
+        if (!hasPhysical || !data.clientSecret || !data.publishableKey ||
+            !data.checkoutSessionId || !data.shippingUpdateToken) {
+          throw new Error('Incomplete secure checkout configuration');
+        }
+        if (typeof window.Stripe !== 'function') throw new Error('Stripe Checkout could not load');
+        const stripe = window.Stripe(data.publishableKey);
+        const checkout = await stripe.initCheckoutFormSdk({ clientSecret: data.clientSecret });
+        const checkoutForm = checkout.createForm();
+        checkoutForm.mount('#checkout-form');
+        btn.textContent = 'Complete secure checkout below';
+        btn.style.display = 'none';
+
+        const quoteStatus = document.getElementById('shippingQuoteStatus');
+        let quotedAddress = '';
+        let shippingUpdateInProgress = false;
+        checkoutForm.on('change', async ({ value, status }) => {
+          const address = value?.shippingAddress;
+          if (!status?.shippingAddress?.complete || !address?.address) {
+            quotedAddress = '';
+            quoteStatus.textContent = 'Enter your complete shipping address to calculate delivery.';
+            return;
+          }
+          const addressKey = JSON.stringify(address.address);
+          if (shippingUpdateInProgress || quotedAddress === addressKey) return;
+          shippingUpdateInProgress = true;
+          quoteStatus.textContent = 'Checking Printful shipping for your address…';
+          try {
+            const actionsResult = await checkout.loadActions();
+            if (actionsResult.type !== 'success') throw new Error('Could not update shipping');
+            const result = await actionsResult.actions.runServerUpdate(async () => {
+              const quote = await fetch(`${WORKER}/shipping/options`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  checkout_session_id: data.checkoutSessionId,
+                  shipping_update_token: data.shippingUpdateToken,
+                  shipping_details: address,
+                }),
+              });
+              const payload = await quote.json().catch(() => ({}));
+              if (!quote.ok || payload.type === 'error') {
+                throw new Error(payload.details || payload.error || payload.message || 'Shipping is unavailable');
+              }
+              return payload;
+            });
+            if (result?.type === 'error') throw new Error(result.error?.message || 'Could not confirm shipping');
+            quotedAddress = addressKey;
+            quoteStatus.textContent = 'Printful shipping added. Confirm the amount shown by Stripe before paying.';
+          } catch (quoteError) {
+            quotedAddress = '';
+            quoteStatus.textContent = 'Shipping could not be calculated: ' + quoteError.message +
+              '. Please review the address and try again.';
+          } finally {
+            shippingUpdateInProgress = false;
+          }
+        });
       } catch (err) {
         btn.disabled = false;
         btn.textContent = 'Proceed to Checkout';
