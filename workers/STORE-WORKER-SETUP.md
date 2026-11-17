@@ -125,10 +125,14 @@ physical carts. Service-only checkout stays on Stripe's hosted page.
    These fields are **not persisted to localStorage**.
 2. `POST /checkout` rebuilds product prices and quantities from Printful
    server-owned data; the browser cannot override product or shipping prices.
-3. Before contacting Stripe, the Worker validates the address, maps Printful's
-   **catalog** `variant_id` (not `sync_variant_id`) to the customer's cart and
-   requests `STANDARD` shipping in USD through `POST /shipping/rates`.
-   A missing or invalid rate blocks Checkout completely.
+3. Before contacting Stripe, the Worker validates the address and requests
+   an available `STANDARD` rate through Printful `POST /shipping/rates`
+   using the **catalog** `variant_id`. It then requests Printful
+   `POST /orders/estimate-costs` with the matching **sync** variant IDs.
+   **The shipping amount charged to the buyer comes from the fuller order
+   estimate's `costs.shipping`, not the lower rate lookup**; it includes
+   the store's applicable fulfillment shipping adjustments. Missing or
+   invalid USD estimates block Checkout completely.
 4. Stripe receives an **already quoted, positive** shipping rate through
    `shipping_options`, with the verified recipient and address attached to
    `payment_intent_data[shipping]`. The Worker deliberately omits
@@ -169,10 +173,13 @@ created. No `STORE_SHIPPING_XX_CENTS` variables are used.
 
 ### Important release limitations
 
-- Printful explicitly warns `/shipping/rates` can differ from final
-  `/orders/estimate-costs` when Printful store shipping settings are involved.
-  Compare quotes and estimates for representative carts, destinations, and
-  quantities before calling these amounts exact final fulfillment costs.
+- We observed a real difference for one bottle to sample Tampa, Florida:
+  `/shipping/rates` returned **$10.89**, while `/orders/estimate-costs`
+  returned **$11.29** (including an apparent $0.40 US surcharge).
+  The Worker therefore charges the order-estimate shipping amount.
+  **This remains an estimate**, not a guaranteed future Printful invoice;
+  validate more destinations, products, quantities and shipping settings.
+  The customer-approved Stripe charge itself is fixed at checkout.
 - The earlier dynamic form relied on a temporary $0 shipping placeholder.
   New physical sessions no longer have a placeholder: if Printful quoting
   fails, Stripe never receives a Checkout create request. Before release,
