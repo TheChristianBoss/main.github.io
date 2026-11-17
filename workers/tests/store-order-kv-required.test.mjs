@@ -41,7 +41,11 @@ function paidPhysicalEvent(id = 'cs_test_kv_1') {
       object: {
         id,
         payment_status: 'paid',
-        metadata: { cart: '123:1', fulfillment_types: 'physical' },
+        metadata: {
+          cart: '123:1', fulfillment_types: 'physical',
+          shipping_country: 'US', shipping_amount_cents: '700',
+        },
+        shipping_cost: { amount_total: 700 },
         customer_details: { email: 'buyer@example.com', name: 'Buyer' },
         shipping_details: {
           name: 'Buyer',
