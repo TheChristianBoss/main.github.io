@@ -8,5 +8,8 @@
       "binding": "STORE_ORDER_KV",
       "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
     }
-  ]
+  ],
+  "vars": {
+    "PRINTFUL_AUTO_CONFIRM": "false"
+  }
 }
