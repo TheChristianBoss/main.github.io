@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createHmac } from 'node:crypto';
+import { createHmac, createHash } from 'node:crypto';
 
 const workerPath = new URL('../store-api-secure.js', import.meta.url);
 const source = await readFile(workerPath, 'utf8');
@@ -43,9 +43,9 @@ function paidPhysicalEvent(id = 'cs_test_kv_1') {
         payment_status: 'paid',
         metadata: {
           cart: '123:1', fulfillment_types: 'physical',
-          shipping_country: 'US', shipping_amount_cents: '700',
+          shipping_flow: 'printful_dynamic_v1',
         },
-        shipping_cost: { amount_total: 700 },
+        shipping_cost: { amount_total: 700, shipping_rate: 'shr_kv_test' },
         customer_details: { email: 'buyer@example.com', name: 'Buyer' },
         shipping_details: {
           name: 'Buyer',
@@ -96,6 +96,16 @@ try {
     },
   };
   const env = { ...baseEnv, STORE_ORDER_KV: kv };
+  const testAddress = {
+    country: 'US', state: 'FL', postal_code: '33601',
+    city: 'TAMPA', line1: '1 MAIN ST', line2: '',
+  };
+  const addressHash = createHash('sha256').update(JSON.stringify(testAddress)).digest('hex');
+  const quoteKey = 'printful-shipping-quote:cs_test_kv_retry';
+  records.set(quoteKey, JSON.stringify({
+    addressHash, amountCents: 700, currency: 'usd',
+    method: 'STANDARD', shippingRateId: 'shr_kv_test',
+  }));
   const healthy = await worker.fetch(new Request('https://store-worker.example/health'), env, {});
   assert.equal(healthy.status, 200);
 
