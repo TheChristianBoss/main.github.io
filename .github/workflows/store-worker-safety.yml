@@ -29,6 +29,7 @@ jobs:
           node --check workers/tests/store-checkout-price-integrity.test.mjs
           node --check workers/tests/store-automatic-fulfillment.test.mjs
           node --check workers/tests/store-shipping-checkout.test.mjs
+          node --check workers/tests/store-prequoted-payment-verification.test.mjs
       - name: Verify payment, retry protection and server prices
         run: |
           node workers/tests/store-payment-webhook.test.mjs
@@ -36,6 +37,7 @@ jobs:
           node workers/tests/store-checkout-price-integrity.test.mjs
           node workers/tests/store-automatic-fulfillment.test.mjs
           node workers/tests/store-shipping-checkout.test.mjs
+          node workers/tests/store-prequoted-payment-verification.test.mjs
 
   full-validation:
     runs-on: ubuntu-latest

@@ -112,36 +112,48 @@ the live webhook currently subscribes to only the first event.
 ## Exact, customer-paid Printful shipping (prepared, not live)
 
 The owner chose **exact Printful shipping rates charged separately**.
-The hosted Checkout flow cannot dynamically adjust shipping after an address
-is entered. Physical checkouts now use Stripe's **embedded Checkout form**
-(`ui_mode=form`) to update the Standard shipping option when the customer
-completes the shipping address. Service-only checkout stays hosted.
+Physical checkouts use Stripe's embedded Checkout Form (`ui_mode=form`), but
+unlike Stripe's dynamically updated shipping example, the Worker now obtains
+the Printful quote **before creating the Stripe Checkout Session**. A payment-
+enabled session with a temporary $0 shipping option is never created for new
+physical carts. Service-only checkout stays on Stripe's hosted page.
 
 ### API flow and price authority
 
-1. Customer adds physical products to the existing cart.
-2. `POST /checkout` rebuilds trusted prices from Printful and creates a
-   Stripe embedded Checkout session, initially with the **documented temporary
-   zero-amount shipping option**. Do not treat zero as an accepted quote.
-3. The cart mounts Stripe Checkout using `STRIPE_PUBLISHABLE_KEY` and the
-   Checkout client secret. Stripe collects the full address.
-4. On a complete address, `runServerUpdate()` calls `POST /shipping/options`
-   with a session-bound HMAC token. The API verifies this token with the
-   existing webhook secret, and retrieves the open Stripe session.
-5. The Worker reconstructs the cart **from Stripe metadata**, looks up current
-   synced Printful variants, and maps their `variant_id` (catalog variant ID,
-   *not* `sync_variant_id`) to `POST /shipping/rates`. It supplies the full
-   address and USD currency and requires an available `STANDARD` rate.
-6. The Worker updates Stripe's `shipping_options` to Printful's quoted
-   amount, then stores the address SHA-256 digest, quoted cents, Stripe
-   shipping-rate ID and Printful method in `STORE_ORDER_KV`. Address text
-   is not stored in the quote record.
-7. For paid webhooks, the Worker compares Stripe's completed address, selected
-   shipping rate, charged shipping cents and currency to that quote **before
-   creating or confirming a Printful order**. Missing or mismatched quotes fail
-   closed. The Printful order uses `shipping: 'STANDARD'`.
-8. After verified payment, optional `PRINTFUL_AUTO_CONFIRM=true` confirms
-   the Printful order for production. It remains **off by default**.
+1. Customer adds products to the cart and enters the delivery recipient/name,
+   street, city, region where required, postal code, and supported country.
+   These fields are **not persisted to localStorage**.
+2. `POST /checkout` rebuilds product prices and quantities from Printful
+   server-owned data; the browser cannot override product or shipping prices.
+3. Before contacting Stripe, the Worker validates the address and requests
+   an available `STANDARD` rate through Printful `POST /shipping/rates`
+   using the **catalog** `variant_id`. It then requests Printful
+   `POST /orders/estimate-costs` with the matching **sync** variant IDs.
+   **The shipping amount charged to the buyer comes from the fuller order
+   estimate's `costs.shipping`, not the lower rate lookup**; it includes
+   the store's applicable fulfillment shipping adjustments. Missing or
+   invalid USD estimates block Checkout completely.
+4. Stripe receives an **already quoted, positive** shipping rate through
+   `shipping_options`, with the verified recipient and address attached to
+   `payment_intent_data[shipping]`. The Worker deliberately omits
+   `shipping_address_collection`, so the buyer cannot modify this delivery
+   address on Stripe's payment form. To change an address, start a new checkout.
+5. The Worker verifies Stripe's newly created shipping amount, currency and
+   rate ID, then saves only the address hash, quoted cents, rate ID and method
+   in `STORE_ORDER_KV`. **Only after the KV write succeeds** does it return
+   the Stripe client secret to the browser. A KV outage fails closed.
+6. On a Stripe-signed **paid** webhook, the Worker fetches the successful
+   PaymentIntent and verifies its shipping address SHA-256 digest against the
+   saved quote, plus the charged shipping amount, selected shipping rate,
+   currency and Printful method. Missing or mismatched data blocks Printful.
+   Shipping name and address are read from Stripe, not browser metadata/KV.
+7. Once payment and shipping are verified, the Worker can create a Printful
+   draft. Setting `PRINTFUL_AUTO_CONFIRM=true` deliberately enables chargeable
+   Printful production confirmation; it is off by default.
+8. Existing `printful_dynamic_v1` sessions remain supported for signed
+   webhook recovery only. New sessions use `printful_prequoted_v2`.
+   Do not rely on the legacy `/shipping/options` dynamic update endpoint for
+   newly created carts.
 
 ### Required configuration
 
@@ -161,16 +173,17 @@ created. No `STORE_SHIPPING_XX_CENTS` variables are used.
 
 ### Important release limitations
 
-- Printful explicitly warns `/shipping/rates` can differ from final
-  `/orders/estimate-costs` when Printful store shipping settings are involved.
-  Compare quotes and estimates for representative carts, destinations, and
-  quantities before calling these amounts exact final fulfillment costs.
-- Stripe's documented embedded form uses an initial zero shipping placeholder.
-  If a customer somehow pays before a valid quote, **the webhook blocks
-  fulfillment** rather than shipping at the wrong amount, but a charged order
-  would need review/refund. Validate that the embedded flow reliably updates
-  shipping before confirmation in a Stripe sandbox; add a transactional
-  payment gate or redesign if it does not.
+- We observed a real difference for one bottle to sample Tampa, Florida:
+  `/shipping/rates` returned **$10.89**, while `/orders/estimate-costs`
+  returned **$11.29** (including an apparent $0.40 US surcharge).
+  The Worker therefore charges the order-estimate shipping amount.
+  **This remains an estimate**, not a guaranteed future Printful invoice;
+  validate more destinations, products, quantities and shipping settings.
+  The customer-approved Stripe charge itself is fixed at checkout.
+- The earlier dynamic form relied on a temporary $0 shipping placeholder.
+  New physical sessions no longer have a placeholder: if Printful quoting
+  fails, Stripe never receives a Checkout create request. Before release,
+  test the new address-before-Checkout experience in a browser.
 - A failed quote must be visible to the shopper; do not silently let an
   unavailable Printful quote become free shipping.
 - `STORE_ORDER_KV` is eventually consistent, not a strict global
@@ -182,8 +195,9 @@ created. No `STORE_SHIPPING_XX_CENTS` variables are used.
   confirmation.
 - `automatic_tax` is not enabled. Review applicable tax obligations separately.
 
-Reference: Stripe's embedded Checkout shipping customization guide:
-https://docs.stripe.com/payments/checkout/custom-shipping-options?ui=checkout-form
+Reference: Stripe Checkout Session creation and PaymentIntent shipping:
+https://docs.stripe.com/api/checkout/sessions/create
+https://docs.stripe.com/api/payment_intents/object
 
 Workers KV is eventually consistent, so this design protects ordinary sequential webhook retries but is not a strict global transaction lock. For strict exactly-once processing during simultaneous requests from different Cloudflare locations, migrate the lock to a Durable Object or another strongly consistent transactional store.
 
