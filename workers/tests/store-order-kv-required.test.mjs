@@ -115,8 +115,11 @@ try {
         result: [{ id: 10, name: 'Test Shirt' }],
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
+    if (href.startsWith('https://api.printful.com/orders/@') && options.method !== 'POST') {
+      return new Response(JSON.stringify({ error: { message: 'Not Found' } }), { status: 404 });
+    }
     if (href.includes('/orders?update_existing=true')) {
-      // A paid checkout should create a draft; never charge Printful from this path.
+      // Auto-confirm is disabled without the explicit configuration flag.
       assert.equal(href.includes('confirm=1'), false);
       const payload = JSON.parse(options.body);
       assert.equal(payload.items[0].sync_variant_id, 123);
@@ -139,6 +142,7 @@ try {
   const firstBody = await first.json();
   assert.equal(firstBody.order_id, 9876);
   assert.equal(firstBody.printful_order_status, 'draft');
+  assert.equal(firstBody.printful_auto_confirmed, false);
   assert.ok(observedExternalId.startsWith('cg_'));
   assert.equal(records.get('stripe-session:cs_test_kv_retry'), 'processed');
   assert.equal(printfulOrderCalls, 1);
