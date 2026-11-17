@@ -116,7 +116,7 @@ try {
   assert.equal(stripeCreates, 0);
 
   const physical = await checkout();
-  assert.equal(physical.status, 200, await physical.text().catch(() => ''));
+  assert.equal(physical.status, 200, await physical.clone().text().catch(() => ''));
   const created = await physical.json();
   assert.equal(created.checkoutSessionId, sessionId);
   assert.equal(created.clientSecret, 'cs_test_secret_prequoted');
