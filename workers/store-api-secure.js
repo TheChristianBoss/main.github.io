@@ -16,7 +16,7 @@
 //   GET  /service?id=     → single service product
 //   POST /checkout        → create Stripe Checkout session using server-trusted prices
 //   GET  /session?id=     → sanitized Stripe Checkout session summary for success page
-//   POST /webhook         → Stripe webhook → create Printful order
+//   POST /webhook         → Stripe webhook → create/reconcile/optionally confirm Printful order
 
 const SITE = 'https://christiangoblin.com';
 const ALLOWED_ORIGINS = new Set([
@@ -211,10 +211,32 @@ async function printful(path, env, options = {}) {
 
   if (!res.ok) {
     const message = data?.error?.message || data?.error || `Printful request failed (${res.status})`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = res.status;
+    throw error;
   }
 
   return data;
+}
+
+const SUBMITTED_PRINTFUL_STATUSES = new Set([
+  'pending', 'inreview', 'inprocess', 'partial', 'fulfilled',
+]);
+
+async function findPrintfulOrderByExternalId(externalId, env) {
+  try {
+    const data = await printful(`/orders/@${encodeURIComponent(externalId)}`, env);
+    if (!data.result) throw new Error('Printful returned no order details');
+    return data.result;
+  } catch (error) {
+    if (error.status === 404) return null;
+    throw error;
+  }
+}
+
+function isPrintfulAutoConfirmEnabled(env) {
+  // Require deliberate activation: auto confirmation may charge Printful billing.
+  return env.PRINTFUL_AUTO_CONFIRM === 'true';
 }
 
 function normalizeVariant(v, productName, productId) {
@@ -778,47 +800,76 @@ export default {
           if (await alreadyProcessed(env, printfulKey)) {
             result.printful_duplicate = true;
           } else {
-            const { physicalItems } = await buildTrustedCheckoutItems(cartItems, env, ctx);
-            const shipping = session.shipping_details;
-            const recipient = {
-              name: shipping?.name || session.customer_details?.name || 'Customer',
-              address1: shipping?.address?.line1 || '',
-              address2: shipping?.address?.line2 || '',
-              city: shipping?.address?.city || '',
-              state_code: shipping?.address?.state || '',
-              country_code: shipping?.address?.country || 'US',
-              zip: shipping?.address?.postal_code || '',
-              email: session.customer_details?.email || '',
-              phone: session.customer_details?.phone || '',
-            };
+            const externalId = await printfulExternalId(session.id);
+            // An earlier delivery may have succeeded before its KV write, or
+            // confirmation may have timed out. Reconcile by external ID first.
+            let order = await findPrintfulOrderByExternalId(externalId, env);
+            if (!order) {
+              const { physicalItems } = await buildTrustedCheckoutItems(cartItems, env, ctx);
+              const shipping = session.shipping_details;
+              const recipient = {
+                name: shipping?.name || session.customer_details?.name || 'Customer',
+                address1: shipping?.address?.line1 || '',
+                address2: shipping?.address?.line2 || '',
+                city: shipping?.address?.city || '',
+                state_code: shipping?.address?.state || '',
+                country_code: shipping?.address?.country || 'US',
+                zip: shipping?.address?.postal_code || '',
+                email: session.customer_details?.email || '',
+                phone: session.customer_details?.phone || '',
+              };
+              // Never allow a paid physical order to use an incomplete address.
+              if (!recipient.address1 || !recipient.city || !recipient.country_code
+                  || !recipient.zip || !recipient.email
+                  || (['US', 'CA', 'AU'].includes(recipient.country_code) && !recipient.state_code)) {
+                throw new Error('Paid checkout is missing required Printful shipping details');
+              }
 
-            const orderPayload = {
-              recipient,
-              items: physicalItems.map((item) => ({
-                sync_variant_id: item.id,
-                quantity: item.quantity,
-                retail_price: String(item.price),
-              })),
-              retail_costs: { currency: 'USD' },
-              // Never send the full (66-character) Stripe Session ID to Printful.
-              external_id: await printfulExternalId(session.id),
-            };
+              const orderPayload = {
+                recipient,
+                items: physicalItems.map((item) => ({
+                  sync_variant_id: item.id,
+                  quantity: item.quantity,
+                  retail_price: String(item.price),
+                })),
+                retail_costs: { currency: 'USD' },
+                external_id: externalId,
+              };
 
-            const orderData = await printful('/orders?update_existing=true', env, {
-              method: 'POST',
-              body: JSON.stringify(orderPayload),
-            });
-
-            if (!orderData.result) {
-              console.error('Printful order error:', JSON.stringify(orderData));
-              throw new Error(orderData.error?.message || 'Printful returned no order result');
+              // Draft first. Only a successful, paid webhook with deliberate
+              // auto-confirm configuration can trigger the chargeable next step.
+              const orderData = await printful('/orders?update_existing=true', env, {
+                method: 'POST',
+                body: JSON.stringify(orderPayload),
+              });
+              if (!orderData.result) throw new Error('Printful returned no order result');
+              order = orderData.result;
             }
 
-            await markProcessed(env, printfulKey, String(orderData.result.id));
-            result.order_id = orderData.result.id;
-            result.printful_order_status = orderData.result.status || 'unknown';
-            // Orders are drafts unless explicitly confirmed in a separate, approved workflow.
-            console.log('Printful order created or updated:', orderData.result.id);
+            if (isPrintfulAutoConfirmEnabled(env)) {
+              if (order.status === 'draft') {
+                // This API request submits an order to production and may
+                // charge the Printful billing method.
+                const confirmed = await printful(`/orders/@${encodeURIComponent(externalId)}/confirm`, env, {
+                  method: 'POST',
+                });
+                if (!confirmed.result) throw new Error('Printful confirmation returned no order result');
+                order = confirmed.result;
+              }
+              if (!SUBMITTED_PRINTFUL_STATUSES.has(order.status)) {
+                throw new Error(`Printful order not accepted for production (status: ${order.status || 'unknown'})`);
+              }
+            } else if (order.status !== 'draft' && !SUBMITTED_PRINTFUL_STATUSES.has(order.status)) {
+              throw new Error(`Printful order needs review (status: ${order.status || 'unknown'})`);
+            }
+
+            // Record completion only once the desired production/draft status
+            // has been reached. Retry after a timeout will query Printful.
+            await markProcessed(env, printfulKey, String(order.id));
+            result.order_id = order.id;
+            result.printful_order_status = order.status;
+            result.printful_auto_confirmed = isPrintfulAutoConfirmEnabled(env) && SUBMITTED_PRINTFUL_STATUSES.has(order.status);
+            console.log('Printful order synchronized:', order.id, order.status);
           }
         }
 
