@@ -557,6 +557,19 @@ async function sendServiceDiscordNotification(env, session, serviceItems) {
   return { ok: true };
 }
 
+// Printful external order IDs are limited to 32 ASCII characters. Stripe Checkout
+// Session IDs are longer. Hashing is deterministic, so retries identify the same
+// Printful order while the original Stripe ID stays in KV and Stripe.
+async function printfulExternalId(sessionId) {
+  const value = String(sessionId || '');
+  if (!/^cs_(?:live|test)_[A-Za-z0-9_]+$/.test(value)) {
+    throw new Error('Invalid Stripe Checkout Session ID');
+  }
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  return `cg_${hex.slice(0, 29)}`;
+}
+
 // ── Main handler ─────────────────────────────────────────────────────────────
 export default {
   async fetch(request, env, ctx) {
@@ -787,7 +800,8 @@ export default {
                 retail_price: String(item.price),
               })),
               retail_costs: { currency: 'USD' },
-              external_id: session.id,
+              // Never send the full (66-character) Stripe Session ID to Printful.
+              external_id: await printfulExternalId(session.id),
             };
 
             const orderData = await printful('/orders?update_existing=true', env, {
@@ -802,6 +816,8 @@ export default {
 
             await markProcessed(env, printfulKey, String(orderData.result.id));
             result.order_id = orderData.result.id;
+            result.printful_order_status = orderData.result.status || 'unknown';
+            // Orders are drafts unless explicitly confirmed in a separate, approved workflow.
             console.log('Printful order created or updated:', orderData.result.id);
           }
         }
@@ -820,7 +836,7 @@ export default {
 
         // Record the whole session only after every requested fulfillment step succeeds.
         // Sub-keys above allow a partially completed mixed order to resume safely on retry.
-        await markProcessed(env, idempotencyKey, 'fulfilled');
+        await markProcessed(env, idempotencyKey, 'processed');
 
         return json(result, 200, request);
       }
