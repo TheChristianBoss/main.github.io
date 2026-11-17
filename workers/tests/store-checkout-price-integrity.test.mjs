@@ -47,6 +47,14 @@ globalThis.fetch = async (url, options = {}) => {
       result: [{ id: 'STANDARD', currency: 'USD', rate: '8.73' }],
     }), { status: 200 });
   }
+  if (href === 'https://api.printful.com/orders/estimate-costs') {
+    const estimate = JSON.parse(options.body);
+    assert.equal(estimate.shipping, 'STANDARD');
+    assert.deepEqual(estimate.items, [{ sync_variant_id: 123, quantity: 1, retail_price: '25.00' }]);
+    return new Response(JSON.stringify({
+      result: { costs: { currency: 'USD', shipping: 9.13 } },
+    }), { status: 200 });
+  }
   if (href === 'https://api.stripe.com/v1/checkout/sessions') {
     checkoutRequests += 1;
     assert.equal(options.method, 'POST');
@@ -56,7 +64,7 @@ globalThis.fetch = async (url, options = {}) => {
       id: 'cs_test_price_integrity',
       client_secret: 'cs_test_secret_price',
       shipping_options: [{ shipping_rate: 'shr_price_test' }],
-      shipping_cost: { amount_total: 873 },
+      shipping_cost: { amount_total: 913 },
       currency: 'usd',
     }), { status: 200 });
   }
@@ -125,7 +133,7 @@ try {
   assert.equal(mostRecentStripeForm.get('metadata[cart]'), '123:1');
   // Server-owned prices and Printful shipping must be set BEFORE Checkout exists.
   // The caller's shipping:0, price:0.01 and currency:XXX must be ignored.
-  assert.equal(mostRecentStripeForm.get('shipping_options[0][shipping_rate_data][fixed_amount][amount]'), '873');
+  assert.equal(mostRecentStripeForm.get('shipping_options[0][shipping_rate_data][fixed_amount][amount]'), '913');
   assert.equal(mostRecentStripeForm.get('ui_mode'), 'form');
   assert.equal(mostRecentStripeForm.get('metadata[shipping_flow]'), 'printful_prequoted_v2');
   assert.equal(mostRecentStripeForm.get('payment_intent_data[shipping][address][country]'), 'US');
