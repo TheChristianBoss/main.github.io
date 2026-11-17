@@ -44,7 +44,8 @@ globalThis.fetch = async (url, options = {}) => {
     assert.equal(options.method, 'POST');
     mostRecentStripeForm = new URLSearchParams(options.body);
     return new Response(JSON.stringify({
-      url: 'https://checkout.stripe.com/pay/cs_test_safe',
+      id: 'cs_test_price_integrity',
+      client_secret: 'cs_test_secret_price',
     }), { status: 200 });
   }
   throw new Error(`Unexpected external request: ${href}`);
@@ -66,7 +67,9 @@ async function checkout(items) {
   }), {
     PRINTFUL_TOKEN: 'printful-test-token',
     STRIPE_SECRET_KEY: 'sk_test_no_actual_api_call',
-    STORE_SHIPPING_US_CENTS: '700',
+    STRIPE_PUBLISHABLE_KEY: 'pk_test_example',
+    STRIPE_WEBHOOK_SECRET: 'whsec_example',
+    STORE_ORDER_KV: { get: async () => null, put: async () => undefined },
   }, {});
 }
 
@@ -92,7 +95,7 @@ try {
   ]);
 
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).url, 'https://checkout.stripe.com/pay/cs_test_safe');
+  assert.equal((await response.json()).clientSecret, 'cs_test_secret_price');
   assert.equal(checkoutRequests, 1);
   assert.equal(mostRecentStripeForm.get('line_items[0][price_data][unit_amount]'), '2500');
   assert.equal(mostRecentStripeForm.get('line_items[0][price_data][currency]'), 'usd');
@@ -101,12 +104,12 @@ try {
   assert.equal(mostRecentStripeForm.get('line_items[1][price_data][product_data][name]'), 'Cyber Security Evaluation');
   assert.equal(mostRecentStripeForm.get('line_items[1][quantity]'), '1');
   assert.equal(mostRecentStripeForm.get('metadata[cart]'), '123:1');
-  // Browser-supplied "shipping: 0" must not override the merchant price.
-  assert.equal(mostRecentStripeForm.get('shipping_options[0][shipping_rate_data][fixed_amount][amount]'), '700');
-  assert.equal(mostRecentStripeForm.get('shipping_options[0][shipping_rate_data][fixed_amount][currency]'), 'usd');
-  assert.equal(mostRecentStripeForm.get('shipping_address_collection[allowed_countries][0]'), 'US');
-  assert.equal(mostRecentStripeForm.get('metadata[shipping_country]'), 'US');
-  assert.equal(mostRecentStripeForm.get('metadata[shipping_amount_cents]'), '700');
+  // Browser-supplied prices still cannot override merchant prices. The
+  // initial shipping option is a placeholder, NOT a verified rate.
+  assert.equal(mostRecentStripeForm.get('shipping_options[0][shipping_rate_data][fixed_amount][amount]'), '0');
+  assert.equal(mostRecentStripeForm.get('ui_mode'), 'form');
+  assert.equal(mostRecentStripeForm.get('metadata[shipping_flow]'), 'printful_dynamic_v1');
+  assert.equal(mostRecentStripeForm.get('metadata[shipping_country]'), null);
 
   const invalidVariant = await checkout([{
     variant_id: '9999999',
