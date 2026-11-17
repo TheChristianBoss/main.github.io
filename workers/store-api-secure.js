@@ -14,9 +14,10 @@
 //   GET  /product?id=     → single product with variants
 //   GET  /services        → list manual service products
 //   GET  /service?id=     → single service product
-//   POST /checkout        → create Stripe Checkout session using server-trusted prices
+//   POST /checkout        → hosted service checkout or embedded physical checkout
+//   POST /shipping/options → quote exact Printful shipping into embedded Checkout
 //   GET  /session?id=     → sanitized Stripe Checkout session summary for success page
-//   POST /webhook         → Stripe webhook → create Printful order
+//   POST /webhook         → Stripe webhook → create/reconcile/optionally confirm Printful order
 
 const SITE = 'https://christiangoblin.com';
 const ALLOWED_ORIGINS = new Set([
@@ -26,6 +27,90 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:8787',
   'http://127.0.0.1:8787',
 ]);
+
+// The full shipping address comes from Stripe's embedded Checkout form.
+// Quotes are calculated server-side from Printful; no browser-supplied fee.
+const SHIPPING_COUNTRIES = new Set(['US', 'CA', 'GB', 'AU']);
+const QUOTE_KEY_PREFIX = 'printful-shipping-quote:';
+const SHIPPING_QUOTE_FLOW = 'printful_dynamic_v1';
+
+function cleanAddressField(value, max = 140) {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/\s+/g, ' ').slice(0, max);
+}
+
+function normalizeShippingAddress(details) {
+  const raw = details?.address;
+  if (!raw || typeof raw !== 'object') throw new Error('Shipping address is required');
+  const address = {
+    country: cleanAddressField(raw.country, 2).toUpperCase(),
+    state: cleanAddressField(raw.state, 80).toUpperCase(),
+    postal_code: cleanAddressField(raw.postal_code, 24).toUpperCase(),
+    city: cleanAddressField(raw.city, 90).toUpperCase(),
+    line1: cleanAddressField(raw.line1, 140).toUpperCase(),
+    line2: cleanAddressField(raw.line2, 140).toUpperCase(),
+  };
+  if (!SHIPPING_COUNTRIES.has(address.country) || !address.line1 || !address.city ||
+      !address.postal_code ||
+      (['US', 'CA', 'AU'].includes(address.country) && !address.state)) {
+    throw new Error('Complete shipping address is required for a supported destination');
+  }
+  return address;
+}
+
+function printfulRecipientFromAddress(address) {
+  return {
+    country_code: address.country,
+    state_code: address.state,
+    zip: address.postal_code,
+    city: address.city,
+    address1: address.line1,
+    ...(address.line2 ? { address2: address.line2 } : {}),
+  };
+}
+
+async function digestHex(input) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkoutShippingToken(sessionId, env) {
+  if (!env.STRIPE_WEBHOOK_SECRET) throw new Error('Missing Stripe signing secret');
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.STRIPE_WEBHOOK_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('shipping-update-v1:' + sessionId));
+  return Array.from(new Uint8Array(mac), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function exactDollarAmountToCents(value) {
+  const match = /^([0-9]{1,6})(?:\.([0-9]{1,2}))?$/.exec(String(value));
+  if (!match) throw new Error('Invalid Printful shipping rate');
+  const cents = Number(match[1]) * 100 + Number((match[2] || '').padEnd(2, '0'));
+  if (!Number.isSafeInteger(cents) || cents <= 0 || cents > 1000000) throw new Error('Invalid shipping rate amount');
+  return cents;
+}
+
+async function getPrintfulStandardShipping(physicalItems, address, env) {
+  const items = physicalItems.map(item => {
+    const catalogVariantId = Number(item.catalog_variant_id);
+    if (!Number.isSafeInteger(catalogVariantId) || catalogVariantId <= 0) {
+      throw new Error('This variant is missing its Printful catalog shipping identifier');
+    }
+    return { variant_id: String(catalogVariantId), quantity: item.quantity };
+  });
+  const response = await printful('/shipping/rates', env, {
+    method: 'POST',
+    body: JSON.stringify({
+      recipient: printfulRecipientFromAddress(address),
+      items,
+      currency: 'USD',
+    }),
+  });
+  const rates = Array.isArray(response.result) ? response.result : [];
+  const selected = rates.find(rate => rate.id === 'STANDARD' && rate.currency === 'USD');
+  if (!selected) throw new Error('Printful Standard shipping is unavailable for this address and cart');
+  return { method: 'STANDARD', amountCents: exactDollarAmountToCents(selected.rate) };
+}
 
 const MAX_CART_ITEMS = 20;
 const MAX_QTY_PER_ITEM = 10;
@@ -211,10 +296,32 @@ async function printful(path, env, options = {}) {
 
   if (!res.ok) {
     const message = data?.error?.message || data?.error || `Printful request failed (${res.status})`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = res.status;
+    throw error;
   }
 
   return data;
+}
+
+const SUBMITTED_PRINTFUL_STATUSES = new Set([
+  'pending', 'inreview', 'inprocess', 'partial', 'fulfilled',
+]);
+
+async function findPrintfulOrderByExternalId(externalId, env) {
+  try {
+    const data = await printful(`/orders/@${encodeURIComponent(externalId)}`, env);
+    if (!data.result) throw new Error('Printful returned no order details');
+    return data.result;
+  } catch (error) {
+    if (error.status === 404) return null;
+    throw error;
+  }
+}
+
+function isPrintfulAutoConfirmEnabled(env) {
+  // Require deliberate activation: auto confirmation may charge Printful billing.
+  return env.PRINTFUL_AUTO_CONFIRM === 'true';
 }
 
 function normalizeVariant(v, productName, productId) {
@@ -228,6 +335,7 @@ function normalizeVariant(v, productName, productId) {
     variant_name: v.name || 'Default',
     sku: v.sku || '',
     price: String(v.retail_price || '0'),
+    catalog_variant_id: Number(v.variant_id || v.product?.variant_id || 0),
     currency: (v.currency || 'USD').toUpperCase(),
     size: v.size || '',
     color: v.color || '',
@@ -557,6 +665,19 @@ async function sendServiceDiscordNotification(env, session, serviceItems) {
   return { ok: true };
 }
 
+// Printful external order IDs are limited to 32 ASCII characters. Stripe Checkout
+// Session IDs are longer. Hashing is deterministic, so retries identify the same
+// Printful order while the original Stripe ID stays in KV and Stripe.
+async function printfulExternalId(sessionId) {
+  const value = String(sessionId || '');
+  if (!/^cs_(?:live|test)_[A-Za-z0-9_]+$/.test(value)) {
+    throw new Error('Invalid Stripe Checkout Session ID');
+  }
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  return `cg_${hex.slice(0, 29)}`;
+}
+
 // ── Main handler ─────────────────────────────────────────────────────────────
 export default {
   async fetch(request, env, ctx) {
@@ -657,6 +778,14 @@ export default {
         let body;
         try { body = await request.json(); } catch { return error(request, 'Invalid JSON'); }
         const { physicalItems, serviceItems } = await buildTrustedCheckoutItems(body.items, env, ctx);
+        const physicalCheckout = physicalItems.length > 0;
+        if (physicalCheckout) {
+          requireOrderStore(env);
+          if (!/^pk_(test|live)_[A-Za-z0-9]+$/.test(String(env.STRIPE_PUBLISHABLE_KEY || ''))) {
+            throw new Error('Embedded Checkout publishable key is missing or invalid');
+          }
+          if (!env.STRIPE_WEBHOOK_SECRET) throw new Error('Shipping quote signing secret is missing');
+        }
 
         const physicalLineItems = physicalItems.map((item) => ({
           price_data: {
@@ -693,16 +822,29 @@ export default {
         const params = {
           mode: 'payment',
           line_items,
-          success_url: `${SITE}/store/success.html?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${SITE}/store/cart.html`,
+          ...(physicalCheckout ? {
+            ui_mode: 'form',
+            return_url: `${SITE}/store/success.html?session_id={CHECKOUT_SESSION_ID}`,
+            'metadata[shipping_flow]': SHIPPING_QUOTE_FLOW,
+          } : {
+            success_url: `${SITE}/store/success.html?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${SITE}/store/cart.html`,
+          }),
           'metadata[cart]': encodeCartMetadata(physicalItems),
           'metadata[fulfillment_types]': physicalItems.length && serviceItems.length ? 'mixed' : (serviceItems.length ? 'service' : 'physical'),
           'phone_number_collection[enabled]': 'true',
-          ...(physicalItems.length ? {
+          ...(physicalCheckout ? {
             'shipping_address_collection[allowed_countries][0]': 'US',
             'shipping_address_collection[allowed_countries][1]': 'CA',
             'shipping_address_collection[allowed_countries][2]': 'GB',
             'shipping_address_collection[allowed_countries][3]': 'AU',
+            // Stripe's documented embedded-form pattern starts with a
+            // temporary rate, then updates it from Printful on address entry.
+            // The paid webhook MUST reject the temporary rate.
+            'shipping_options[0][shipping_rate_data][type]': 'fixed_amount',
+            'shipping_options[0][shipping_rate_data][display_name]': 'Awaiting Printful shipping quote',
+            'shipping_options[0][shipping_rate_data][fixed_amount][amount]': '0',
+            'shipping_options[0][shipping_rate_data][fixed_amount][currency]': 'usd',
           } : {}),
           ...(body.customer_email ? { customer_email: String(body.customer_email).slice(0, 254) } : {}),
         };
@@ -710,7 +852,74 @@ export default {
         applyServiceMetadata(params, serviceItems);
 
         const session = await stripePost('/checkout/sessions', env, params);
-        return json({ url: session.url }, 200, request);
+        if (!physicalCheckout) return json({ url: session.url }, 200, request);
+        if (!/^cs_(test|live)_[A-Za-z0-9_]+$/.test(String(session.id || '')) ||
+            !session.client_secret) {
+          throw new Error('Stripe did not return an embedded Checkout Session');
+        }
+        return json({
+          clientSecret: session.client_secret,
+          publishableKey: env.STRIPE_PUBLISHABLE_KEY,
+          checkoutSessionId: session.id,
+          shippingUpdateToken: await checkoutShippingToken(session.id, env),
+        }, 200, request);
+      }
+
+      // ── POST /shipping/options ────────────────────────────────────────────
+      // Called from Stripe's embedded form after a complete shipping address.
+      // A signed, session-bound token prevents arbitrary Checkout updates.
+      if (request.method === 'POST' && path === '/shipping/options') {
+        requireOrderStore(env);
+        const payload = await request.text();
+        if (payload.length > 10000) return error(request, 'Shipping request too large', 413);
+        let body;
+        try { body = JSON.parse(payload); } catch { return error(request, 'Invalid shipping request'); }
+        const sessionId = String(body.checkout_session_id || '');
+        if (!/^cs_(test|live)_[A-Za-z0-9_]+$/.test(sessionId)) {
+          return error(request, 'Invalid checkout session');
+        }
+        const expectedToken = await checkoutShippingToken(sessionId, env);
+        if (!timingSafeEqualHex(expectedToken, String(body.shipping_update_token || ''))) {
+          return error(request, 'Unauthorized shipping update', 403);
+        }
+
+        const session = await stripeGet(`/checkout/sessions/${encodeURIComponent(sessionId)}`, env);
+        if (session.status !== 'open' || session.ui_mode !== 'form' ||
+            session.metadata?.shipping_flow !== SHIPPING_QUOTE_FLOW ||
+            !session.metadata?.cart) {
+          return error(request, 'Checkout session is not eligible for shipping quotes', 409);
+        }
+        const address = normalizeShippingAddress(body.shipping_details);
+        // Server-trusted cart IDs and current Printful catalog pricing; never
+        // trust a caller's items, variants, quantities, shipping price or currency.
+        const cart = decodeCartMetadata(session.metadata.cart);
+        const { physicalItems } = await buildTrustedCheckoutItems(cart, env, ctx);
+        if (!physicalItems.length) return error(request, 'No physical items in checkout');
+
+        const quoted = await getPrintfulStandardShipping(physicalItems, address, env);
+        const updated = await stripePost(`/checkout/sessions/${encodeURIComponent(sessionId)}`, env, {
+          shipping_options: [{
+            shipping_rate_data: {
+              type: 'fixed_amount',
+              display_name: 'Printful Standard shipping',
+              fixed_amount: { amount: quoted.amountCents, currency: 'usd' },
+            },
+          }],
+        });
+        const shippingRateId = updated.shipping_options?.[0]?.shipping_rate;
+        if (typeof shippingRateId !== 'string' || !shippingRateId.startsWith('shr_')) {
+          throw new Error('Stripe did not return the updated shipping rate');
+        }
+        const addressHash = await digestHex(JSON.stringify(address));
+        await requireOrderStore(env).put(QUOTE_KEY_PREFIX + sessionId, JSON.stringify({
+          addressHash,
+          amountCents: quoted.amountCents,
+          currency: 'usd',
+          method: quoted.method,
+          shippingRateId,
+        }), { expirationTtl: ORDER_RECORD_TTL_SECONDS });
+
+        return json({ type: 'object', value: { succeeded: true } }, 200, request);
       }
 
       // ── POST /webhook ──────────────────────────────────────────────────────
@@ -757,6 +966,27 @@ export default {
           return json({ received: true, note: 'Empty fulfillment payload' }, 200, request);
         }
 
+        // A Stripe-signed successful payment alone does not authorize
+        // fulfillment: an address-matched Printful quote must be on record.
+        let verifiedQuote = null;
+        if (cartItems.length) {
+          if (session.metadata?.shipping_flow !== SHIPPING_QUOTE_FLOW) {
+            throw new Error('Paid physical checkout lacks verified dynamic shipping');
+          }
+          const stored = await requireOrderStore(env).get(QUOTE_KEY_PREFIX + session.id);
+          if (!stored) throw new Error('No verified Printful shipping quote for paid checkout');
+          try { verifiedQuote = JSON.parse(stored); } catch { throw new Error('Invalid saved shipping quote'); }
+          const details = session.shipping_details || session.collected_information?.shipping_details;
+          const address = normalizeShippingAddress(details);
+          if (await digestHex(JSON.stringify(address)) !== verifiedQuote.addressHash ||
+              session.shipping_cost?.amount_total !== verifiedQuote.amountCents ||
+              session.shipping_cost?.shipping_rate !== verifiedQuote.shippingRateId ||
+              String(session.currency || '').toLowerCase() !== 'usd' ||
+              verifiedQuote.method !== 'STANDARD') {
+            throw new Error('Shipping address, price or method differs from confirmed Printful quote');
+          }
+        }
+
         const result = { received: true };
 
         // Physical fulfillment through Printful. Rebuild from trusted Printful data again.
@@ -765,44 +995,77 @@ export default {
           if (await alreadyProcessed(env, printfulKey)) {
             result.printful_duplicate = true;
           } else {
-            const { physicalItems } = await buildTrustedCheckoutItems(cartItems, env, ctx);
-            const shipping = session.shipping_details;
-            const recipient = {
-              name: shipping?.name || session.customer_details?.name || 'Customer',
-              address1: shipping?.address?.line1 || '',
-              address2: shipping?.address?.line2 || '',
-              city: shipping?.address?.city || '',
-              state_code: shipping?.address?.state || '',
-              country_code: shipping?.address?.country || 'US',
-              zip: shipping?.address?.postal_code || '',
-              email: session.customer_details?.email || '',
-              phone: session.customer_details?.phone || '',
-            };
+            const externalId = await printfulExternalId(session.id);
+            // An earlier delivery may have succeeded before its KV write, or
+            // confirmation may have timed out. Reconcile by external ID first.
+            let order = await findPrintfulOrderByExternalId(externalId, env);
+            if (!order) {
+              const { physicalItems } = await buildTrustedCheckoutItems(cartItems, env, ctx);
+              const shipping = session.shipping_details;
+              const recipient = {
+                name: shipping?.name || session.customer_details?.name || 'Customer',
+                address1: shipping?.address?.line1 || '',
+                address2: shipping?.address?.line2 || '',
+                city: shipping?.address?.city || '',
+                state_code: shipping?.address?.state || '',
+                country_code: shipping?.address?.country || 'US',
+                zip: shipping?.address?.postal_code || '',
+                email: session.customer_details?.email || '',
+                phone: session.customer_details?.phone || '',
+              };
+              // Never allow a paid physical order to use an incomplete address.
+              if (!recipient.address1 || !recipient.city || !recipient.country_code
+                  || !recipient.zip || !recipient.email
+                  || (['US', 'CA', 'AU'].includes(recipient.country_code) && !recipient.state_code)) {
+                throw new Error('Paid checkout is missing required Printful shipping details');
+              }
 
-            const orderPayload = {
-              recipient,
-              items: physicalItems.map((item) => ({
-                sync_variant_id: item.id,
-                quantity: item.quantity,
-                retail_price: String(item.price),
-              })),
-              retail_costs: { currency: 'USD' },
-              external_id: session.id,
-            };
+              const orderPayload = {
+                recipient,
+                items: physicalItems.map((item) => ({
+                  sync_variant_id: item.id,
+                  quantity: item.quantity,
+                  retail_price: String(item.price),
+                })),
+                retail_costs: { currency: 'USD' },
+                shipping: verifiedQuote.method,
+                external_id: externalId,
+              };
 
-            const orderData = await printful('/orders?update_existing=true', env, {
-              method: 'POST',
-              body: JSON.stringify(orderPayload),
-            });
-
-            if (!orderData.result) {
-              console.error('Printful order error:', JSON.stringify(orderData));
-              throw new Error(orderData.error?.message || 'Printful returned no order result');
+              // Draft first. Only a successful, paid webhook with deliberate
+              // auto-confirm configuration can trigger the chargeable next step.
+              const orderData = await printful('/orders?update_existing=true', env, {
+                method: 'POST',
+                body: JSON.stringify(orderPayload),
+              });
+              if (!orderData.result) throw new Error('Printful returned no order result');
+              order = orderData.result;
             }
 
-            await markProcessed(env, printfulKey, String(orderData.result.id));
-            result.order_id = orderData.result.id;
-            console.log('Printful order created or updated:', orderData.result.id);
+            if (isPrintfulAutoConfirmEnabled(env)) {
+              if (order.status === 'draft') {
+                // This API request submits an order to production and may
+                // charge the Printful billing method.
+                const confirmed = await printful(`/orders/@${encodeURIComponent(externalId)}/confirm`, env, {
+                  method: 'POST',
+                });
+                if (!confirmed.result) throw new Error('Printful confirmation returned no order result');
+                order = confirmed.result;
+              }
+              if (!SUBMITTED_PRINTFUL_STATUSES.has(order.status)) {
+                throw new Error(`Printful order not accepted for production (status: ${order.status || 'unknown'})`);
+              }
+            } else if (order.status !== 'draft' && !SUBMITTED_PRINTFUL_STATUSES.has(order.status)) {
+              throw new Error(`Printful order needs review (status: ${order.status || 'unknown'})`);
+            }
+
+            // Record completion only once the desired production/draft status
+            // has been reached. Retry after a timeout will query Printful.
+            await markProcessed(env, printfulKey, String(order.id));
+            result.order_id = order.id;
+            result.printful_order_status = order.status;
+            result.printful_auto_confirmed = isPrintfulAutoConfirmEnabled(env) && SUBMITTED_PRINTFUL_STATUSES.has(order.status);
+            console.log('Printful order synchronized:', order.id, order.status);
           }
         }
 
@@ -820,7 +1083,7 @@ export default {
 
         // Record the whole session only after every requested fulfillment step succeeds.
         // Sub-keys above allow a partially completed mixed order to resume safely on retry.
-        await markProcessed(env, idempotencyKey, 'fulfilled');
+        await markProcessed(env, idempotencyKey, 'processed');
 
         return json(result, 200, request);
       }

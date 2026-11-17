@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createHmac } from 'node:crypto';
+import { createHmac, createHash } from 'node:crypto';
 
 const workerPath = new URL('../store-api-secure.js', import.meta.url);
 const source = await readFile(workerPath, 'utf8');
@@ -41,7 +41,12 @@ function paidPhysicalEvent(id = 'cs_test_kv_1') {
       object: {
         id,
         payment_status: 'paid',
-        metadata: { cart: '123:1', fulfillment_types: 'physical' },
+        currency: 'usd',
+        metadata: {
+          cart: '123:1', fulfillment_types: 'physical',
+          shipping_flow: 'printful_dynamic_v1',
+        },
+        shipping_cost: { amount_total: 700, shipping_rate: 'shr_kv_test' },
         customer_details: { email: 'buyer@example.com', name: 'Buyer' },
         shipping_details: {
           name: 'Buyer',
@@ -92,11 +97,22 @@ try {
     },
   };
   const env = { ...baseEnv, STORE_ORDER_KV: kv };
+  const testAddress = {
+    country: 'US', state: 'FL', postal_code: '33601',
+    city: 'TAMPA', line1: '1 MAIN ST', line2: '',
+  };
+  const addressHash = createHash('sha256').update(JSON.stringify(testAddress)).digest('hex');
+  const quoteKey = 'printful-shipping-quote:cs_test_kv_retry';
+  records.set(quoteKey, JSON.stringify({
+    addressHash, amountCents: 700, currency: 'usd',
+    method: 'STANDARD', shippingRateId: 'shr_kv_test',
+  }));
   const healthy = await worker.fetch(new Request('https://store-worker.example/health'), env, {});
   assert.equal(healthy.status, 200);
 
   let printfulOrderCalls = 0;
-  globalThis.fetch = async (url) => {
+  let observedExternalId = '';
+  globalThis.fetch = async (url, options = {}) => {
     const href = String(url);
     if (href.includes('/store/products/10')) {
       return new Response(JSON.stringify({
@@ -114,9 +130,20 @@ try {
         result: [{ id: 10, name: 'Test Shirt' }],
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
+    if (href.startsWith('https://api.printful.com/orders/@') && options.method !== 'POST') {
+      return new Response(JSON.stringify({ error: { message: 'Not Found' } }), { status: 404 });
+    }
     if (href.includes('/orders?update_existing=true')) {
+      // Auto-confirm is disabled without the explicit configuration flag.
+      assert.equal(href.includes('confirm=1'), false);
+      const payload = JSON.parse(options.body);
+      assert.equal(payload.items[0].sync_variant_id, 123);
+      assert.equal(payload.external_id.length, 32);
+      assert.match(payload.external_id, /^cg_[a-f0-9]{29}$/);
+      assert.notEqual(payload.external_id, 'cs_test_kv_retry');
+      observedExternalId = payload.external_id;
       printfulOrderCalls += 1;
-      return new Response(JSON.stringify({ result: { id: 9876 } }), {
+      return new Response(JSON.stringify({ result: { id: 9876, status: 'draft' } }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -129,7 +156,10 @@ try {
   assert.equal(first.status, 200);
   const firstBody = await first.json();
   assert.equal(firstBody.order_id, 9876);
-  assert.equal(records.get('stripe-session:cs_test_kv_retry'), 'fulfilled');
+  assert.equal(firstBody.printful_order_status, 'draft');
+  assert.equal(firstBody.printful_auto_confirmed, false);
+  assert.ok(observedExternalId.startsWith('cg_'));
+  assert.equal(records.get('stripe-session:cs_test_kv_retry'), 'processed');
   assert.equal(printfulOrderCalls, 1);
 
   const retry = await worker.fetch(signedRequest(event), env, {});
