@@ -727,21 +727,7 @@
         btn.style.display = 'none';
 
         document.getElementById('shippingQuoteStatus').textContent =
-          'Verified Printful Standard shipping: 
-      } catch (err) {
-        btn.disabled = false;
-        btn.textContent = 'Proceed to Checkout';
-        const box = document.getElementById('checkoutError');
-        box.textContent = 'Checkout failed: ' + err.message;
-        box.classList.add('show');
-      }
-    });
-  }
-  renderCart();
-</script>
-</body>
-</html>
- + centsToDollars(data.shippingAmountCents) +
+          'Verified Printful Standard shipping: $' + centsToDollars(data.shippingAmountCents) +
           '. This amount is included in the Stripe total. Review it before paying.';
       } catch (err) {
         btn.disabled = false;
