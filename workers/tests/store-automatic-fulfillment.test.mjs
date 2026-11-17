@@ -42,7 +42,11 @@ function signedRequest(sessionId, paid = true, eventType = 'checkout.session.com
   const session = {
     id: sessionId,
     payment_status: paid ? 'paid' : 'unpaid',
-    metadata: { cart: '123:1', fulfillment_types: 'physical' },
+    metadata: {
+      cart: '123:1', fulfillment_types: 'physical',
+      shipping_country: 'US', shipping_amount_cents: '700',
+    },
+    shipping_cost: { amount_total: 700 },
     customer_details: { name: 'Buyer', email: 'buyer@example.com' },
     ...(withAddress ? {
       shipping_details: {
