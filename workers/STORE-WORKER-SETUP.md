@@ -109,45 +109,81 @@ the Stripe webhook for both `checkout.session.completed` and
 `checkout.session.async_payment_succeeded` when deploying this new Worker;
 the live webhook currently subscribes to only the first event.
 
-## Separate customer-paid shipping (prepared, not priced)
+## Exact, customer-paid Printful shipping (prepared, not live)
 
-The owner chose **shipping separately** from the merchandise price.
-The current hosted Stripe Checkout cannot dynamically calculate shipping
-from an address entered on Stripe's full-page hosted checkout. This
-preparation therefore supports an **explicit flat rate per destination
-country** (one rate per physical order). If true item/address-specific
-Printful rates are required instead, use Stripe's embedded form or Elements,
-or another reviewed address-quoting flow; do not claim these country rates
-are real-time Printful quotes.
+The owner chose **exact Printful shipping rates charged separately**.
+The hosted Checkout flow cannot dynamically adjust shipping after an address
+is entered. Physical checkouts now use Stripe's **embedded Checkout form**
+(`ui_mode=form`) to update the Standard shipping option when the customer
+completes the shipping address. Service-only checkout stays hosted.
 
-The cart asks customers to select a delivery country first (US, CA, GB, AU).
-The Worker reads only the country selection, rejects invalid selections,
-and sets Stripe `shipping_options` with a **server-controlled fee**. Stripe
-is restricted to collecting a shipping address in the selected country.
+### API flow and price authority
 
-Set the following **plain-text numeric Worker variables in CENTS**, once
-the business has chosen and verified the real amounts:
+1. Customer adds physical products to the existing cart.
+2. `POST /checkout` rebuilds trusted prices from Printful and creates a
+   Stripe embedded Checkout session, initially with the **documented temporary
+   zero-amount shipping option**. Do not treat zero as an accepted quote.
+3. The cart mounts Stripe Checkout using `STRIPE_PUBLISHABLE_KEY` and the
+   Checkout client secret. Stripe collects the full address.
+4. On a complete address, `runServerUpdate()` calls `POST /shipping/options`
+   with a session-bound HMAC token. The API verifies this token with the
+   existing webhook secret, and retrieves the open Stripe session.
+5. The Worker reconstructs the cart **from Stripe metadata**, looks up current
+   synced Printful variants, and maps their `variant_id` (catalog variant ID,
+   *not* `sync_variant_id`) to `POST /shipping/rates`. It supplies the full
+   address and USD currency and requires an available `STANDARD` rate.
+6. The Worker updates Stripe's `shipping_options` to Printful's quoted
+   amount, then stores the address SHA-256 digest, quoted cents, Stripe
+   shipping-rate ID and Printful method in `STORE_ORDER_KV`. Address text
+   is not stored in the quote record.
+7. For paid webhooks, the Worker compares Stripe's completed address, selected
+   shipping rate, charged shipping cents and currency to that quote **before
+   creating or confirming a Printful order**. Missing or mismatched quotes fail
+   closed. The Printful order uses `shipping: 'STANDARD'`.
+8. After verified payment, optional `PRINTFUL_AUTO_CONFIRM=true` confirms
+   the Printful order for production. It remains **off by default**.
 
-- `STORE_SHIPPING_US_CENTS`
-- `STORE_SHIPPING_CA_CENTS`
-- `STORE_SHIPPING_GB_CENTS`
-- `STORE_SHIPPING_AU_CENTS`
+### Required configuration
 
-**Do not guess shipping prices.** Zero/missing/invalid values block physical
-checkout instead of silently giving away shipping. Service-only checkout
-does not require shipping. A customer-submitted shipping amount is ignored.
-The Worker also checks the Stripe-signed checkout event's shipping fee
-and destination country before triggering Printful fulfillment.
+Keep your existing `PRINTFUL_TOKEN`, `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET`, `DISCORD_WEBHOOK_URL` and `STORE_ORDER_KV`.
+Add a **publishable**, not secret, Stripe key:
 
-These flat rates apply to the whole order, not each individual product.
-Confirm that the rate covers the expected Printful costs for your product
-mix, quantities, address regions and shipping taxes. Review real rates
-using Printful's `POST /shipping/rates` and `POST /orders/estimate-costs`
-API endpoints, then set suitable merchant rates. If a flat charge cannot
-cover your actual costs predictably, choose dynamic shipping instead.
+```text
+STRIPE_PUBLISHABLE_KEY=pk_test_...    # sandbox; replace with matching live key at release
+PRINTFUL_AUTO_CONFIRM=false          # keep off until production gates are satisfied
+```
 
-The checkout's `automatic_tax` setting is still off. Review your tax
-registrations and applicable rules separately before enabling it.
+Never commit a live secret key; a publishable Stripe key is designed for
+client use but must match the Stripe account and mode of `STRIPE_SECRET_KEY`.
+The Worker sends it to the cart only when a physical Checkout session is
+created. No `STORE_SHIPPING_XX_CENTS` variables are used.
+
+### Important release limitations
+
+- Printful explicitly warns `/shipping/rates` can differ from final
+  `/orders/estimate-costs` when Printful store shipping settings are involved.
+  Compare quotes and estimates for representative carts, destinations, and
+  quantities before calling these amounts exact final fulfillment costs.
+- Stripe's documented embedded form uses an initial zero shipping placeholder.
+  If a customer somehow pays before a valid quote, **the webhook blocks
+  fulfillment** rather than shipping at the wrong amount, but a charged order
+  would need review/refund. Validate that the embedded flow reliably updates
+  shipping before confirmation in a Stripe sandbox; add a transactional
+  payment gate or redesign if it does not.
+- A failed quote must be visible to the shopper; do not silently let an
+  unavailable Printful quote become free shipping.
+- `STORE_ORDER_KV` is eventually consistent, not a strict global
+  transaction lock for simultaneous webhook events.
+- Country support remains US, CA, GB and AU until reviewed.
+- The full `npm run validate` suite and browser-based sandbox checkout,
+  including address edits, delayed payments, and service-only carts, must
+  pass before merge/deployment. Printful billing should be ready for automatic
+  confirmation.
+- `automatic_tax` is not enabled. Review applicable tax obligations separately.
+
+Reference: Stripe's embedded Checkout shipping customization guide:
+https://docs.stripe.com/payments/checkout/custom-shipping-options?ui=checkout-form
 
 Workers KV is eventually consistent, so this design protects ordinary sequential webhook retries but is not a strict global transaction lock. For strict exactly-once processing during simultaneous requests from different Cloudflare locations, migrate the lock to a Durable Object or another strongly consistent transactional store.
 
@@ -177,12 +213,12 @@ Then prepare Cloudflare's existing `site` Worker:
    sends altered prices. The new
    `workers/tests/store-automatic-fulfillment.test.mjs` mocks Printful and
    tests confirmation, retries, and the draft-only fallback.
-7. Configure and review the four `STORE_SHIPPING_XX_CENTS` variables.
-   Compare those flat charges with Printful's shipping cost for your products.
-   Do not activate live physical checkout without verified values.
-8. Review Printful billing, tax obligations, and the cost of the chosen
-   shipping model. Automatic Stripe Tax is still disabled.
-9. After review and a controlled code deployment, **separately activate**
+7. Configure `STRIPE_PUBLISHABLE_KEY` to match the Stripe secret key's mode.
+   Test the embedded form's address-change event and quote refresh in sandbox.
+8. Compare Printful `/shipping/rates` with `/orders/estimate-costs`, and
+   test mixed merchandise, multi-item orders and delivery countries.
+9. Review Printful billing, tax obligations, and receipt/quote accuracy.
+10. After review and a controlled code deployment, **separately activate**
    `PRINTFUL_AUTO_CONFIRM=true` to allow automatic production confirmation.
    Monitor real delivery and errors; do not simulate tests with live charges.
 
