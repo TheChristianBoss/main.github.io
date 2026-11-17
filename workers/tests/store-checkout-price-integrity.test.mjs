@@ -60,11 +60,13 @@ async function checkout(items) {
       // These browser-controlled values must never influence the Stripe charge.
       amount_total: 1,
       shipping: 0,
+      shipping_country: 'US',
       currency: 'XXX',
     }),
   }), {
     PRINTFUL_TOKEN: 'printful-test-token',
     STRIPE_SECRET_KEY: 'sk_test_no_actual_api_call',
+    STORE_SHIPPING_US_CENTS: '700',
   }, {});
 }
 
@@ -99,6 +101,12 @@ try {
   assert.equal(mostRecentStripeForm.get('line_items[1][price_data][product_data][name]'), 'Cyber Security Evaluation');
   assert.equal(mostRecentStripeForm.get('line_items[1][quantity]'), '1');
   assert.equal(mostRecentStripeForm.get('metadata[cart]'), '123:1');
+  // Browser-supplied "shipping: 0" must not override the merchant price.
+  assert.equal(mostRecentStripeForm.get('shipping_options[0][shipping_rate_data][fixed_amount][amount]'), '700');
+  assert.equal(mostRecentStripeForm.get('shipping_options[0][shipping_rate_data][fixed_amount][currency]'), 'usd');
+  assert.equal(mostRecentStripeForm.get('shipping_address_collection[allowed_countries][0]'), 'US');
+  assert.equal(mostRecentStripeForm.get('metadata[shipping_country]'), 'US');
+  assert.equal(mostRecentStripeForm.get('metadata[shipping_amount_cents]'), '700');
 
   const invalidVariant = await checkout([{
     variant_id: '9999999',
