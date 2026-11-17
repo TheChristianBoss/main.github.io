@@ -27,24 +27,88 @@ const ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:8787',
 ]);
 
-// Only these countries are supported by the current Printful store checkout.
-// Shipping fees are server-side configuration, never browser-supplied.
+// The full shipping address comes from Stripe's embedded Checkout form.
+// Quotes are calculated server-side from Printful; no browser-supplied fee.
 const SHIPPING_COUNTRIES = new Set(['US', 'CA', 'GB', 'AU']);
-const MAX_SHIPPING_CENTS = 100000;
+const QUOTE_KEY_PREFIX = 'printful-shipping-quote:';
+const SHIPPING_QUOTE_FLOW = 'printful_dynamic_v1';
 
-function trustedShippingFee(country, env) {
-  if (!SHIPPING_COUNTRIES.has(country)) throw new Error('Unsupported shipping country');
-  const key = `STORE_SHIPPING_${country}_CENTS`;
-  const raw = env[key];
-  if (typeof raw !== 'string' && typeof raw !== 'number') {
-    throw new Error(`Shipping is not configured for ${country}`);
+function cleanAddressField(value, max = 140) {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/\s+/g, ' ').slice(0, max);
+}
+
+function normalizeShippingAddress(details) {
+  const raw = details?.address;
+  if (!raw || typeof raw !== 'object') throw new Error('Shipping address is required');
+  const address = {
+    country: cleanAddressField(raw.country, 2).toUpperCase(),
+    state: cleanAddressField(raw.state, 80).toUpperCase(),
+    postal_code: cleanAddressField(raw.postal_code, 24).toUpperCase(),
+    city: cleanAddressField(raw.city, 90).toUpperCase(),
+    line1: cleanAddressField(raw.line1, 140).toUpperCase(),
+    line2: cleanAddressField(raw.line2, 140).toUpperCase(),
+  };
+  if (!SHIPPING_COUNTRIES.has(address.country) || !address.line1 || !address.city ||
+      !address.postal_code ||
+      (['US', 'CA', 'AU'].includes(address.country) && !address.state)) {
+    throw new Error('Complete shipping address is required for a supported destination');
   }
-  if (!/^\d+$/.test(String(raw))) throw new Error(`Invalid shipping configuration for ${country}`);
-  const amount = Number(raw);
-  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > MAX_SHIPPING_CENTS) {
-    throw new Error(`Invalid shipping amount configured for ${country}`);
-  }
-  return amount;
+  return address;
+}
+
+function printfulRecipientFromAddress(address) {
+  return {
+    country_code: address.country,
+    state_code: address.state,
+    zip: address.postal_code,
+    city: address.city,
+    address1: address.line1,
+    ...(address.line2 ? { address2: address.line2 } : {}),
+  };
+}
+
+async function digestHex(input) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkoutShippingToken(sessionId, env) {
+  if (!env.STRIPE_WEBHOOK_SECRET) throw new Error('Missing Stripe signing secret');
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.STRIPE_WEBHOOK_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('shipping-update-v1:' + sessionId));
+  return Array.from(new Uint8Array(mac), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function exactDollarAmountToCents(value) {
+  const match = /^([0-9]{1,6})(?:\.([0-9]{1,2}))?$/.exec(String(value));
+  if (!match) throw new Error('Invalid Printful shipping rate');
+  const cents = Number(match[1]) * 100 + Number((match[2] || '').padEnd(2, '0'));
+  if (!Number.isSafeInteger(cents) || cents <= 0 || cents > 1000000) throw new Error('Invalid shipping rate amount');
+  return cents;
+}
+
+async function getPrintfulStandardShipping(physicalItems, address, env) {
+  const items = physicalItems.map(item => {
+    const catalogVariantId = Number(item.catalog_variant_id);
+    if (!Number.isSafeInteger(catalogVariantId) || catalogVariantId <= 0) {
+      throw new Error('This variant is missing its Printful catalog shipping identifier');
+    }
+    return { variant_id: String(catalogVariantId), quantity: item.quantity };
+  });
+  const response = await printful('/shipping/rates', env, {
+    method: 'POST',
+    body: JSON.stringify({
+      recipient: printfulRecipientFromAddress(address),
+      items,
+      currency: 'USD',
+    }),
+  });
+  const rates = Array.isArray(response.result) ? response.result : [];
+  const selected = rates.find(rate => rate.id === 'STANDARD' && rate.currency === 'USD');
+  if (!selected) throw new Error('Printful Standard shipping is unavailable for this address and cart');
+  return { method: 'STANDARD', amountCents: exactDollarAmountToCents(selected.rate) };
 }
 
 const MAX_CART_ITEMS = 20;
@@ -270,6 +334,7 @@ function normalizeVariant(v, productName, productId) {
     variant_name: v.name || 'Default',
     sku: v.sku || '',
     price: String(v.retail_price || '0'),
+    catalog_variant_id: Number(v.variant_id || v.product?.variant_id || 0),
     currency: (v.currency || 'USD').toUpperCase(),
     size: v.size || '',
     color: v.color || '',
