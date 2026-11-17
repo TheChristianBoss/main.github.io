@@ -96,7 +96,8 @@ try {
   assert.equal(healthy.status, 200);
 
   let printfulOrderCalls = 0;
-  globalThis.fetch = async (url) => {
+  let observedExternalId = '';
+  globalThis.fetch = async (url, options = {}) => {
     const href = String(url);
     if (href.includes('/store/products/10')) {
       return new Response(JSON.stringify({
@@ -115,8 +116,16 @@ try {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     if (href.includes('/orders?update_existing=true')) {
+      // A paid checkout should create a draft; never charge Printful from this path.
+      assert.equal(href.includes('confirm=1'), false);
+      const payload = JSON.parse(options.body);
+      assert.equal(payload.items[0].sync_variant_id, 123);
+      assert.equal(payload.external_id.length, 32);
+      assert.match(payload.external_id, /^cg_[a-f0-9]{29}$/);
+      assert.notEqual(payload.external_id, 'cs_test_kv_retry');
+      observedExternalId = payload.external_id;
       printfulOrderCalls += 1;
-      return new Response(JSON.stringify({ result: { id: 9876 } }), {
+      return new Response(JSON.stringify({ result: { id: 9876, status: 'draft' } }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -129,7 +138,9 @@ try {
   assert.equal(first.status, 200);
   const firstBody = await first.json();
   assert.equal(firstBody.order_id, 9876);
-  assert.equal(records.get('stripe-session:cs_test_kv_retry'), 'fulfilled');
+  assert.equal(firstBody.printful_order_status, 'draft');
+  assert.ok(observedExternalId.startsWith('cg_'));
+  assert.equal(records.get('stripe-session:cs_test_kv_retry'), 'processed');
   assert.equal(printfulOrderCalls, 1);
 
   const retry = await worker.fetch(signedRequest(event), env, {});
