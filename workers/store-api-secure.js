@@ -345,7 +345,7 @@ function normalizeVariant(v, productName, productId) {
 }
 
 async function getAllProductsWithDetails(env, ctx) {
-  const cacheKey = new Request(`${SITE}/__worker_cache/store-products-v3`);
+  const cacheKey = new Request(`${SITE}/__worker_cache/store-products-v4`);
   const cache = caches.default;
 
   const cached = await cache.match(cacheKey);
@@ -488,6 +488,8 @@ function decodeServiceMetadata(metadata = {}) {
   return out;
 }
 
+// Stripe embedded Checkout form requires API 2026-03-25.dahlia or newer.
+// Pin this per request rather than relying on the account's dashboard default.
 // ── Stripe form encoding ─────────────────────────────────────────────────────
 function toFormEncoded(obj, prefix) {
   const parts = [];
@@ -518,6 +520,7 @@ async function stripePost(path, env, params) {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+      'Stripe-Version': '2026-03-25.dahlia',
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body,
@@ -531,7 +534,7 @@ async function stripeGet(path, env) {
   if (!env.STRIPE_SECRET_KEY) throw new Error('Missing STRIPE_SECRET_KEY');
   const res = await fetch(`https://api.stripe.com/v1${path}`, {
     method: 'GET',
-    headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` },
+    headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`, 'Stripe-Version': '2026-03-25.dahlia' },
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error?.message || 'Stripe request failed');

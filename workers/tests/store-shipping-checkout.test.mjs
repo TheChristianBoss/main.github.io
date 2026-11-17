@@ -6,7 +6,8 @@ const { default: worker } = await import(`data:text/javascript;base64,${Buffer.f
 
 const originalFetch = globalThis.fetch;
 const originalCaches = globalThis.caches;
-globalThis.caches = { default: { match: async () => null, put: async () => undefined } };
+const requestedCacheKeys = [];
+globalThis.caches = { default: { match: async key => { requestedCacheKeys.push(key.url); return null; }, put: async () => undefined } };
 
 const records = new Map();
 const kv = {
@@ -65,6 +66,7 @@ globalThis.fetch = async (url, options = {}) => {
     return json({ result: [{ id: 'STANDARD', rate: '8.73', currency: 'USD' }] });
   }
   if (href === 'https://api.stripe.com/v1/checkout/sessions') {
+    assert.equal(options.headers['Stripe-Version'], '2026-03-25.dahlia');
     createCalls += 1;
     stripeCreateForm = new URLSearchParams(options.body);
     if (stripeCreateForm.get('ui_mode') === 'form') {
@@ -73,6 +75,7 @@ globalThis.fetch = async (url, options = {}) => {
     return json({ url: 'https://checkout.stripe.com/c/pay/service-only' });
   }
   if (href === `https://api.stripe.com/v1/checkout/sessions/${sessionId}`) {
+    assert.equal(options.headers['Stripe-Version'], '2026-03-25.dahlia');
     if (options.method === 'POST') {
       shippingUpdates += 1;
       stripeUpdateForm = new URLSearchParams(options.body);
@@ -114,6 +117,8 @@ try {
   assert.equal(created.clientSecret, 'cs_test_secret_sample');
   assert.equal(created.publishableKey, env.STRIPE_PUBLISHABLE_KEY);
   assert.match(created.shippingUpdateToken, /^[a-f0-9]{64}$/);
+  assert.ok(requestedCacheKeys.length > 0, 'Checkout must resolve merchant-owned product data');
+  assert.ok(requestedCacheKeys.every(key => key.includes('/__worker_cache/store-products-v4')), 'Invalidate stale Printful variant cache before quoting');
   assert.equal(stripeCreateForm.get('ui_mode'), 'form');
   assert.equal(stripeCreateForm.get('line_items[0][price_data][unit_amount]'), '2500');
   assert.equal(stripeCreateForm.get('shipping_options[0][shipping_rate_data][fixed_amount][amount]'), '0');
