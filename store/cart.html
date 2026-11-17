@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cart — Christian Goblin</title>
+  <title>TEST ONLY — Christian Goblin Cart</title>
+  <meta name="robots" content="noindex, nofollow" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -418,6 +419,7 @@
 </header>
 
 <main class="cart-page">
+  <p style="color:#ffe7ac;background:#382e13;padding:15px;border:1px solid #c9a84c;margin-bottom:18px"><strong>STRIPE SANDBOX ONLY — DO NOT PAY.</strong> This test cart is connected to an isolated Worker. Printful order creation is blocked. Fill in a sample delivery address, click Checkout and inspect the shipping total only.</p>
   <h1 class="cart-title">Your Cart</h1>
   <p class="cart-subtitle" id="cartSubtitle"></p>
   <div class="cart-layout" id="cartLayout"></div>
@@ -429,7 +431,7 @@
 
 <script src="https://js.stripe.com/endive/stripe.js"></script>
 <script>
-  const WORKER = 'https://site.michaelthechristiangoblin.workers.dev';
+  const WORKER = 'https://site-checkout-sandbox.michaelthechristiangoblin.workers.dev';
   const SERVICE_CATALOG = {
     'cyber-security-evaluation': { name: 'Cyber Security Evaluation', price_cents: 4000, max_qty: 1 },
     'custom-portfolio-website': { name: 'Custom Portfolio Website', price_cents: 4000, max_qty: 1 },
