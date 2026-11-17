@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHmac } from 'node:crypto';
+import { createHmac, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 const code = await readFile(new URL('../store-api-secure.js', import.meta.url), 'utf8');
@@ -44,9 +44,10 @@ function signedRequest(sessionId, paid = true, eventType = 'checkout.session.com
     payment_status: paid ? 'paid' : 'unpaid',
     metadata: {
       cart: '123:1', fulfillment_types: 'physical',
-      shipping_country: 'US', shipping_amount_cents: '700',
+      shipping_flow: 'printful_dynamic_v1',
     },
-    shipping_cost: { amount_total: shippingAmount },
+    shipping_cost: { amount_total: shippingAmount, shipping_rate: 'shr_auto_test' },
+    currency: 'usd',
     customer_details: { name: 'Buyer', email: 'buyer@example.com' },
     ...(withAddress ? {
       shipping_details: {
@@ -70,6 +71,19 @@ function signedRequest(sessionId, paid = true, eventType = 'checkout.session.com
 }
 
 async function send(sessionId, paid = true, eventType = 'checkout.session.completed', withAddress = true, shippingAmount = 700) {
+  if (paid && withAddress) {
+    const address = {
+      country: 'US', state: 'FL', postal_code: '33601',
+      city: 'TAMPA', line1: '1 MAIN ST', line2: '',
+    };
+    const addressHash = createHash('sha256').update(JSON.stringify(address)).digest('hex');
+    if (!records.has(`printful-shipping-quote:${sessionId}`)) {
+      records.set(`printful-shipping-quote:${sessionId}`, JSON.stringify({
+        addressHash, amountCents: 700, currency: 'usd',
+        method: 'STANDARD', shippingRateId: 'shr_auto_test',
+      }));
+    }
+  }
   const response = await worker.fetch(signedRequest(sessionId, paid, eventType, withAddress, shippingAmount), env, {});
   return { status: response.status, body: await response.json() };
 }
@@ -113,6 +127,7 @@ globalThis.fetch = async (url, options = {}) => {
     assert.match(payload.external_id, /^cg_[a-f0-9]{29}$/);
     assert.equal(payload.items[0].sync_variant_id, 123);
     assert.equal(payload.items[0].retail_price, '25.00');
+    assert.equal(payload.shipping, 'STANDARD');
     assert.equal(payload.recipient.country_code, 'US');
     if (!orders.has(payload.external_id)) {
       createCalls += 1;
