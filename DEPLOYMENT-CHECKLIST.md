@@ -20,17 +20,6 @@ Use this checklist before treating the site as production-ready.
 - [ ] Invalid, closed, valid, duplicate, and CAPTCHA-failure cases were tested.
 - [ ] A complete application appears once in the private Discord channel.
 
-## Store Worker
-
-- [ ] `workers/store-api-secure.js` is deployed.
-- [ ] `STORE_ORDER_KV` is bound and `/health` returns HTTP 200.
-- [ ] Stripe webhook signing secret is configured.
-- [ ] Stripe webhook events include the events documented by the Worker.
-- [ ] Printful and Discord secrets are configured only when those features are enabled.
-- [ ] A Stripe test-mode physical order was completed without duplicate fulfillment.
-- [ ] A Stripe test-mode service order was completed without duplicate notification.
-- [ ] Unpaid and unverifiable Checkout Sessions do not clear the browser cart.
-
 ## Browser applications
 
 - [ ] ATS accepts representative PDF and DOCX resumes.
@@ -44,7 +33,7 @@ Use this checklist before treating the site as production-ready.
 ## Content and policy
 
 - [ ] Contact addresses are current.
-- [ ] Privacy, terms, store policies, and applicant notice match actual operations.
+- [ ] Privacy, terms, and applicant notice match actual operations.
 - [ ] Retention/deletion routines in `POLICY-OPERATIONS.md` are being followed.
 - [ ] Mental-health resources and verification date are current.
 - [ ] `sitemap.xml` and `robots.txt` match the intended public/private routes.
@@ -54,4 +43,4 @@ Use this checklist before treating the site as production-ready.
 - [ ] Open the production homepage and each primary section.
 - [ ] Check browser developer tools for failed network requests.
 - [ ] Verify the deployed commit hash is the intended commit.
-- [ ] Perform one jobs test and one Stripe test-mode checkout after Worker changes.
+- [ ] Perform one jobs test after Jobs Worker changes.
