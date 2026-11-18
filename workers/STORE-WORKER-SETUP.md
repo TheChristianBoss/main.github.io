@@ -199,7 +199,36 @@ Reference: Stripe Checkout Session creation and PaymentIntent shipping:
 https://docs.stripe.com/api/checkout/sessions/create
 https://docs.stripe.com/api/payment_intents/object
 
-Workers KV is eventually consistent, so this design protects ordinary sequential webhook retries but is not a strict global transaction lock. For strict exactly-once processing during simultaneous requests from different Cloudflare locations, migrate the lock to a Durable Object or another strongly consistent transactional store.
+When `PRINTFUL_AUTO_CONFIRM=true`, the Worker **requires**
+`STORE_FULFILLMENT_COORDINATOR` (a Durable Object binding to the
+`FulfillmentCoordinator` class). The class uses SQLite-backed strongly
+consistent storage and a per-Stripe-session, time-limited processing lease
+to serialize concurrent paid webhooks. Each delivery rechecks Printful by
+a deterministic external order ID before creating or confirming anything.
+If a Worker crashes or Printful times out, Stripe retries the failed
+webhook after the lease expires. The Worker then reconciles with Printful.
+
+Create the Durable Object migration and binding on the same Worker before
+enabling `PRINTFUL_AUTO_CONFIRM=true`:
+- class export `FulfillmentCoordinator`
+- binding name `STORE_FULFILLMENT_COORDINATOR`
+- binding type `durable_object_namespace`
+- SQLite migration `new_sqlite_classes: ["FulfillmentCoordinator"]`
+
+If this binding is missing, paid automatic fulfillment fails closed;
+**do not enable auto-confirm without it**. KV remains the shipping quote
+store and records partial fulfillment steps; DO coordinates chargeable
+Printful confirmation. Completing an order while auto-confirm was off
+does not automatically upgrade historical manual drafts when the switch
+is later enabled. Review old drafts separately.
+
+Printful billing must be funded before auto-confirm: Printful charges
+the store's Wallet or saved billing method separately after Stripe has
+charged the customer. Failed Printful billing or held orders need manual
+attention. Do not infer successful production solely from a Stripe payment.
+
+Cloudflare source: https://developers.cloudflare.com/durable-objects/best-practices/rules-of-durable-objects/
+Printful source: https://help.printful.com/hc/en-us/articles/50264607936785-How-does-the-Printful-billing-system-work
 
 ## Pre-deployment verification
 
