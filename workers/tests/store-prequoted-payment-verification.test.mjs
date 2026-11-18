@@ -3,7 +3,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../store-api-secure.js', import.meta.url), 'utf8');
-const { default: worker } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const { default: worker, FulfillmentCoordinator } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 const signatureSecret = 'whsec_prequoted_payment_test';
 const originalFetch = globalThis.fetch;
@@ -28,6 +28,8 @@ const recipientAddress = {
 const addressHash = createHash('sha256').update(JSON.stringify(recipientAddress)).digest('hex');
 let paymentIntentCalls = 0;
 let ordersCreated = 0;
+let confirmations = 0;
+const existingOrders = new Map();
 let printfulReadCalls = 0;
 let intentStatus = 'succeeded';
 let intentShipping = {
@@ -54,9 +56,19 @@ globalThis.fetch = async (url, options = {}) => {
       currency: 'USD', is_ignored: false, files: [],
     }] } });
   }
-  if (href.startsWith('https://api.printful.com/orders/@') && options.method !== 'POST') {
+  if (href.startsWith('https://api.printful.com/orders/@')) {
+    const externalId = decodeURIComponent(href.split('/orders/@')[1].replace('/confirm', ''));
+    const found = existingOrders.get(externalId);
+    if (href.endsWith('/confirm')) {
+      assert.equal(options.method, 'POST');
+      assert.ok(found, 'Do not confirm orders that were not created');
+      assert.equal(found.status, 'draft');
+      confirmations++;
+      found.status = 'pending';
+      return json({ result: { ...found } });
+    }
     printfulReadCalls++;
-    return json({ error: { message: 'Not Found' } }, 404);
+    return found ? json({ result: { ...found } }) : json({ error: { message: 'Not Found' } }, 404);
   }
   if (href === 'https://api.printful.com/orders?update_existing=true') {
     ordersCreated++;
@@ -68,7 +80,9 @@ globalThis.fetch = async (url, options = {}) => {
     assert.equal(payload.recipient.zip, '33601');
     assert.equal(payload.recipient.country_code, 'US');
     assert.equal(payload.recipient.email, 'buyer@example.com');
-    return json({ result: { id: 4000 + ordersCreated, status: 'draft' } });
+    const order = { id: 4000 + ordersCreated, status: 'draft' };
+    existingOrders.set(payload.external_id, order);
+    return json({ result: { ...order } });
   }
   throw Error('Unexpected upstream API: ' + href);
 };
@@ -184,7 +198,54 @@ try {
   assert.equal(r.result.duplicate, true);
   assert.equal(ordersCreated, 1, 'Retry must not duplicate a Printful order');
 
-  console.log('Prequoted paid-webhook address, charge, receipt, and idempotency checks passed.');
+  // Repeat with automatic Printful submission enabled. The Durable Object
+  // coordinator is required and the mock confirmation must follow a verified
+  // paid PaymentIntent and matching prequoted shipping amount.
+  const coordinators = new Map();
+  env.STORE_FULFILLMENT_COORDINATOR = {
+    getByName(name) {
+      if (!coordinators.has(name)) {
+        const state = new Map();
+        let serialized = Promise.resolve();
+        const storage = {
+          transaction(fn) {
+            const result = serialized.then(() => fn({
+              get: async key => state.get(key),
+              put: async (key, value) => { state.set(key, value); },
+            }));
+            serialized = result.then(() => undefined, () => undefined);
+            return result;
+          },
+        };
+        coordinators.set(name, new FulfillmentCoordinator({ storage }));
+      }
+      const coord = coordinators.get(name);
+      return { fetch(url, options) { return coord.fetch(new Request(url, options)); } };
+    },
+  };
+  env.PRINTFUL_AUTO_CONFIRM = 'true';
+  saveQuote('cs_test_prequote_auto_paid');
+  const auto = await webhook('cs_test_prequote_auto_paid');
+  assert.equal(auto.status, 200);
+  assert.equal(auto.result.printful_order_status, 'pending');
+  assert.equal(auto.result.printful_auto_confirmed, true);
+  assert.equal(ordersCreated, 2);
+  assert.equal(confirmations, 1);
+  const afterAuto = await webhook('cs_test_prequote_auto_paid');
+  assert.equal(afterAuto.status, 200);
+  assert.equal(afterAuto.result.duplicate, true);
+  assert.equal(confirmations, 1);
+
+  // Do not activate confirmation for a paid session with altered shipping.
+  saveQuote('cs_test_prequote_auto_bad_shipping');
+  const countBefore = ordersCreated;
+  const invalid = await webhook('cs_test_prequote_auto_bad_shipping', { shippingAmount: 0 });
+  assert.equal(invalid.status, 500);
+  assert.equal(ordersCreated, countBefore);
+  assert.equal(confirmations, 1);
+  env.PRINTFUL_AUTO_CONFIRM = 'false';
+
+  console.log('Prequoted paid-webhook address, charge, automatic confirmation and idempotency checks passed.');
 } finally {
   globalThis.fetch = originalFetch;
   globalThis.caches = originalCaches;
