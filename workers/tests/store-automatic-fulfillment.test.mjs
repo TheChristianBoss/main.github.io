@@ -3,7 +3,7 @@ import { createHmac, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 const code = await readFile(new URL('../store-api-secure.js', import.meta.url), 'utf8');
-const { default: worker } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { default: worker, FulfillmentCoordinator } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 
 const secret = 'whsec_test_automatic_fulfillment';
 const originalFetch = globalThis.fetch;
@@ -16,6 +16,36 @@ globalThis.caches = {
 };
 
 const records = new Map();
+const coordinatorInstances = new Map();
+function coordinatorForSession(name) {
+  if (!coordinatorInstances.has(name)) {
+    const stored = new Map();
+    let lastTransaction = Promise.resolve();
+    const storage = {
+      transaction(fn) {
+        const current = lastTransaction.then(() => fn({
+          get: async key => stored.get(key),
+          put: async (key, value) => { stored.set(key, value); },
+        }));
+        lastTransaction = current.then(() => undefined, () => undefined);
+        return current;
+      },
+    };
+    const instance = new FulfillmentCoordinator({ storage });
+    coordinatorInstances.set(name, { instance, stored });
+  }
+  return coordinatorInstances.get(name);
+}
+const coordinatorNamespace = {
+  getByName(name) {
+    return {
+      fetch(url, options) {
+        const request = new Request(url, options);
+        return coordinatorForSession(name).instance.fetch(request);
+      },
+    };
+  },
+};
 const kv = {
   get: async (key) => records.get(key) ?? null,
   put: async (key, value) => { records.set(key, value); },
@@ -24,6 +54,7 @@ const env = {
   STRIPE_WEBHOOK_SECRET: secret,
   PRINTFUL_TOKEN: 'test-printful-token',
   PRINTFUL_AUTO_CONFIRM: 'true',
+  STORE_FULFILLMENT_COORDINATOR: coordinatorNamespace,
   STORE_ORDER_KV: kv,
 };
 
@@ -167,8 +198,17 @@ try {
   assert.equal(createCalls, 1);
   assert.equal(confirmationCalls, 1);
 
-  // Simulate the KV write missing after Printful successfully confirmed.
+  // Even if KV data is lost, the Durable Object remains completed and blocks
+  // a replay from charging/confirming another order.
   records.clear();
+  const blocked = await send('cs_test_auto_1');
+  assert.equal(blocked.status, 200);
+  assert.equal(blocked.body.duplicate, true);
+  assert.equal(confirmationCalls, 1);
+
+  // Simulate loss of BOTH idempotency records: deterministic Printful external
+  // ID still allows reconciliation without creating or reconfirming the order.
+  coordinatorInstances.clear();
   const reconciled = await send('cs_test_auto_1');
   assert.equal(reconciled.status, 200);
   assert.equal(reconciled.body.printful_order_status, 'pending');
@@ -185,6 +225,14 @@ try {
   assert.equal(createCalls, 2);
   assert.equal(confirmationCalls, 2);
 
+  // A blocked confirmation cannot be retried concurrently. Once its lease
+  // expires, the retry must first reconcile the same Printful draft.
+  const busy = await send('cs_test_retry_auto', true, 'checkout.session.async_payment_succeeded');
+  assert.equal(busy.status, 500);
+  const lease = coordinatorForSession('stripe:cs_test_retry_auto').stored.get('fulfillment');
+  coordinatorForSession('stripe:cs_test_retry_auto').stored.set('fulfillment', {
+    ...lease, expiresAt: Date.now() - 1,
+  });
   const recovered = await send('cs_test_retry_auto', true, 'checkout.session.async_payment_succeeded');
   assert.equal(recovered.status, 200);
   assert.equal(recovered.body.printful_auto_confirmed, true);
@@ -203,6 +251,16 @@ try {
   assert.equal(createCalls, 2);
   assert.equal(confirmationCalls, 3);
 
+  // Chargeable fulfillment must fail closed when the strongly consistent
+  // coordinator binding is absent, even with a valid paid Stripe event.
+  const oldCoordinatorBinding = env.STORE_FULFILLMENT_COORDINATOR;
+  env.STORE_FULFILLMENT_COORDINATOR = undefined;
+  const noCoordinator = await send('cs_test_no_coordinator');
+  assert.equal(noCoordinator.status, 500);
+  assert.equal(createCalls, 2);
+  assert.equal(confirmationCalls, 3);
+  env.STORE_FULFILLMENT_COORDINATOR = oldCoordinatorBinding;
+
   // Turning auto-confirm off reverts to non-chargeable draft creation.
   env.PRINTFUL_AUTO_CONFIRM = 'false';
   const manual = await send('cs_test_manual_draft');
@@ -211,6 +269,34 @@ try {
   assert.equal(manual.body.printful_auto_confirmed, false);
   assert.equal(createCalls, 3);
   assert.equal(confirmationCalls, 3);
+
+  // Simulate Stripe delivering the same paid checkout via two concurrent
+  // webhook requests (completed and async_payment_succeeded). Exactly one
+  // request may hold the coordinator's lease and confirm the Printful order.
+  env.PRINTFUL_AUTO_CONFIRM = 'true';
+  const beforeConcurrentCreate = createCalls;
+  const beforeConcurrentConfirm = confirmationCalls;
+  const [simultaneousA, simultaneousB] = await Promise.all([
+    send('cs_test_parallel_auto', true, 'checkout.session.completed'),
+    send('cs_test_parallel_auto', true, 'checkout.session.async_payment_succeeded'),
+  ]);
+  assert.deepEqual([simultaneousA.status, simultaneousB.status].sort(), [200, 500]);
+  assert.equal(createCalls, beforeConcurrentCreate + 1);
+  assert.equal(confirmationCalls, beforeConcurrentConfirm + 1,
+    'Concurrent webhook deliveries must never confirm an order twice');
+  const replayAfterSuccess = await send('cs_test_parallel_auto');
+  assert.equal(replayAfterSuccess.status, 200);
+  assert.equal(replayAfterSuccess.body.duplicate, true);
+
+  // The completion RPC rejects a forged or stale lease token.
+  const wrongToken = await coordinatorForSession('stripe:cs_test_parallel_auto').instance.fetch(
+    new Request('https://fulfillment-coordinator/complete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'incorrect' }),
+    }),
+  );
+  assert.equal(wrongToken.status, 200,
+    'An already-completed coordinator remains completed regardless of retry token');
 
   console.log('Safe automatic Printful fulfillment tests passed.');
 } finally {
