@@ -159,6 +159,54 @@ const MAX_SERVICE_ITEMS = 5;
 const MAX_SERVICE_QTY = 1;
 const MAX_SERVICE_NOTES = 700;
 const ORDER_RECORD_TTL_SECONDS = 60 * 60 * 24 * 120;
+const PRINTFUL_CONFIRM_LEASE_MS = 10 * 60 * 1000;
+
+// Durable Object: one strongly consistent fulfillment lease per Stripe Session.
+// Only the Worker can invoke this object through its private namespace binding.
+// A lost Worker or a timed-out provider call remains non-retryable until its
+// lease expires; retries then reconcile Printful using the stable external ID.
+// Cloudflare's SQLite storage transaction makes claim/complete atomic.
+export class FulfillmentCoordinator {
+  constructor(state) {
+    this.storage = state.storage;
+  }
+
+  async fetch(request) {
+    const operation = new URL(request.url).pathname;
+    if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+    if (operation === '/claim') {
+      const claim = await this.storage.transaction(async txn => {
+        const current = await txn.get('fulfillment');
+        if (current?.status === 'completed') return { status: 'completed' };
+        const now = Date.now();
+        if (current?.status === 'processing' && current.expiresAt > now) {
+          return { status: 'busy' };
+        }
+        const token = crypto.randomUUID();
+        await txn.put('fulfillment', {
+          status: 'processing', token, expiresAt: now + PRINTFUL_CONFIRM_LEASE_MS,
+        });
+        return { status: 'acquired', token };
+      });
+      return Response.json(claim);
+    }
+    if (operation === '/complete') {
+      let body;
+      try { body = await request.json(); } catch { return Response.json({ ok: false }, { status: 400 }); }
+      const completed = await this.storage.transaction(async txn => {
+        const current = await txn.get('fulfillment');
+        if (current?.status === 'completed') return true;
+        if (current?.status !== 'processing' ||
+            !body?.token || body.token !== current.token) return false;
+        await txn.put('fulfillment', { status: 'completed', at: Date.now() });
+        return true;
+      });
+      return Response.json({ ok: completed }, { status: completed ? 200 : 409 });
+    }
+    return new Response('Not found', { status: 404 });
+  }
+}
+
 
 // Manual service catalog. Safe to commit: prices are server-trusted here, not in the browser.
 // Edit this object when you want to add/remove services. Amounts are in cents.
@@ -1079,6 +1127,32 @@ export default {
 
         const result = { received: true };
 
+        // Automatic Printful confirmation may charge the owner's billing method.
+        // For this mode, every paid Stripe Session MUST hold a strongly consistent
+        // Durable Object lease before contacting Printful. KV alone cannot guard
+        // concurrent webhook deliveries from different Cloudflare locations.
+        let coordinator = null;
+        let coordinatorToken = null;
+        if (cartItems.length && isPrintfulAutoConfirmEnabled(env)) {
+          if (typeof env?.STORE_FULFILLMENT_COORDINATOR?.getByName !== 'function') {
+            throw new Error('Automatic fulfillment needs STORE_FULFILLMENT_COORDINATOR binding');
+          }
+          coordinator = env.STORE_FULFILLMENT_COORDINATOR.getByName('stripe:' + session.id);
+          const response = await coordinator.fetch('https://fulfillment-coordinator/claim', {
+            method: 'POST',
+          });
+          if (!response.ok) throw new Error('Fulfillment lease could not be acquired');
+          const claim = await response.json();
+          if (claim.status === 'completed') {
+            return json({ received: true, duplicate: true }, 200, request);
+          }
+          if (claim.status !== 'acquired' || !claim.token) {
+            // Stripe must retry this delivery, not acknowledge and discard it.
+            throw new Error('Another delivery is processing this Printful order');
+          }
+          coordinatorToken = claim.token;
+        }
+
         // Physical fulfillment through Printful. Rebuild from trusted Printful data again.
         if (cartItems.length) {
           const printfulKey = `${idempotencyKey}:printful`;
@@ -1176,6 +1250,14 @@ export default {
         // Record the whole session only after every requested fulfillment step succeeds.
         // Sub-keys above allow a partially completed mixed order to resume safely on retry.
         await markProcessed(env, idempotencyKey, 'processed');
+        if (coordinator) {
+          const completed = await coordinator.fetch('https://fulfillment-coordinator/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: coordinatorToken }),
+          });
+          if (!completed.ok) throw new Error('Fulfillment completion was not recorded');
+        }
 
         return json(result, 200, request);
       }
