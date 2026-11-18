@@ -24,8 +24,6 @@ function createValidFixture(root) {
     'jobs/README.md',
     'jobs/privacy.html',
     'workers/jobs-api-secure.js',
-    'workers/store-api-secure.js',
-    'workers/STORE-WORKER-SETUP.md',
     'tools/ats/index.html',
     'tools/resume/index.html',
     'tools/cover/index.html',

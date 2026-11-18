@@ -20,8 +20,6 @@ const canonicalPages = [
   ["mental/index.html", "https://christiangoblin.com/mental/"],
   ["privacy.html", "https://christiangoblin.com/privacy.html"],
   ["projects/index.html", "https://christiangoblin.com/projects/"],
-  ["store/index.html", "https://christiangoblin.com/store/"],
-  ["store/policies.html", "https://christiangoblin.com/store/policies.html"],
   ["terms.html", "https://christiangoblin.com/terms.html"],
   ["tools/index.html", "https://christiangoblin.com/tools/"],
   ["ats-index.html", "https://christiangoblin.com/tools/ats/"],
@@ -84,11 +82,6 @@ assert.ok(cyber.includes('form.addEventListener(\'submit\''));
 assert.ok(cyber.includes('aria-live="polite"'));
 assert.ok(cyber.includes('href="#main-content"'));
 
-const store = await text("store/index.html");
-assert.ok(store.includes('<label class="visually-hidden" for="searchInput">Search store</label>'));
-assert.ok(store.includes('id="resultCount" role="status" aria-live="polite"'));
-assert.ok(store.includes('href="#main-content"'));
-assert.ok(store.includes('id="main-content"'));
 
 for (const relativePath of [
   "ats-index.html",

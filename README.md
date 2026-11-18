@@ -1,6 +1,6 @@
 # Christian Goblin Website
 
-This repository contains the public Christian Goblin website, its browser-based tools, and the Cloudflare Worker source used by the jobs and store systems.
+This repository contains the public Christian Goblin website, its browser-based tools, and the Cloudflare Worker source used by the jobs system.
 
 Live site: `https://christiangoblin.com/`
 
@@ -16,7 +16,6 @@ Live site: `https://christiangoblin.com/`
 | Asset Forge | `/tools/asset-forge/` | `tools/asset-forge-src/` |
 | Goblin Editor | `/editor/` | Compiled deployment only; editable source is not currently present |
 | Jobs portal | `/jobs/` | `jobs/` and `workers/jobs-api-secure.js` |
-| Store | `/store/` | `store/` and `workers/store-api-secure.js` |
 
 The generated application folders under `tools/` are committed because GitHub Pages serves static files directly from the repository. Edit the source folders, rebuild, verify, and then commit both source and generated output.
 
@@ -141,27 +140,12 @@ Public browser configuration belongs in `jobs/config.js`:
 
 Never commit the Discord webhook, Turnstile secret, or real job-code map. Complete instructions are in `jobs/README.md`.
 
-## Cloudflare Store Worker
-
-Source: `workers/store-api-secure.js`
-
-The exact secrets depend on the enabled store features, including Stripe, Printful, Discord, and product-data access. The `STORE_ORDER_KV` binding is required for paid fulfillment. A paid webhook deliberately fails closed when the binding is missing.
-
-Use:
-
-- `workers/STORE-WORKER-SETUP.md`
-- `workers/wrangler.store.example.jsonc`
-- The Worker `/health` endpoint after deployment
-
-Do not commit real secret values or a production Wrangler file containing sensitive configuration.
-
 ## Privacy and operational obligations
 
 Public policies are located at:
 
 - `privacy.html`
 - `terms.html`
-- `store/policies.html`
 - `jobs/privacy.html`
 
 Internal retention and handling commitments are summarized in `POLICY-OPERATIONS.md`. When providers, forms, retention periods, products, or workflows change, update the public policies and their effective date.
@@ -181,10 +165,8 @@ Asset Forge expects the local asset archive described by its source documentatio
 
 ## Repository safety rules
 
-- Keep prices, product mappings, job roles, and validation rules authoritative on the Worker side.
+- Keep job roles and validation rules authoritative on the Worker side.
 - Treat public job codes as invitations, not authentication credentials.
-- Keep Stripe payment details inside Stripe.
-- Keep duplicate-order KV protection enabled.
 - Do not commit webhook URLs, private API keys, private keys, or live tokens.
 - Run `npm run validate` before a production push.
 

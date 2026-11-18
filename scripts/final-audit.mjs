@@ -25,8 +25,6 @@ const REQUIRED_FILES = [
   'jobs/README.md',
   'jobs/privacy.html',
   'workers/jobs-api-secure.js',
-  'workers/store-api-secure.js',
-  'workers/STORE-WORKER-SETUP.md',
 ];
 
 const REQUIRED_DEPLOYMENTS = [
@@ -49,7 +47,7 @@ const FORBIDDEN_NESTED_DEPLOYMENTS = [
 
 const SECRET_PATTERNS = [
   ['Discord webhook', /https:\/\/(?:discord(?:app)?\.com)\/api\/webhooks\/\d{5,}\/[A-Za-z0-9_-]{20,}/g],
-  ['Stripe secret key', /\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b/g],
+  ['Payment provider secret key', /\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b/g],
   ['GitHub token', /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}\b/g],
   ['AWS access key', /\bAKIA[0-9A-Z]{16}\b/g],
   ['Private key', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g],
@@ -220,11 +218,6 @@ export function auditRepository(rootDirectory) {
     if (/REPLACE[-_A-Z]|your-jobs-worker/i.test(jobsConfig)) {
       addFinding(warnings, 'JOBS_NOT_DEPLOYED', 'jobs/config.js still contains deployment placeholders.', 'jobs/config.js');
     }
-  }
-
-  const wranglerExamplePath = path.join(root, 'workers', 'wrangler.store.example.jsonc');
-  if (fs.existsSync(wranglerExamplePath) && /REPLACE_WITH_YOUR_KV_NAMESPACE_ID/.test(readUtf8(wranglerExamplePath))) {
-    addFinding(information, 'STORE_EXAMPLE_PLACEHOLDER', 'The example Wrangler file correctly retains its placeholder namespace ID.', 'workers/wrangler.store.example.jsonc');
   }
 
   const editorSourceCandidates = [
