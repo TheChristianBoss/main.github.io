@@ -3,14 +3,6 @@ import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
-const STORE_FILES = [
-  'store/cart.html',
-  'store/index.html',
-  'store/product.html',
-  'store/service.html',
-  'store/success.html',
-];
-
 const CONVERTER_SUPPORT_PAGES = [
   'tools/converter/privacy.html',
   'tools/converter/test.html',
@@ -75,13 +67,6 @@ export function repairFinalAuditErrors(rootDirectory) {
   const root = path.resolve(rootDirectory);
   const changed = [];
   const removed = [];
-
-  for (const relativePath of STORE_FILES) {
-    const filePath = requireFile(root, relativePath);
-    if (replaceFile(filePath, (content) => content.replace(/((?:©|&copy;)\s*)2025\b/gi, '$12026'))) {
-      changed.push(relativePath);
-    }
-  }
 
   const navRelativePath = 'tools/components/tools-nav.html';
   const navPath = requireFile(root, navRelativePath);
