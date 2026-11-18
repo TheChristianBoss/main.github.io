@@ -855,7 +855,6 @@ function mount() {
           <a href="/tools/">Tools</a>
           <a href="/tools/converter/privacy.html">Privacy</a>
           <a href="/tools/converter/test.html">Test</a>
-          <a href="/store/">Store</a>
         </nav>
       </header>
       <main>
