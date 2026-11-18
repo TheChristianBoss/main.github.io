@@ -270,6 +270,34 @@ try {
   assert.equal(createCalls, 3);
   assert.equal(confirmationCalls, 3);
 
+  // Simulate Stripe delivering the same paid checkout via two concurrent
+  // webhook requests (completed and async_payment_succeeded). Exactly one
+  // request may hold the coordinator's lease and confirm the Printful order.
+  env.PRINTFUL_AUTO_CONFIRM = 'true';
+  const beforeConcurrentCreate = createCalls;
+  const beforeConcurrentConfirm = confirmationCalls;
+  const [simultaneousA, simultaneousB] = await Promise.all([
+    send('cs_test_parallel_auto', true, 'checkout.session.completed'),
+    send('cs_test_parallel_auto', true, 'checkout.session.async_payment_succeeded'),
+  ]);
+  assert.deepEqual([simultaneousA.status, simultaneousB.status].sort(), [200, 500]);
+  assert.equal(createCalls, beforeConcurrentCreate + 1);
+  assert.equal(confirmationCalls, beforeConcurrentConfirm + 1,
+    'Concurrent webhook deliveries must never confirm an order twice');
+  const replayAfterSuccess = await send('cs_test_parallel_auto');
+  assert.equal(replayAfterSuccess.status, 200);
+  assert.equal(replayAfterSuccess.body.duplicate, true);
+
+  // The completion RPC rejects a forged or stale lease token.
+  const wrongToken = await coordinatorForSession('stripe:cs_test_parallel_auto').instance.fetch(
+    new Request('https://fulfillment-coordinator/complete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'incorrect' }),
+    }),
+  );
+  assert.equal(wrongToken.status, 200,
+    'An already-completed coordinator remains completed regardless of retry token');
+
   console.log('Safe automatic Printful fulfillment tests passed.');
 } finally {
   globalThis.fetch = originalFetch;
